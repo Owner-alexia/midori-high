@@ -1,0 +1,1298 @@
+<!DOCTYPE html>
+
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+```
+<title>Professeurs — Midori High</title>
+
+<style>
+
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
+
+    body {
+        font-family: Arial, sans-serif;
+        background: #f4f7f6;
+        color: #1f2937;
+        min-height: 100vh;
+    }
+
+    .topbar {
+        height: 70px;
+        background: white;
+        border-bottom: 1px solid #e5e7eb;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 30px;
+    }
+
+    .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .logo {
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        background: #2f6f5e;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+    }
+
+    .brand strong {
+        display: block;
+        font-size: 17px;
+    }
+
+    .brand span {
+        font-size: 12px;
+        color: #6b7280;
+    }
+
+    .layout {
+        display: flex;
+        min-height: calc(100vh - 70px);
+    }
+
+    .sidebar {
+        width: 240px;
+        background: #183d34;
+        padding: 25px 15px;
+        color: white;
+    }
+
+    .sidebar-title {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        opacity: 0.6;
+        margin: 10px 12px;
+    }
+
+    .nav-item {
+        display: block;
+        color: white;
+        text-decoration: none;
+        padding: 12px;
+        border-radius: 8px;
+        margin-bottom: 5px;
+        font-size: 14px;
+    }
+
+    .nav-item:hover,
+    .nav-item.active {
+        background: #2f6f5e;
+    }
+
+    .main {
+        flex: 1;
+        padding: 35px;
+    }
+
+    .page-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 25px;
+    }
+
+    .page-header h1 {
+        font-size: 26px;
+        margin-bottom: 6px;
+    }
+
+    .page-header p {
+        color: #6b7280;
+        font-size: 14px;
+    }
+
+    .add-button {
+        border: none;
+        background: #2f6f5e;
+        color: white;
+        padding: 12px 18px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: bold;
+    }
+
+    .add-button:hover {
+        background: #265b4d;
+    }
+
+    .toolbar {
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+
+    .search {
+        width: 100%;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        padding: 12px;
+        font-size: 14px;
+        outline: none;
+    }
+
+    .search:focus {
+        border-color: #2f6f5e;
+    }
+
+    .card {
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 14px;
+        overflow: hidden;
+    }
+
+    .card-header {
+        padding: 18px 22px;
+        border-bottom: 1px solid #e5e7eb;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .card-header strong {
+        font-size: 16px;
+    }
+
+    .count {
+        color: #6b7280;
+        font-size: 13px;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    th {
+        background: #f8faf9;
+        color: #6b7280;
+        font-size: 11px;
+        text-transform: uppercase;
+        text-align: left;
+        padding: 14px 18px;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    td {
+        padding: 15px 18px;
+        border-bottom: 1px solid #f0f0f0;
+        font-size: 14px;
+    }
+
+    tr:last-child td {
+        border-bottom: none;
+    }
+
+    .username {
+        color: #6b7280;
+        font-size: 12px;
+        margin-top: 4px;
+    }
+
+    .badge {
+        display: inline-block;
+        background: #eef4f1;
+        color: #2f6f5e;
+        padding: 6px 10px;
+        border-radius: 15px;
+        font-size: 11px;
+        font-weight: bold;
+    }
+
+    .actions {
+        display: flex;
+        gap: 6px;
+    }
+
+    .action {
+        border: 1px solid #e5e7eb;
+        background: white;
+        border-radius: 7px;
+        padding: 7px 9px;
+        cursor: pointer;
+    }
+
+    .action:hover {
+        background: #f3f4f6;
+    }
+
+    .empty {
+        text-align: center;
+        padding: 50px;
+        color: #9ca3af;
+        font-size: 14px;
+    }
+
+    /* MODAL */
+
+    .modal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.45);
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        z-index: 1000;
+    }
+
+    .modal.show {
+        display: flex;
+    }
+
+    .modal-box {
+        width: 100%;
+        max-width: 550px;
+        background: white;
+        border-radius: 14px;
+        padding: 25px;
+    }
+
+    .modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 20px;
+    }
+
+    .modal-header h2 {
+        font-size: 20px;
+    }
+
+    .close {
+        border: none;
+        background: none;
+        font-size: 22px;
+        cursor: pointer;
+        color: #6b7280;
+    }
+
+    .form-group {
+        margin-bottom: 16px;
+    }
+
+    .form-group label {
+        display: block;
+        font-size: 13px;
+        font-weight: bold;
+        margin-bottom: 7px;
+    }
+
+    .form-group input {
+        width: 100%;
+        padding: 11px;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        font-size: 14px;
+        outline: none;
+    }
+
+    .form-group input:focus {
+        border-color: #2f6f5e;
+    }
+
+    .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 22px;
+    }
+
+    .cancel {
+        border: 1px solid #d1d5db;
+        background: white;
+        padding: 11px 16px;
+        border-radius: 8px;
+        cursor: pointer;
+    }
+
+    .save {
+        border: none;
+        background: #2f6f5e;
+        color: white;
+        padding: 11px 16px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: bold;
+    }
+
+    .save:hover {
+        background: #265b4d;
+    }
+
+    .error-message {
+        background: #fef2f2;
+        color: #dc2626;
+        padding: 12px;
+        border-radius: 8px;
+        margin-bottom: 15px;
+        display: none;
+        font-size: 13px;
+    }
+
+    @media (max-width: 800px) {
+
+        .sidebar {
+            display: none;
+        }
+
+        .main {
+            padding: 20px;
+        }
+
+        .page-header {
+            align-items: flex-start;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .card {
+            overflow-x: auto;
+        }
+
+        table {
+            min-width: 700px;
+        }
+
+    }
+
+</style>
+```
+
+</head>
+
+<body>
+
+<header class="topbar">
+
+```
+<div class="brand">
+
+    <div class="logo">
+        MH
+    </div>
+
+    <div>
+        <strong>Midori High</strong>
+        <span>Portail administratif</span>
+    </div>
+
+</div>
+
+<div>
+    <strong>Administration</strong>
+    <span>Administrateur</span>
+</div>
+```
+
+</header>
+
+<div class="layout">
+
+```
+<aside class="sidebar">
+
+    <div class="sidebar-title">
+        Administration
+    </div>
+
+    <a href="dashboard.html" class="nav-item">
+        📊 Tableau de bord
+    </a>
+
+    <a href="students.html" class="nav-item">
+        👨‍🎓 Élèves
+    </a>
+
+    <a href="professors.html" class="nav-item active">
+        👨‍🏫 Professeurs
+    </a>
+
+    <a href="#" class="nav-item">
+        👮 Surveillants
+    </a>
+
+    <a href="#" class="nav-item">
+        🏫 Classes
+    </a>
+
+
+    <div class="sidebar-title">
+        Scolarité
+    </div>
+
+    <a href="#" class="nav-item">
+        📚 Matières
+    </a>
+
+    <a href="#" class="nav-item">
+        🕐 Emplois du temps
+    </a>
+
+    <a href="#" class="nav-item">
+        📝 Notes
+    </a>
+
+    <a href="absences.html" class="nav-item">
+        📋 Absences
+    </a>
+
+</aside>
+
+
+<main class="main">
+
+
+    <div class="page-header">
+
+        <div>
+
+            <h1>
+                👨‍🏫 Professeurs
+            </h1>
+
+            <p>
+                Gestion des professeurs de Midori High
+            </p>
+
+        </div>
+
+
+        <button
+            class="add-button"
+            onclick="openAddModal()"
+        >
+            + Ajouter un professeur
+        </button>
+
+    </div>
+
+
+    <div class="toolbar">
+
+        <input
+            type="text"
+            id="search"
+            class="search"
+            placeholder="🔎 Rechercher par nom, pseudo ou matière..."
+            oninput="applySearch()"
+        >
+
+    </div>
+
+
+    <div class="card">
+
+        <div class="card-header">
+
+            <strong>
+                Liste des professeurs
+            </strong>
+
+            <span
+                class="count"
+                id="professorCount"
+            >
+                Chargement...
+            </span>
+
+        </div>
+
+
+        <div id="tableContainer">
+
+            <div class="empty">
+                Chargement des professeurs...
+            </div>
+
+        </div>
+
+    </div>
+
+
+</main>
+```
+
+</div>
+
+<!-- ================= MODAL ================= -->
+
+<div
+    class="modal"
+    id="professorModal"
+>
+
+```
+<div class="modal-box">
+
+
+    <div class="modal-header">
+
+        <h2 id="modalTitle">
+            Ajouter un professeur
+        </h2>
+
+        <button
+            class="close"
+            onclick="closeModal()"
+        >
+            ×
+        </button>
+
+    </div>
+
+
+    <div
+        class="error-message"
+        id="formError"
+    ></div>
+
+
+    <form
+        id="professorForm"
+        onsubmit="saveProfessor(event)"
+    >
+
+        <div class="form-group">
+
+            <label>
+                Nom complet *
+            </label>
+
+            <input
+                type="text"
+                id="fullName"
+                required
+                placeholder="Ex : May Tsuya"
+            >
+
+        </div>
+
+
+        <div class="form-group">
+
+            <label>
+                Identifiant / pseudo *
+            </label>
+
+            <input
+                type="text"
+                id="username"
+                required
+                placeholder="Ex : may.tsuya"
+            >
+
+        </div>
+
+
+        <div class="form-group">
+
+            <label>
+                Matière
+            </label>
+
+            <input
+                type="text"
+                id="subject"
+                placeholder="Ex : Bien-être"
+            >
+
+        </div>
+
+
+        <div class="form-group">
+
+            <label>
+                Adresse e-mail
+            </label>
+
+            <input
+                type="email"
+                id="email"
+                placeholder="professeur@midori-high.fr"
+            >
+
+        </div>
+
+
+        <div class="form-group">
+
+            <label>
+                Téléphone
+            </label>
+
+            <input
+                type="text"
+                id="phone"
+                placeholder="Ex : 06 00 00 00 00"
+            >
+
+        </div>
+
+
+        <div class="modal-actions">
+
+            <button
+                type="button"
+                class="cancel"
+                onclick="closeModal()"
+            >
+                Annuler
+            </button>
+
+            <button
+                type="submit"
+                class="save"
+            >
+                Enregistrer
+            </button>
+
+        </div>
+
+    </form>
+
+</div>
+```
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+
+
+// ===============================
+// SUPABASE
+// ===============================
+
+const SUPABASE_URL =
+    "https://esiwwkphbqkqqcfelktn.supabase.co";
+
+const SUPABASE_KEY =
+    "sb_publishable_Gn6HhpZXdeoaWhWJ7wRWLw_D3dXLTnX";
+
+const supabaseClient =
+    window.supabase.createClient(
+        SUPABASE_URL,
+        SUPABASE_KEY
+    );
+
+
+// ===============================
+// VARIABLES
+// ===============================
+
+let professors = [];
+
+let editingProfessorId = null;
+
+
+// ===============================
+// VÉRIFICATION UTILISATEUR
+// ===============================
+
+async function checkUser() {
+
+    const { data } =
+        await supabaseClient.auth.getUser();
+
+    if (!data.user) {
+
+        window.location.href =
+            "index.html";
+
+        return false;
+    }
+
+    return true;
+}
+
+
+// ===============================
+// ÉCHAPPER HTML
+// ===============================
+
+function escapeHTML(value) {
+
+    return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+}
+
+
+// ===============================
+// CHARGER LES PROFESSEURS
+// ===============================
+
+async function loadProfessors() {
+
+    const connected =
+        await checkUser();
+
+    if (!connected) return;
+
+
+    const { data, error } =
+        await supabaseClient
+            .from("professors")
+            .select("*")
+            .order("full_name", {
+                ascending: true
+            });
+
+
+    if (error) {
+
+        console.error(
+            "Erreur Supabase :",
+            error
+        );
+
+        document.getElementById(
+            "tableContainer"
+        ).innerHTML = `
+
+            <div class="empty">
+                Impossible de charger les professeurs.
+                <br><br>
+                ${escapeHTML(error.message)}
+            </div>
+
+        `;
+
+        document.getElementById(
+            "professorCount"
+        ).textContent = "Erreur";
+
+        return;
+    }
+
+
+    professors = data || [];
+
+    applySearch();
+
+}
+
+
+// ===============================
+// AFFICHER LES PROFESSEURS
+// ===============================
+
+function displayProfessors(list) {
+
+    const container =
+        document.getElementById(
+            "tableContainer"
+        );
+
+
+    document.getElementById(
+        "professorCount"
+    ).textContent =
+        `${list.length} professeur${list.length > 1 ? "s" : ""}`;
+
+
+    if (list.length === 0) {
+
+        container.innerHTML = `
+
+            <div class="empty">
+                Aucun professeur trouvé.
+            </div>
+
+        `;
+
+        return;
+    }
+
+
+    container.innerHTML = `
+
+        <table>
+
+            <thead>
+
+                <tr>
+
+                    <th>
+                        Professeur
+                    </th>
+
+                    <th>
+                        Matière
+                    </th>
+
+                    <th>
+                        E-mail
+                    </th>
+
+                    <th>
+                        Téléphone
+                    </th>
+
+                    <th>
+                        Actions
+                    </th>
+
+                </tr>
+
+            </thead>
+
+
+            <tbody>
+
+                ${list.map(professor => `
+
+                    <tr>
+
+                        <td>
+
+                            <strong>
+                                ${escapeHTML(
+                                    professor.full_name
+                                )}
+                            </strong>
+
+                            <div class="username">
+                                @${escapeHTML(
+                                    professor.username
+                                )}
+                            </div>
+
+                        </td>
+
+
+                        <td>
+
+                            ${
+                                professor.subject
+                                    ? `
+                                        <span class="badge">
+                                            ${escapeHTML(
+                                                professor.subject
+                                            )}
+                                        </span>
+                                    `
+                                    : "—"
+                            }
+
+                        </td>
+
+
+                        <td>
+                            ${escapeHTML(
+                                professor.email || "—"
+                            )}
+                        </td>
+
+
+                        <td>
+                            ${escapeHTML(
+                                professor.phone || "—"
+                            )}
+                        </td>
+
+
+                        <td>
+
+                            <div class="actions">
+
+                                <button
+                                    class="action"
+                                    onclick="viewProfessor('${professor.id}')"
+                                    title="Voir le dossier"
+                                >
+                                    👁️
+                                </button>
+
+                                <button
+                                    class="action"
+                                    onclick="editProfessor('${professor.id}')"
+                                    title="Modifier"
+                                >
+                                    ✏️
+                                </button>
+
+                                <button
+                                    class="action"
+                                    onclick="deleteProfessor('${professor.id}')"
+                                    title="Supprimer"
+                                >
+                                    🗑️
+                                </button>
+
+                            </div>
+
+                        </td>
+
+                    </tr>
+
+                `).join("")}
+
+            </tbody>
+
+        </table>
+
+    `;
+
+}
+
+
+// ===============================
+// RECHERCHE
+// ===============================
+
+function applySearch() {
+
+    const search =
+        document.getElementById(
+            "search"
+        ).value
+        .toLowerCase()
+        .trim();
+
+
+    const filtered =
+        professors.filter(professor => {
+
+            const fullName =
+                (professor.full_name || "")
+                    .toLowerCase();
+
+            const username =
+                (professor.username || "")
+                    .toLowerCase();
+
+            const subject =
+                (professor.subject || "")
+                    .toLowerCase();
+
+            const email =
+                (professor.email || "")
+                    .toLowerCase();
+
+
+            return (
+                fullName.includes(search) ||
+                username.includes(search) ||
+                subject.includes(search) ||
+                email.includes(search)
+            );
+
+        });
+
+
+    displayProfessors(filtered);
+
+}
+
+
+// ===============================
+// OUVRIR MODAL AJOUT
+// ===============================
+
+function openAddModal() {
+
+    editingProfessorId = null;
+
+    document.getElementById(
+        "modalTitle"
+    ).textContent =
+        "Ajouter un professeur";
+
+
+    document.getElementById(
+        "professorForm"
+    ).reset();
+
+
+    document.getElementById(
+        "formError"
+    ).style.display = "none";
+
+
+    document.getElementById(
+        "professorModal"
+    ).classList.add("show");
+
+}
+
+
+// ===============================
+// FERMER MODAL
+// ===============================
+
+function closeModal() {
+
+    document.getElementById(
+        "professorModal"
+    ).classList.remove("show");
+
+}
+
+
+// ===============================
+// MODIFIER
+// ===============================
+
+function editProfessor(id) {
+
+    const professor =
+        professors.find(
+            item => item.id === id
+        );
+
+
+    if (!professor) return;
+
+
+    editingProfessorId = id;
+
+
+    document.getElementById(
+        "modalTitle"
+    ).textContent =
+        "Modifier le professeur";
+
+
+    document.getElementById(
+        "fullName"
+    ).value =
+        professor.full_name || "";
+
+
+    document.getElementById(
+        "username"
+    ).value =
+        professor.username || "";
+
+
+    document.getElementById(
+        "subject"
+    ).value =
+        professor.subject || "";
+
+
+    document.getElementById(
+        "email"
+    ).value =
+        professor.email || "";
+
+
+    document.getElementById(
+        "phone"
+    ).value =
+        professor.phone || "";
+
+
+    document.getElementById(
+        "formError"
+    ).style.display = "none";
+
+
+    document.getElementById(
+        "professorModal"
+    ).classList.add("show");
+
+}
+
+
+// ===============================
+// ENREGISTRER
+// ===============================
+
+async function saveProfessor(event) {
+
+    event.preventDefault();
+
+
+    const errorElement =
+        document.getElementById(
+            "formError"
+        );
+
+
+    errorElement.style.display =
+        "none";
+
+
+    const professorData = {
+
+        full_name:
+            document.getElementById(
+                "fullName"
+            ).value.trim(),
+
+        username:
+            document.getElementById(
+                "username"
+            ).value.trim(),
+
+        subject:
+            document.getElementById(
+                "subject"
+            ).value.trim() || null,
+
+        email:
+            document.getElementById(
+                "email"
+            ).value.trim() || null,
+
+        phone:
+            document.getElementById(
+                "phone"
+            ).value.trim() || null
+
+    };
+
+
+    let result;
+
+
+    if (editingProfessorId) {
+
+        result =
+            await supabaseClient
+                .from("professors")
+                .update(professorData)
+                .eq(
+                    "id",
+                    editingProfessorId
+                );
+
+    } else {
+
+        result =
+            await supabaseClient
+                .from("professors")
+                .insert([
+                    professorData
+                ]);
+
+    }
+
+
+    if (result.error) {
+
+        console.error(
+            "Erreur enregistrement :",
+            result.error
+        );
+
+
+        errorElement.textContent =
+            result.error.message;
+
+
+        errorElement.style.display =
+            "block";
+
+
+        return;
+    }
+
+
+    closeModal();
+
+    await loadProfessors();
+
+}
+
+
+// ===============================
+// SUPPRIMER
+// ===============================
+
+async function deleteProfessor(id) {
+
+    const professor =
+        professors.find(
+            item => item.id === id
+        );
+
+
+    if (!professor) return;
+
+
+    const confirmed =
+        confirm(
+            `Voulez-vous vraiment supprimer ${professor.full_name} ?`
+        );
+
+
+    if (!confirmed) return;
+
+
+    const { error } =
+        await supabaseClient
+            .from("professors")
+            .delete()
+            .eq("id", id);
+
+
+    if (error) {
+
+        console.error(error);
+
+        alert(
+            "Impossible de supprimer ce professeur.\n\n" +
+            error.message
+        );
+
+        return;
+    }
+
+
+    await loadProfessors();
+
+}
+
+
+// ===============================
+// VOIR LE DOSSIER
+// ===============================
+
+function viewProfessor(id) {
+
+    window.location.href =
+        "professor.html?id=" +
+        encodeURIComponent(id);
+
+}
+
+
+// ===============================
+// LANCEMENT
+// ===============================
+
+loadProfessors();
+
+
+</script>
+
+</body>
+</html>
