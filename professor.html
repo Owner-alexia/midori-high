@@ -1,0 +1,776 @@
+```html
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Midori High — Professeur</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f6f8f7;
+            color: #24332d;
+        }
+
+        .layout {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* SIDEBAR */
+
+        .sidebar {
+            width: 250px;
+            background: #ffffff;
+            border-right: 1px solid #e5e9e7;
+            padding: 25px 15px;
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 35px;
+        }
+
+        .logo h1 {
+            font-size: 23px;
+            color: #456b59;
+        }
+
+        .logo p {
+            font-size: 12px;
+            color: #8b9992;
+            margin-top: 5px;
+        }
+
+        .section-title {
+            font-size: 11px;
+            text-transform: uppercase;
+            color: #9aa6a1;
+            margin: 20px 10px 8px;
+            font-weight: bold;
+        }
+
+        .nav-item {
+            display: block;
+            padding: 11px 13px;
+            margin-bottom: 4px;
+            border-radius: 8px;
+            text-decoration: none;
+            color: #52625a;
+            font-size: 14px;
+            transition: 0.2s;
+        }
+
+        .nav-item:hover {
+            background: #f0f5f2;
+            color: #456b59;
+        }
+
+        .nav-item.active {
+            background: #e8f1ec;
+            color: #456b59;
+            font-weight: bold;
+        }
+
+        /* MAIN */
+
+        .main {
+            flex: 1;
+            padding: 30px;
+        }
+
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .topbar h2 {
+            font-size: 25px;
+            color: #2e4037;
+        }
+
+        .back-btn {
+            text-decoration: none;
+            background: #ffffff;
+            border: 1px solid #dce4df;
+            color: #52625a;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .back-btn:hover {
+            background: #f2f6f4;
+        }
+
+        /* PROFILE */
+
+        .profile-card {
+            background: white;
+            border-radius: 14px;
+            padding: 25px;
+            border: 1px solid #e4e9e6;
+            margin-bottom: 25px;
+        }
+
+        .profile-header {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .avatar {
+            width: 75px;
+            height: 75px;
+            border-radius: 50%;
+            background: #e8f1ec;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 30px;
+        }
+
+        .profile-name {
+            font-size: 24px;
+            font-weight: bold;
+            color: #30473b;
+        }
+
+        .profile-username {
+            color: #8a9891;
+            margin-top: 5px;
+            font-size: 14px;
+        }
+
+        /* INFO */
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-top: 25px;
+        }
+
+        .info-box {
+            background: #f8faf9;
+            border-radius: 10px;
+            padding: 16px;
+        }
+
+        .info-label {
+            font-size: 12px;
+            color: #8a9891;
+            margin-bottom: 6px;
+        }
+
+        .info-value {
+            font-size: 15px;
+            color: #34483e;
+            font-weight: 600;
+        }
+
+        /* SECTIONS */
+
+        .section-card {
+            background: white;
+            border: 1px solid #e4e9e6;
+            border-radius: 14px;
+            padding: 22px;
+            margin-bottom: 20px;
+        }
+
+        .section-card h3 {
+            color: #30473b;
+            font-size: 18px;
+            margin-bottom: 8px;
+        }
+
+        .section-description {
+            font-size: 13px;
+            color: #8a9891;
+            margin-bottom: 18px;
+        }
+
+        .empty-box {
+            border: 1px dashed #d4ddd8;
+            border-radius: 10px;
+            padding: 25px;
+            text-align: center;
+            color: #929e98;
+            background: #fafcfb;
+            font-size: 14px;
+        }
+
+        .future {
+            display: inline-block;
+            margin-top: 8px;
+            font-size: 11px;
+            background: #eef3f0;
+            color: #718078;
+            padding: 5px 9px;
+            border-radius: 20px;
+        }
+
+        .error {
+            background: #fff0f0;
+            border: 1px solid #f0cccc;
+            color: #a04d4d;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        /* RESPONSIVE */
+
+        @media (max-width: 800px) {
+
+            .sidebar {
+                width: 210px;
+            }
+
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 650px) {
+
+            .layout {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                border-right: none;
+                border-bottom: 1px solid #e5e9e7;
+            }
+
+            .main {
+                padding: 20px;
+            }
+
+            .topbar {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="layout">
+
+    <!-- SIDEBAR -->
+
+    <aside class="sidebar">
+
+        <div class="logo">
+            <h1>Midori High</h1>
+            <p>Administration</p>
+        </div>
+
+        <div class="section-title">
+            Administration
+        </div>
+
+        <a href="dashboard.html" class="nav-item">
+            📊 Tableau de bord
+        </a>
+
+        <a href="students.html" class="nav-item">
+            👨‍🎓 Élèves
+        </a>
+
+        <a href="professors.html" class="nav-item active">
+            👨‍🏫 Professeurs
+        </a>
+
+        <a href="#" class="nav-item">
+            👮 Surveillants
+        </a>
+
+        <a href="#" class="nav-item">
+            🏫 Classes
+        </a>
+
+
+        <div class="section-title">
+            Scolarité
+        </div>
+
+        <a href="#" class="nav-item">
+            📚 Matières
+        </a>
+
+        <a href="#" class="nav-item">
+            🕐 Emplois du temps
+        </a>
+
+        <a href="#" class="nav-item">
+            📝 Notes
+        </a>
+
+        <a href="absences.html" class="nav-item">
+            📋 Absences
+        </a>
+
+
+        <div class="section-title">
+            Système
+        </div>
+
+        <a href="#" class="nav-item">
+            📢 Annonces
+        </a>
+
+        <a href="#" class="nav-item">
+            📜 Journal d'activité
+        </a>
+
+        <a href="#" class="nav-item">
+            ⚙️ Paramètres
+        </a>
+
+    </aside>
+
+
+    <!-- MAIN -->
+
+    <main class="main">
+
+        <div class="topbar">
+
+            <div>
+                <h2>Fiche du professeur</h2>
+            </div>
+
+            <a href="professors.html" class="back-btn">
+                ← Retour aux professeurs
+            </a>
+
+        </div>
+
+
+        <div id="errorBox" class="error"></div>
+
+
+        <!-- PROFIL -->
+
+        <div class="profile-card">
+
+            <div class="profile-header">
+
+                <div class="avatar">
+                    👨‍🏫
+                </div>
+
+                <div>
+
+                    <div
+                        class="profile-name"
+                        id="professorName"
+                    >
+                        Chargement...
+                    </div>
+
+                    <div
+                        class="profile-username"
+                        id="professorUsername"
+                    >
+                        Chargement...
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <div class="info-grid">
+
+                <div class="info-box">
+
+                    <div class="info-label">
+                        Matière enseignée
+                    </div>
+
+                    <div
+                        class="info-value"
+                        id="professorSubject"
+                    >
+                        —
+                    </div>
+
+                </div>
+
+
+                <div class="info-box">
+
+                    <div class="info-label">
+                        Adresse e-mail
+                    </div>
+
+                    <div
+                        class="info-value"
+                        id="professorEmail"
+                    >
+                        —
+                    </div>
+
+                </div>
+
+
+                <div class="info-box">
+
+                    <div class="info-label">
+                        Téléphone
+                    </div>
+
+                    <div
+                        class="info-value"
+                        id="professorPhone"
+                    >
+                        —
+                    </div>
+
+                </div>
+
+
+                <div class="info-box">
+
+                    <div class="info-label">
+                        Identifiant
+                    </div>
+
+                    <div
+                        class="info-value"
+                        id="professorId"
+                    >
+                        —
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- CLASSES -->
+
+        <div class="section-card">
+
+            <h3>🏫 Classes attribuées</h3>
+
+            <div class="section-description">
+                Classes dans lesquelles ce professeur intervient.
+            </div>
+
+            <div class="empty-box">
+
+                Aucune classe attribuée pour le moment.
+
+                <div class="future">
+                    Fonctionnalité à venir
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- EMPLOI DU TEMPS -->
+
+        <div class="section-card">
+
+            <h3>🕐 Emploi du temps</h3>
+
+            <div class="section-description">
+                Planning des cours du professeur.
+            </div>
+
+            <div class="empty-box">
+
+                L'emploi du temps sera affiché ici une fois les
+                classes et les créneaux configurés.
+
+                <div class="future">
+                    Fonctionnalité à venir
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- FICHES D'APPEL -->
+
+        <div class="section-card">
+
+            <h3>📋 Fiches d'appel</h3>
+
+            <div class="section-description">
+                Historique des appels effectués par ce professeur.
+            </div>
+
+            <div class="empty-box">
+
+                Les fiches d'appel apparaîtront ici lorsque le
+                système de présence sera configuré.
+
+                <div class="future">
+                    Fonctionnalité à venir
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- NOTES -->
+
+        <div class="section-card">
+
+            <h3>📝 Notes</h3>
+
+            <div class="section-description">
+                Notes saisies par ce professeur.
+            </div>
+
+            <div class="empty-box">
+
+                Les notes seront disponibles ici lorsque le
+                module de notation sera créé.
+
+                <div class="future">
+                    Fonctionnalité à venir
+                </div>
+
+            </div>
+
+        </div>
+
+    </main>
+
+</div>
+
+
+<script>
+
+    /* ================================
+       SUPABASE
+    ================================= */
+
+    const SUPABASE_URL =
+        "https://esiwwkphbqkqqcfelktn.supabase.co";
+
+    const SUPABASE_KEY =
+        "sb_publishable_Gn6HhpZXdeoaWhWJ7wRWLw_D3dXLTnX";
+
+    const supabaseClient =
+        window.supabase.createClient(
+            SUPABASE_URL,
+            SUPABASE_KEY
+        );
+
+
+    /* ================================
+       AUTHENTIFICATION
+    ================================= */
+
+    async function checkUser() {
+
+        const { data } =
+            await supabaseClient.auth.getUser();
+
+        if (!data.user) {
+
+            window.location.href =
+                "index.html";
+
+            return false;
+        }
+
+        return true;
+    }
+
+
+    /* ================================
+       RÉCUPÉRER L'ID
+    ================================= */
+
+    function getProfessorId() {
+
+        const params =
+            new URLSearchParams(
+                window.location.search
+            );
+
+        return params.get("id");
+    }
+
+
+    /* ================================
+       AFFICHER ERREUR
+    ================================= */
+
+    function showError(message) {
+
+        const errorBox =
+            document.getElementById(
+                "errorBox"
+            );
+
+        errorBox.textContent =
+            message;
+
+        errorBox.style.display =
+            "block";
+    }
+
+
+    /* ================================
+       CHARGER LE PROFESSEUR
+    ================================= */
+
+    async function loadProfessor() {
+
+        const professorId =
+            getProfessorId();
+
+        if (!professorId) {
+
+            showError(
+                "Aucun professeur n'a été sélectionné."
+            );
+
+            document.getElementById(
+                "professorName"
+            ).textContent =
+                "Professeur introuvable";
+
+            return;
+        }
+
+
+        const { data, error } =
+            await supabaseClient
+                .from("professors")
+                .select("*")
+                .eq("id", professorId)
+                .single();
+
+
+        if (error) {
+
+            console.error(
+                "Erreur récupération professeur :",
+                error
+            );
+
+            showError(
+                "Impossible de récupérer les informations du professeur."
+            );
+
+            document.getElementById(
+                "professorName"
+            ).textContent =
+                "Erreur de chargement";
+
+            return;
+        }
+
+
+        if (!data) {
+
+            showError(
+                "Ce professeur n'existe pas."
+            );
+
+            return;
+        }
+
+
+        /* ================================
+           INFORMATIONS
+        ================================= */
+
+        document.getElementById(
+            "professorName"
+        ).textContent =
+            data.full_name || "—";
+
+
+        document.getElementById(
+            "professorUsername"
+        ).textContent =
+            data.username
+                ? "@" + data.username.replace(/^@/, "")
+                : "—";
+
+
+        document.getElementById(
+            "professorSubject"
+        ).textContent =
+            data.subject || "Non renseignée";
+
+
+        document.getElementById(
+            "professorEmail"
+        ).textContent =
+            data.email || "Non renseigné";
+
+
+        document.getElementById(
+            "professorPhone"
+        ).textContent =
+            data.phone || "Non renseigné";
+
+
+        document.getElementById(
+            "professorId"
+        ).textContent =
+            data.id;
+
+    }
+
+
+    /* ================================
+       INITIALISATION
+    ================================= */
+
+    async function init() {
+
+        const authenticated =
+            await checkUser();
+
+        if (!authenticated) {
+            return;
+        }
+
+        await loadProfessor();
+
+    }
+
+
+    init();
+
+</script>
+
+</body>
+</html>
+```
