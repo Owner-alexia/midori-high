@@ -1,874 +1,185 @@
 <!DOCTYPE html>
+
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Élèves — Midori High</title>
 
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        body {
-            font-family: Arial, sans-serif;
-            background: #f4f7f6;
-            color: #1f2937;
-            min-height: 100vh;
-        }
-
-        .topbar {
-            height: 70px;
-            background: white;
-            border-bottom: 1px solid #e5e7eb;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 30px;
-        }
-
-        .brand {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .logo {
-            width: 42px;
-            height: 42px;
-            border-radius: 50%;
-            background: #2f6f5e;
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-        }
-
-        .brand strong {
-            display: block;
-            font-size: 17px;
-        }
-
-        .brand span {
-            font-size: 12px;
-            color: #6b7280;
-        }
-
-        .layout {
-            display: flex;
-            min-height: calc(100vh - 70px);
-        }
-
-        .sidebar {
-            width: 240px;
-            background: #183d34;
-            padding: 25px 15px;
-            color: white;
-        }
-
-        .sidebar-title {
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            opacity: 0.6;
-            margin: 10px 12px;
-        }
-
-        .nav-item {
-            display: block;
-            color: white;
-            text-decoration: none;
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 5px;
-            font-size: 14px;
-        }
-
-        .nav-item:hover,
-        .nav-item.active {
-            background: #2f6f5e;
-        }
-
-        .main {
-            flex: 1;
-            padding: 35px;
-        }
-
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 20px;
-            margin-bottom: 25px;
-        }
-
-        .header h1 {
-            font-size: 28px;
-            margin-bottom: 7px;
-        }
-
-        .header p {
-            color: #6b7280;
-        }
-
-        .add-button {
-            background: #2f6f5e;
-            color: white;
-            border: none;
-            padding: 13px 18px;
-            border-radius: 9px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-
-        .add-button:hover {
-            background: #25594b;
-        }
-
-        .toolbar {
-            background: white;
-            padding: 18px;
-            border: 1px solid #e5e7eb;
-            border-radius: 12px;
-            margin-bottom: 20px;
-        }
-
-        .search {
-            width: 100%;
-            max-width: 450px;
-            padding: 12px;
-            border: 1px solid #d1d5db;
-            border-radius: 8px;
-            font-size: 14px;
-            outline: none;
-        }
-
-        .search:focus {
-            border-color: #2f6f5e;
-        }
-
-        .table-container {
-            background: white;
-            border: 1px solid #e5e7eb;
-            border-radius: 12px;
-            overflow-x: auto;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        th {
-            background: #f8faf9;
-            text-align: left;
-            padding: 15px;
-            font-size: 12px;
-            color: #6b7280;
-            text-transform: uppercase;
-        }
-
-        td {
-            padding: 15px;
-            border-top: 1px solid #f0f0f0;
-            font-size: 14px;
-        }
-
-        .empty {
-            text-align: center;
-            padding: 50px;
-            color: #9ca3af;
-        }
-
-        .action {
-            border: none;
-            background: #eef4f1;
-            padding: 8px 10px;
-            border-radius: 7px;
-            cursor: pointer;
-            margin-right: 5px;
-        }
-
-        .action:hover {
-            background: #dcebe6;
-        }
-
-        .delete {
-            background: #fef2f2;
-        }
-
-        .delete:hover {
-            background: #fee2e2;
-        }
-
-        .modal {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.4);
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-
-        .modal.show {
-            display: flex;
-        }
-
-        .modal-box {
-            width: 100%;
-            max-width: 500px;
-            background: white;
-            border-radius: 15px;
-            padding: 30px;
-        }
-
-        .modal-box h2 {
-            margin-bottom: 25px;
-        }
-
-        .form-group {
-            margin-bottom: 17px;
-        }
-
-        .form-group label {
-            display: block;
-            font-size: 13px;
-            font-weight: bold;
-            margin-bottom: 7px;
-        }
-
-        .form-group input,
-        .form-group select {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #d1d5db;
-            border-radius: 8px;
-            font-size: 14px;
-        }
-
-        .modal-actions {
-            display: flex;
-            gap: 10px;
-            margin-top: 25px;
-        }
-
-        .modal-actions button {
-            flex: 1;
-            padding: 12px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: bold;
-        }
-
-        .save {
-            background: #2f6f5e;
-            color: white;
-        }
-
-        .cancel {
-            background: #e5e7eb;
-        }
-
-        #message {
-            margin-top: 15px;
-            text-align: center;
-            font-size: 13px;
-        }
-
-        @media (max-width: 700px) {
-            .sidebar {
-                display: none;
-            }
-
-            .main {
-                padding: 20px;
-            }
-
-            .header {
-                align-items: flex-start;
-                flex-direction: column;
-            }
-        }
-    </style>
-</head>
-
-<body>
-
-<header class="topbar">
-
-    <div class="brand">
-        <div class="logo">MH</div>
-
-        <div>
-            <strong>Midori High</strong>
-            <span>Portail administratif</span>
-        </div>
-    </div>
-
-    <div>
-        <strong>Administration</strong>
-        <span>Administrateur</span>
-    </div>
-
-</header>
-
-
-<div class="layout">
-
-    <aside class="sidebar">
-
-        <div class="sidebar-title">Administration</div>
-
-        <a href="dashboard.html" class="nav-item">
-            📊 Tableau de bord
-        </a>
-
-        <a href="students.html" class="nav-item active">
-            👨‍🎓 Élèves
-        </a>
-
-        <a href="#" class="nav-item">
-            👨‍🏫 Professeurs
-        </a>
-
-        <a href="#" class="nav-item">
-            👮 Surveillants
-        </a>
-
-        <a href="#" class="nav-item">
-            🏫 Classes
-        </a>
-
-        <div class="sidebar-title">Scolarité</div>
-
-        <a href="#" class="nav-item">
-            📚 Matières
-        </a>
-
-        <a href="#" class="nav-item">
-            🕐 Emplois du temps
-        </a>
-
-        <a href="#" class="nav-item">
-            📝 Notes
-        </a>
-
-        <a href="#" class="nav-item">
-            📋 Absences
-        </a>
-
-    </aside>
-
-
-    <main class="main">
-
-        <div class="header">
-
-            <div>
-                <h1>👨‍🎓 Élèves</h1>
-                <p>Gestion des élèves de Midori High</p>
-            </div>
-
-            <button class="add-button" onclick="openModal()">
-                + Ajouter un élève
-            </button>
-
-        </div>
-
-
-        <div class="toolbar">
-
-            <input
-                type="text"
-                id="search"
-                class="search"
-                placeholder="🔎 Rechercher un élève..."
-            >
-
-        </div>
-
-
-        <div class="table-container">
-
-            <table>
-
-                <thead>
-                    <tr>
-                        <th>Identifiant</th>
-                        <th>Nom complet</th>
-                        <th>Classe</th>
-                        <th>Date de naissance</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-
-                <tbody id="studentsTable">
-
-                    <tr>
-                        <td colspan="5" class="empty">
-                            Chargement...
-                        </td>
-                    </tr>
-
-                </tbody>
-
-            </table>
-
-        </div>
-
-    </main>
-
-</div>
-
-
-<!-- MODALE AJOUT / MODIFICATION -->
-
-<div class="modal" id="studentModal">
-
-    <div class="modal-box">
-
-        <h2 id="modalTitle">Ajouter un élève</h2>
-
-        <form id="studentForm">
-
-            <input type="hidden" id="studentId">
-
-            <div class="form-group">
-
-                <label for="username">
-                    Identifiant
-                </label>
-
-                <input
-                    type="text"
-                    id="username"
-                    placeholder="Ex : alex.martin"
-                    required
-                >
-
-            </div>
-
-
-            <div class="form-group">
-
-                <label for="fullName">
-                    Nom complet
-                </label>
-
-                <input
-                    type="text"
-                    id="fullName"
-                    placeholder="Ex : Alex Martin"
-                    required
-                >
-
-            </div>
-
-
-            <div class="form-group">
-
-                <label for="className">
-                    Classe
-                </label>
-
-                <input
-                    type="text"
-                    id="className"
-                    placeholder="Ex : 2-B"
-                >
-
-            </div>
-
-
-            <div class="form-group">
-
-                <label for="birthDate">
-                    Date de naissance
-                </label>
-
-                <input
-                    type="date"
-                    id="birthDate"
-                >
-
-            </div>
-
-
-            <div id="message"></div>
-
-
-            <div class="modal-actions">
-
-                <button
-                    type="button"
-                    class="cancel"
-                    onclick="closeModal()"
-                >
-                    Annuler
-                </button>
-
-                <button
-                    type="submit"
-                    class="save"
-                >
-                    Enregistrer
-                </button>
-
-            </div>
-
-        </form>
-
-    </div>
-
-</div>
-
-
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-<script>
-
-const SUPABASE_URL = "https://esiwwkphbqkqqcfelktn.supabase.co";
-
-const SUPABASE_KEY = "sb_publishable_Gn6HhpZXdeoaWhWJ7wRWLw_D3dXLTnX";
-
-const supabaseClient = window.supabase.createClient(
-    SUPABASE_URL,
-    SUPABASE_KEY
-);
-
-
-let students = [];
-let editingId = null;
-
-
-// Vérifier la connexion
-
-async function checkUser() {
-
-    const { data } = await supabaseClient.auth.getUser();
-
-    if (!data.user) {
-        window.location.href = "index.html";
-        return false;
+```
+<style>
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
     }
 
-    return true;
-}
-
-
-// Charger les élèves
-
-async function loadStudents() {
-
-    const connected = await checkUser();
-
-    if (!connected) return;
-
-    const { data, error } = await supabaseClient
-        .from("students")
-        .select("*")
-        .order("full_name", { ascending: true });
-
-    if (error) {
-
-        console.error(error);
-
-        document.getElementById("studentsTable").innerHTML = `
-            <tr>
-                <td colspan="5" class="empty">
-                    Impossible de charger les élèves.
-                </td>
-            </tr>
-        `;
-
-        return;
+    body {
+        font-family: Arial, sans-serif;
+        background: #f4f7f6;
+        color: #1f2937;
+        min-height: 100vh;
     }
 
-    students = data || [];
-
-    displayStudents(students);
-}
-
-
-// Afficher les élèves
-
-function displayStudents(list) {
-
-    const table = document.getElementById("studentsTable");
-
-    if (list.length === 0) {
-
-        table.innerHTML = `
-            <tr>
-                <td colspan="5" class="empty">
-                    Aucun élève enregistré.
-                </td>
-            </tr>
-        `;
-
-        return;
+    .topbar {
+        height: 70px;
+        background: white;
+        border-bottom: 1px solid #e5e7eb;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 30px;
     }
 
-
-    table.innerHTML = list.map(student => `
-
-        <tr>
-
-            <td>${escapeHTML(student.username)}</td>
-
-            <td>${escapeHTML(student.full_name)}</td>
-
-            <td>${escapeHTML(student.class_name || "—")}</td>
-
-            <td>${student.birth_date || "—"}</td>
-
-            <td>
-
-                <button
-                    class="action"
-                    onclick="editStudent('${student.id}')"
-                >
-                    ✏️
-                </button>
-
-                <button
-                    class="action delete"
-                    onclick="deleteStudent('${student.id}')"
-                >
-                    🗑️
-                </button>
-
-            </td>
-
-        </tr>
-
-    `).join("");
-
-}
-
-
-// Recherche
-
-document.getElementById("search").addEventListener("input", function() {
-
-    const search = this.value.toLowerCase();
-
-    const filtered = students.filter(student =>
-        student.username.toLowerCase().includes(search) ||
-        student.full_name.toLowerCase().includes(search) ||
-        (student.class_name || "").toLowerCase().includes(search)
-    );
-
-    displayStudents(filtered);
-
-});
-
-
-// Ouvrir la fenêtre
-
-function openModal(student = null) {
-
-    document.getElementById("studentModal").classList.add("show");
-
-    document.getElementById("message").textContent = "";
-
-    if (student) {
-
-        editingId = student.id;
-
-        document.getElementById("modalTitle").textContent =
-            "Modifier un élève";
-
-        document.getElementById("username").value =
-            student.username;
-
-        document.getElementById("fullName").value =
-            student.full_name;
-
-        document.getElementById("className").value =
-            student.class_name || "";
-
-        document.getElementById("birthDate").value =
-            student.birth_date || "";
-
-    } else {
-
-        editingId = null;
-
-        document.getElementById("modalTitle").textContent =
-            "Ajouter un élève";
-
-        document.getElementById("studentForm").reset();
-
+    .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
     }
 
-}
-
-
-// Fermer la fenêtre
-
-function closeModal() {
-
-    document.getElementById("studentModal")
-        .classList.remove("show");
-
-}
-
-
-// Modifier
-
-function editStudent(id) {
-
-    const student = students.find(s => s.id === id);
-
-    if (student) {
-        openModal(student);
+    .logo {
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        background: #2f6f5e;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
     }
 
-}
-
-
-// Enregistrer
-
-document.getElementById("studentForm").addEventListener(
-    "submit",
-    async function(event) {
-
-        event.preventDefault();
-
-        const message = document.getElementById("message");
-
-        const username =
-            document.getElementById("username").value.trim();
-
-        const fullName =
-            document.getElementById("fullName").value.trim();
-
-        const className =
-            document.getElementById("className").value.trim();
-
-        const birthDate =
-            document.getElementById("birthDate").value || null;
-
-
-        message.style.color = "#6b7280";
-        message.textContent = "Enregistrement...";
-
-
-        if (editingId) {
-
-            const { error } = await supabaseClient
-                .from("students")
-                .update({
-                    username: username,
-                    full_name: fullName,
-                    class_name: className || null,
-                    birth_date: birthDate
-                })
-                .eq("id", editingId);
-
-
-            if (error) {
-
-                message.style.color = "#dc2626";
-                message.textContent = error.message;
-
-                return;
-            }
-
-
-        } else {
-
-            const { error } = await supabaseClient
-                .from("students")
-                .insert({
-                    username: username,
-                    full_name: fullName,
-                    class_name: className || null,
-                    birth_date: birthDate
-                });
-
-
-            if (error) {
-
-                message.style.color = "#dc2626";
-                message.textContent = error.message;
-
-                return;
-            }
-
-        }
-
-
-        closeModal();
-
-        await loadStudents();
-
-    }
-);
-
-
-// Supprimer
-
-async function deleteStudent(id) {
-
-    const student = students.find(s => s.id === id);
-
-    if (!student) return;
-
-
-    const confirmed = confirm(
-        "Voulez-vous vraiment supprimer " +
-        student.full_name +
-        " ?"
-    );
-
-    if (!confirmed) return;
-
-
-    const { error } = await supabaseClient
-        .from("students")
-        .delete()
-        .eq("id", id);
-
-
-    if (error) {
-
-        alert("Erreur : " + error.message);
-
-        return;
+    .brand strong {
+        display: block;
+        font-size: 17px;
     }
 
+    .brand span {
+        font-size: 12px;
+        color: #6b7280;
+    }
 
-    await loadStudents();
+    .layout {
+        display: flex;
+        min-height: calc(100vh - 70px);
+    }
 
-}
+    .sidebar {
+        width: 240px;
+        background: #183d34;
+        padding: 25px 15px;
+        color: white;
+    }
 
+    .sidebar-title {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        opacity: 0.6;
+        margin: 10px 12px;
+    }
 
-// Protection contre l'affichage de HTML
+    .nav-item {
+        display: block;
+        color: white;
+        text-decoration: none;
+        padding: 12px;
+        border-radius: 8px;
+        margin-bottom: 5px;
+        font-size: 14px;
+    }
 
-function escapeHTML(value) {
+    .nav-item:hover,
+    .nav-item.active {
+        background: #2f6f5e;
+    }
 
-    return String(value)
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
+    .main {
+        flex: 1;
+        padding: 35px;
+    }
 
-}
+    .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 20px;
+        margin-bottom: 25px;
+    }
 
+    .header h1 {
+        font-size: 28px;
+        margin-bottom: 7px;
+    }
 
-// Lancer la page
+    .header p {
+        color: #6b7280;
+    }
 
-loadStudents();
+    .add-button {
+        background: #2f6f5e;
+        color: white;
+        border: none;
+        padding: 13px 18px;
+        border-radius: 9px;
+        font-weight: bold;
+        cursor: pointer;
+    }
 
-</script>
+    .add-button:hover {
+        background: #25594b;
+    }
 
-</body>
-</html>
+    .toolbar {
+        background: white;
+        padding: 18px;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        margin-bottom: 20px;
+    }
+
+    .search {
+        width: 100%;
+        max-width: 450px;
+        padding: 12px;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        font-size: 14px;
+        outline: none;
+    }
+
+    .search:focus {
+        border-color: #2f6f5e;
+    }
+
+    .table-container {
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        overflow-x: auto;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    th {
+        background: #f8faf9;
+        text-align: left;
+        padding: 15px;
+        font-size: 12px;
+        color: #6b7280;
+        text-transform: uppercase;
+    }
+
+    td {
+        padding: 15px;
+        border-top: 1px solid #f0f0f0;
+        font-size: 14px;
+    }
+
+    .empty {
+        text-align: center;
+        padding: 50
+```
