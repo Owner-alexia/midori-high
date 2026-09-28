@@ -1,0 +1,1321 @@
+```html
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Midori High — Classes</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f6f8f7;
+            color: #24332d;
+        }
+
+        .layout {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* SIDEBAR */
+
+        .sidebar {
+            width: 250px;
+            background: #ffffff;
+            border-right: 1px solid #e5e9e7;
+            padding: 25px 15px;
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 35px;
+        }
+
+        .logo h1 {
+            font-size: 23px;
+            color: #456b59;
+        }
+
+        .logo p {
+            font-size: 12px;
+            color: #8b9992;
+            margin-top: 5px;
+        }
+
+        .section-title {
+            font-size: 11px;
+            text-transform: uppercase;
+            color: #9aa6a1;
+            margin: 20px 10px 8px;
+            font-weight: bold;
+        }
+
+        .nav-item {
+            display: block;
+            padding: 11px 13px;
+            margin-bottom: 4px;
+            border-radius: 8px;
+            text-decoration: none;
+            color: #52625a;
+            font-size: 14px;
+            transition: 0.2s;
+        }
+
+        .nav-item:hover {
+            background: #f0f5f2;
+            color: #456b59;
+        }
+
+        .nav-item.active {
+            background: #e8f1ec;
+            color: #456b59;
+            font-weight: bold;
+        }
+
+        /* MAIN */
+
+        .main {
+            flex: 1;
+            padding: 30px;
+        }
+
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            gap: 15px;
+        }
+
+        .topbar h2 {
+            font-size: 25px;
+            color: #2e4037;
+        }
+
+        .topbar p {
+            color: #8a9891;
+            font-size: 13px;
+            margin-top: 5px;
+        }
+
+        .add-btn {
+            border: none;
+            background: #456b59;
+            color: white;
+            padding: 11px 17px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .add-btn:hover {
+            background: #385b4a;
+        }
+
+        /* SEARCH */
+
+        .toolbar {
+            background: white;
+            border: 1px solid #e4e9e6;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1px solid #dce4df;
+            border-radius: 8px;
+            outline: none;
+            font-size: 14px;
+        }
+
+        .search-input:focus {
+            border-color: #8eaa9b;
+        }
+
+        .count {
+            margin-top: 10px;
+            font-size: 13px;
+            color: #89958f;
+        }
+
+        /* TABLE */
+
+        .table-card {
+            background: white;
+            border: 1px solid #e4e9e6;
+            border-radius: 14px;
+            overflow: hidden;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            text-align: left;
+            padding: 15px;
+            background: #f8faf9;
+            color: #718078;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+
+        td {
+            padding: 15px;
+            border-top: 1px solid #edf0ee;
+            font-size: 14px;
+            color: #405148;
+        }
+
+        tr:hover td {
+            background: #fbfcfb;
+        }
+
+        .class-name {
+            font-weight: bold;
+            color: #30473b;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 5px 9px;
+            border-radius: 20px;
+            background: #e8f1ec;
+            color: #456b59;
+            font-size: 12px;
+        }
+
+        .actions {
+            display: flex;
+            gap: 7px;
+        }
+
+        .action-btn {
+            border: 1px solid #dce4df;
+            background: white;
+            padding: 7px 9px;
+            border-radius: 7px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .action-btn:hover {
+            background: #f3f6f4;
+        }
+
+        .delete-btn:hover {
+            background: #fff2f2;
+            border-color: #eccaca;
+        }
+
+        .empty {
+            text-align: center;
+            padding: 40px;
+            color: #8d9993;
+            font-size: 14px;
+        }
+
+        /* MODAL */
+
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(30, 45, 38, 0.35);
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            width: 100%;
+            max-width: 470px;
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-header h3 {
+            color: #30473b;
+        }
+
+        .close-btn {
+            border: none;
+            background: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #78857e;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            color: #52625a;
+            margin-bottom: 7px;
+            font-weight: bold;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 11px 12px;
+            border: 1px solid #dce4df;
+            border-radius: 8px;
+            outline: none;
+            font-size: 14px;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            border-color: #8eaa9b;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .cancel-btn {
+            border: 1px solid #dce4df;
+            background: white;
+            color: #52625a;
+            padding: 10px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .save-btn {
+            border: none;
+            background: #456b59;
+            color: white;
+            padding: 10px 17px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .error {
+            display: none;
+            background: #fff0f0;
+            border: 1px solid #f0cccc;
+            color: #a04d4d;
+            padding: 12px 15px;
+            border-radius: 9px;
+            margin-bottom: 15px;
+            font-size: 13px;
+        }
+
+        @media (max-width: 750px) {
+
+            .layout {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                border-right: none;
+                border-bottom: 1px solid #e5e9e7;
+            }
+
+            .topbar {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .table-card {
+                overflow-x: auto;
+            }
+
+            table {
+                min-width: 650px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="layout">
+
+    <!-- SIDEBAR -->
+
+    <aside class="sidebar">
+
+        <div class="logo">
+            <h1>Midori High</h1>
+            <p>Administration</p>
+        </div>
+
+        <div class="section-title">
+            Administration
+        </div>
+
+        <a href="dashboard.html" class="nav-item">
+            📊 Tableau de bord
+        </a>
+
+        <a href="students.html" class="nav-item">
+            👨‍🎓 Élèves
+        </a>
+
+        <a href="professors.html" class="nav-item">
+            👨‍🏫 Professeurs
+        </a>
+
+        <a href="#" class="nav-item">
+            👮 Surveillants
+        </a>
+
+        <a href="classes.html" class="nav-item active">
+            🏫 Classes
+        </a>
+
+
+        <div class="section-title">
+            Scolarité
+        </div>
+
+        <a href="#" class="nav-item">
+            📚 Matières
+        </a>
+
+        <a href="#" class="nav-item">
+            🕐 Emplois du temps
+        </a>
+
+        <a href="#" class="nav-item">
+            📝 Notes
+        </a>
+
+        <a href="absences.html" class="nav-item">
+            📋 Absences
+        </a>
+
+
+        <div class="section-title">
+            Système
+        </div>
+
+        <a href="#" class="nav-item">
+            📢 Annonces
+        </a>
+
+        <a href="#" class="nav-item">
+            📜 Journal d'activité
+        </a>
+
+        <a href="#" class="nav-item">
+            ⚙️ Paramètres
+        </a>
+
+    </aside>
+
+
+    <!-- MAIN -->
+
+    <main class="main">
+
+        <div class="topbar">
+
+            <div>
+                <h2>Classes</h2>
+                <p>
+                    Gestion des classes de Midori High
+                </p>
+            </div>
+
+            <button
+                class="add-btn"
+                onclick="openAddModal()"
+            >
+                + Ajouter une classe
+            </button>
+
+        </div>
+
+
+        <div
+            id="errorBox"
+            class="error"
+        ></div>
+
+
+        <!-- RECHERCHE -->
+
+        <div class="toolbar">
+
+            <input
+                type="text"
+                id="searchInput"
+                class="search-input"
+                placeholder="🔎 Rechercher une classe, un niveau ou une section..."
+                oninput="filterClasses()"
+            >
+
+            <div
+                class="count"
+                id="classCount"
+            >
+                Chargement...
+            </div>
+
+        </div>
+
+
+        <!-- TABLE -->
+
+        <div class="table-card">
+
+            <table>
+
+                <thead>
+
+                    <tr>
+                        <th>Classe</th>
+                        <th>Niveau</th>
+                        <th>Section</th>
+                        <th>Actions</th>
+                    </tr>
+
+                </thead>
+
+                <tbody id="classesTable">
+
+                    <tr>
+                        <td
+                            colspan="4"
+                            class="empty"
+                        >
+                            Chargement des classes...
+                        </td>
+                    </tr>
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </main>
+
+</div>
+
+
+<!-- MODAL -->
+
+<div
+    class="modal"
+    id="classModal"
+>
+
+    <div class="modal-content">
+
+        <div class="modal-header">
+
+            <h3 id="modalTitle">
+                Ajouter une classe
+            </h3>
+
+            <button
+                class="close-btn"
+                onclick="closeModal()"
+            >
+                ×
+            </button>
+
+        </div>
+
+
+        <div class="form-group">
+
+            <label for="className">
+                Nom de la classe
+            </label>
+
+            <input
+                type="text"
+                id="className"
+                placeholder="Ex : 2-B"
+            >
+
+        </div>
+
+
+        <div class="form-group">
+
+            <label for="classLevel">
+                Niveau
+            </label>
+
+            <select id="classLevel">
+
+                <option value="">
+                    Sélectionner un niveau
+                </option>
+
+                <option value="1ère année">
+                    1ère année
+                </option>
+
+                <option value="2ème année">
+                    2ème année
+                </option>
+
+                <option value="3ème année">
+                    3ème année
+                </option>
+
+            </select>
+
+        </div>
+
+
+        <div class="form-group">
+
+            <label for="classSection">
+                Section
+            </label>
+
+            <select id="classSection">
+
+                <option value="">
+                    Sélectionner une section
+                </option>
+
+                <option value="A">
+                    Section A
+                </option>
+
+                <option value="B">
+                    Section B
+                </option>
+
+                <option value="C">
+                    Section C
+                </option>
+
+            </select>
+
+        </div>
+
+
+        <div class="modal-actions">
+
+            <button
+                class="cancel-btn"
+                onclick="closeModal()"
+            >
+                Annuler
+            </button>
+
+            <button
+                class="save-btn"
+                onclick="saveClass()"
+            >
+                Enregistrer
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<script>
+
+    /* =================================
+       SUPABASE
+    ================================= */
+
+    const SUPABASE_URL =
+        "https://esiwwkphbqkqqcfelktn.supabase.co";
+
+    const SUPABASE_KEY =
+        "sb_publishable_Gn6HhpZXdeoaWhWJ7wRWLw_D3dXLTnX";
+
+    const supabaseClient =
+        window.supabase.createClient(
+            SUPABASE_URL,
+            SUPABASE_KEY
+        );
+
+
+    /* =================================
+       VARIABLES
+    ================================= */
+
+    let classes = [];
+
+    let editingClassId = null;
+
+
+    /* =================================
+       AUTHENTIFICATION
+    ================================= */
+
+    async function checkUser() {
+
+        const { data } =
+            await supabaseClient.auth.getUser();
+
+        if (!data.user) {
+
+            window.location.href =
+                "index.html";
+
+            return false;
+        }
+
+        return true;
+    }
+
+
+    /* =================================
+       ERREUR
+    ================================= */
+
+    function showError(message) {
+
+        const box =
+            document.getElementById(
+                "errorBox"
+            );
+
+        box.textContent = message;
+        box.style.display = "block";
+
+    }
+
+
+    function hideError() {
+
+        const box =
+            document.getElementById(
+                "errorBox"
+            );
+
+        box.style.display = "none";
+
+    }
+
+
+    /* =================================
+       CHARGER LES CLASSES
+    ================================= */
+
+    async function loadClasses() {
+
+        hideError();
+
+        const table =
+            document.getElementById(
+                "classesTable"
+            );
+
+        table.innerHTML = `
+            <tr>
+                <td colspan="4" class="empty">
+                    Chargement des classes...
+                </td>
+            </tr>
+        `;
+
+
+        const { data, error } =
+            await supabaseClient
+                .from("classes")
+                .select("*")
+                .order("name", {
+                    ascending: true
+                });
+
+
+        if (error) {
+
+            console.error(
+                "Erreur récupération classes :",
+                error
+            );
+
+            showError(
+                "Impossible de récupérer les classes."
+            );
+
+            table.innerHTML = `
+                <tr>
+                    <td colspan="4" class="empty">
+                        Erreur de chargement.
+                    </td>
+                </tr>
+            `;
+
+            return;
+        }
+
+
+        classes = data || [];
+
+        displayClasses(classes);
+
+    }
+
+
+    /* =================================
+       AFFICHER LES CLASSES
+    ================================= */
+
+    function displayClasses(list) {
+
+        const table =
+            document.getElementById(
+                "classesTable"
+            );
+
+        const count =
+            document.getElementById(
+                "classCount"
+            );
+
+
+        count.textContent =
+            `${list.length} classe${list.length > 1 ? "s" : ""}`;
+
+
+        if (list.length === 0) {
+
+            table.innerHTML = `
+                <tr>
+                    <td colspan="4" class="empty">
+                        Aucune classe trouvée.
+                    </td>
+                </tr>
+            `;
+
+            return;
+        }
+
+
+        table.innerHTML =
+            list.map(classItem => `
+
+                <tr>
+
+                    <td>
+                        <span class="class-name">
+                            ${escapeHtml(
+                                classItem.name || "—"
+                            )}
+                        </span>
+                    </td>
+
+                    <td>
+                        ${escapeHtml(
+                            classItem.level || "—"
+                        )}
+                    </td>
+
+                    <td>
+
+                        ${
+                            classItem.section
+                                ? `
+                                    <span class="badge">
+                                        Section ${escapeHtml(
+                                            classItem.section
+                                        )}
+                                    </span>
+                                  `
+                                : "—"
+                        }
+
+                    </td>
+
+                    <td>
+
+                        <div class="actions">
+
+                            <button
+                                class="action-btn"
+                                onclick="editClass('${classItem.id}')"
+                                title="Modifier"
+                            >
+                                ✏️
+                            </button>
+
+                            <button
+                                class="action-btn delete-btn"
+                                onclick="deleteClass('${classItem.id}')"
+                                title="Supprimer"
+                            >
+                                🗑️
+                            </button>
+
+                        </div>
+
+                    </td>
+
+                </tr>
+
+            `).join("");
+
+    }
+
+
+    /* =================================
+       RECHERCHE
+    ================================= */
+
+    function filterClasses() {
+
+        const search =
+            document.getElementById(
+                "searchInput"
+            ).value
+            .toLowerCase()
+            .trim();
+
+
+        if (!search) {
+
+            displayClasses(classes);
+
+            return;
+        }
+
+
+        const filtered =
+            classes.filter(classItem => {
+
+                const name =
+                    (classItem.name || "")
+                        .toLowerCase();
+
+                const level =
+                    (classItem.level || "")
+                        .toLowerCase();
+
+                const section =
+                    (classItem.section || "")
+                        .toLowerCase();
+
+
+                return (
+                    name.includes(search) ||
+                    level.includes(search) ||
+                    section.includes(search)
+                );
+
+            });
+
+
+        displayClasses(filtered);
+
+    }
+
+
+    /* =================================
+       OUVRIR AJOUT
+    ================================= */
+
+    function openAddModal() {
+
+        editingClassId = null;
+
+        document.getElementById(
+            "modalTitle"
+        ).textContent =
+            "Ajouter une classe";
+
+
+        document.getElementById(
+            "className"
+        ).value = "";
+
+
+        document.getElementById(
+            "classLevel"
+        ).value = "";
+
+
+        document.getElementById(
+            "classSection"
+        ).value = "";
+
+
+        document.getElementById(
+            "classModal"
+        ).style.display =
+            "flex";
+
+    }
+
+
+    /* =================================
+       FERMER MODAL
+    ================================= */
+
+    function closeModal() {
+
+        document.getElementById(
+            "classModal"
+        ).style.display =
+            "none";
+
+    }
+
+
+    /* =================================
+       MODIFIER
+    ================================= */
+
+    function editClass(id) {
+
+        const classItem =
+            classes.find(
+                item => item.id === id
+            );
+
+
+        if (!classItem) {
+            return;
+        }
+
+
+        editingClassId = id;
+
+
+        document.getElementById(
+            "modalTitle"
+        ).textContent =
+            "Modifier la classe";
+
+
+        document.getElementById(
+            "className"
+        ).value =
+            classItem.name || "";
+
+
+        document.getElementById(
+            "classLevel"
+        ).value =
+            classItem.level || "";
+
+
+        document.getElementById(
+            "classSection"
+        ).value =
+            classItem.section || "";
+
+
+        document.getElementById(
+            "classModal"
+        ).style.display =
+            "flex";
+
+    }
+
+
+    /* =================================
+       ENREGISTRER
+    ================================= */
+
+    async function saveClass() {
+
+        hideError();
+
+
+        const name =
+            document.getElementById(
+                "className"
+            ).value.trim();
+
+
+        const level =
+            document.getElementById(
+                "classLevel"
+            ).value;
+
+
+        const section =
+            document.getElementById(
+                "classSection"
+            ).value;
+
+
+        if (!name) {
+
+            alert(
+                "Veuillez renseigner le nom de la classe."
+            );
+
+            return;
+        }
+
+
+        if (!level) {
+
+            alert(
+                "Veuillez sélectionner un niveau."
+            );
+
+            return;
+        }
+
+
+        if (!section) {
+
+            alert(
+                "Veuillez sélectionner une section."
+            );
+
+            return;
+        }
+
+
+        const classData = {
+            name,
+            level,
+            section
+        };
+
+
+        /* MODIFICATION */
+
+        if (editingClassId) {
+
+            const { error } =
+                await supabaseClient
+                    .from("classes")
+                    .update(classData)
+                    .eq(
+                        "id",
+                        editingClassId
+                    );
+
+
+            if (error) {
+
+                console.error(
+                    "Erreur modification classe :",
+                    error
+                );
+
+                if (
+                    error.code === "23505"
+                ) {
+
+                    alert(
+                        "Une classe portant ce nom existe déjà."
+                    );
+
+                } else {
+
+                    showError(
+                        "Impossible de modifier la classe."
+                    );
+
+                }
+
+                return;
+            }
+
+        }
+
+        /* AJOUT */
+
+        else {
+
+            const { error } =
+                await supabaseClient
+                    .from("classes")
+                    .insert([
+                        classData
+                    ]);
+
+
+            if (error) {
+
+                console.error(
+                    "Erreur ajout classe :",
+                    error
+                );
+
+
+                if (
+                    error.code === "23505"
+                ) {
+
+                    alert(
+                        "Une classe portant ce nom existe déjà."
+                    );
+
+                } else {
+
+                    showError(
+                        "Impossible d'ajouter la classe."
+                    );
+
+                }
+
+                return;
+            }
+
+        }
+
+
+        closeModal();
+
+        await loadClasses();
+
+    }
+
+
+    /* =================================
+       SUPPRIMER
+    ================================= */
+
+    async function deleteClass(id) {
+
+        const classItem =
+            classes.find(
+                item => item.id === id
+            );
+
+
+        if (!classItem) {
+            return;
+        }
+
+
+        const confirmed =
+            confirm(
+                `Voulez-vous vraiment supprimer la classe "${classItem.name}" ?`
+            );
+
+
+        if (!confirmed) {
+            return;
+        }
+
+
+        const { error } =
+            await supabaseClient
+                .from("classes")
+                .delete()
+                .eq("id", id);
+
+
+        if (error) {
+
+            console.error(
+                "Erreur suppression classe :",
+                error
+            );
+
+            showError(
+                "Impossible de supprimer la classe."
+            );
+
+            return;
+        }
+
+
+        await loadClasses();
+
+    }
+
+
+    /* =================================
+       SÉCURITÉ AFFICHAGE
+    ================================= */
+
+    function escapeHtml(value) {
+
+        return String(value)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+
+    }
+
+
+    /* =================================
+       FERMER EN CLIQUANT À CÔTÉ
+    ================================= */
+
+    document
+        .getElementById("classModal")
+        .addEventListener(
+            "click",
+            function(event) {
+
+                if (
+                    event.target === this
+                ) {
+
+                    closeModal();
+
+                }
+
+            }
+        );
+
+
+    /* =================================
+       INITIALISATION
+    ================================= */
+
+    async function init() {
+
+        const authenticated =
+            await checkUser();
+
+        if (!authenticated) {
+            return;
+        }
+
+        await loadClasses();
+
+    }
+
+
+    init();
+
+</script>
+
+</body>
+</html>
+```
