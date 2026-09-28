@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dossier élève — Midori High</title>
+
+```
+<style>
+
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
+
+    body {
+        font-family: Arial, sans-serif;
+        background: #f4f7f6;
+        color: #1f2937;
+        min-height: 100vh;
+    }
+
+    .topbar {
+        height: 70px;
+        background: white;
+        border-bottom: 1px solid #e5e7eb;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 30px;
+    }
+
+    .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .logo {
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        background: #2f6f5e;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+    }
+
+    .brand strong {
+        display: block;
+        font-size: 17px;
+    }
+
+    .brand span {
+        font-size: 12px;
+        color: #6b7280;
+    }
+
+    .layout {
+        display: flex;
+        min-height: calc(100vh - 70px);
+    }
+
+    .sidebar {
+        width: 240px;
+        background: #183d34;
+        padding: 25px 15px;
+        color: white;
+    }
+
+    .sidebar-title {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        opacity: 0.6;
+        margin: 10px 12px;
+    }
+
+    .nav-item {
+        display: block;
+        color: white;
+        text-decoration: none;
+        padding: 12px;
+        border-radius: 8px;
+        margin-bottom: 5px;
+        font-size: 14px;
+    }
+
+    .nav-item:hover,
+    .nav-item.active {
+        background: #2f6f5e;
+    }
+
+    .main {
+        flex: 1;
+        padding: 35px;
+    }
+
+    .back {
+        display: inline-block;
+        color: #2f6f5e;
+        text-decoration: none;
+        font-size: 14px;
+        font-weight: bold;
+        margin-bottom: 20px;
+    }
+
+    .back:hover {
+        text-decoration: underline;
+    }
+
+    .profile-header {
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 14px;
+        padding: 30px;
+        display: flex;
+        align-items: center;
+        gap: 22px;
+        margin-bottom: 25px;
+    }
+
+    .avatar {
+        width: 75px;
+        height: 75px;
+        border-radius: 50%;
+        background: #2f6f5e;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        font-weight: bold;
+    }
+
+    .profile-info h1 {
+        font-size: 26px;
+        margin-bottom: 7px;
+    }
+
+    .profile-info p {
+        color: #6b7280;
+        font-size: 14px;
+    }
+
+    .status {
+        margin-left: auto;
+        background: #eef4f1;
+        color: #2f6f5e;
+        padding: 8px 12px;
+        border-radius: 20px;
+        font-size: 13px;
+        font-weight: bold;
+    }
+
+    .section {
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 14px;
+        margin-bottom: 20px;
+        overflow: hidden;
+    }
+
+    .section-title {
+        padding: 18px 22px;
+        background: #f8faf9;
+        border-bottom: 1px solid #e5e7eb;
+        font-size: 16px;
+        font-weight: bold;
+    }
+
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .info {
+        padding: 20px 22px;
+        border-bottom: 1px solid #f0f0f0;
+    }
+
+    .info:nth-child(odd) {
+        border-right: 1px solid #f0f0f0;
+    }
+
+    .label {
+        display: block;
+        font-size: 12px;
+        color: #6b7280;
+        margin-bottom: 7px;
+        text-transform: uppercase;
+    }
+
+    .value {
+        font-size: 15px;
+        font-weight: 600;
+    }
+
+    .empty-section {
+        padding: 30px;
+        text-align: center;
+        color: #9ca3af;
+        font-size: 14px;
+    }
+
+    .loading {
+        text-align: center;
+        padding: 80px;
+        color: #6b7280;
+    }
+
+    .error {
+        background: #fef2f2;
+        color: #dc2626;
+        padding: 20px;
+        border-radius: 10px;
+    }
+
+    @media (max-width: 700px) {
+
+        .sidebar {
+            display: none;
+        }
+
+        .main {
+            padding: 20px;
+        }
+
+        .profile-header {
+            align-items: flex-start;
+            flex-direction: column;
+        }
+
+        .status {
+            margin-left: 0;
+        }
+
+        .info-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .info:nth-child(odd) {
+            border-right: none;
+        }
+    }
+
+</style>
+```
+
+</head>
+
+<body>
+
+<header class="topbar">
+
+```
+<div class="brand">
+
+    <div class="logo">
+        MH
+    </div>
+
+    <div>
+        <strong>Midori High</strong>
+        <span>Portail administratif</span>
+    </div>
+
+</div>
+
+<div>
+    <strong>Administration</strong>
+    <span>Administrateur</span>
+</div>
+```
+
+</header>
+
+<div class="layout">
+
+```
+<aside class="sidebar">
+
+    <div class="sidebar-title">
+        Administration
+    </div>
+
+    <a href="dashboard.html" class="nav-item">
+        📊 Tableau de bord
+    </a>
+
+    <a href="students.html" class="nav-item active">
+        👨‍🎓 Élèves
+    </a>
+
+    <a href="#" class="nav-item">
+        👨‍🏫 Professeurs
+    </a>
+
+    <a href="#" class="nav-item">
+        👮 Surveillants
+    </a>
+
+    <a href="#" class="nav-item">
+        🏫 Classes
+    </a>
+
+
+    <div class="sidebar-title">
+        Scolarité
+    </div>
+
+    <a href="#" class="nav-item">
+        📚 Matières
+    </a>
+
+    <a href="#" class="nav-item">
+        🕐 Emplois du temps
+    </a>
+
+    <a href="#" class="nav-item">
+        📝 Notes
+    </a>
+
+    <a href="#" class="nav-item">
+        📋 Absences
+    </a>
+
+</aside>
+
+
+<main class="main">
+
+    <a href="students.html" class="back">
+        ← Retour à la liste des élèves
+    </a>
+
+
+    <div id="content">
+
+        <div class="loading">
+            Chargement du dossier...
+        </div>
+
+    </div>
+
+</main>
+```
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+
+
+const SUPABASE_URL =
+    "https://esiwwkphbqkqqcfelktn.supabase.co";
+
+const SUPABASE_KEY =
+    "sb_publishable_Gn6HhpZXdeoaWhWJ7wRWLw_D3dXLTnX";
+
+
+const supabaseClient =
+    window.supabase.createClient(
+        SUPABASE_URL,
+        SUPABASE_KEY
+    );
+
+
+// Vérification utilisateur
+
+async function checkUser() {
+
+    const { data } =
+        await supabaseClient.auth.getUser();
+
+    if (!data.user) {
+
+        window.location.href = "index.html";
+
+        return false;
+    }
+
+    return true;
+}
+
+
+// Récupérer l'ID dans l'URL
+
+function getStudentId() {
+
+    const params =
+        new URLSearchParams(window.location.search);
+
+    return params.get("id");
+
+}
+
+
+// Échapper le HTML
+
+function escapeHTML(value) {
+
+    return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+
+}
+
+
+// Afficher une erreur
+
+function showError(message) {
+
+    document.getElementById("content").innerHTML = `
+
+        <div class="error">
+            ${escapeHTML(message)}
+        </div>
+
+    `;
+
+}
+
+
+// Charger le dossier
+
+async function loadStudent() {
+
+    const connected = await checkUser();
+
+    if (!connected) return;
+
+
+    const studentId = getStudentId();
+
+
+    if (!studentId) {
+
+        showError(
+            "Aucun élève n'a été sélectionné."
+        );
+
+        return;
+    }
+
+
+    const { data: student, error } =
+        await supabaseClient
+            .from("students")
+            .select("*")
+            .eq("id", studentId)
+            .single();
+
+
+    if (error) {
+
+        console.error(error);
+
+        showError(
+            "Impossible de charger le dossier de cet élève."
+        );
+
+        return;
+    }
+
+
+    if (!student) {
+
+        showError(
+            "Élève introuvable."
+        );
+
+        return;
+    }
+
+
+    displayStudent(student);
+
+}
+
+
+// Afficher le dossier
+
+function displayStudent(student) {
+
+    const fullName =
+        student.full_name || "Élève";
+
+    const initials =
+        fullName
+            .split(" ")
+            .filter(Boolean)
+            .slice(0, 2)
+            .map(word => word.charAt(0))
+            .join("")
+            .toUpperCase();
+
+
+    document.getElementById("content").innerHTML = `
+
+        <div class="profile-header">
+
+            <div class="avatar">
+                ${escapeHTML(initials)}
+            </div>
+
+            <div class="profile-info">
+
+                <h1>
+                    ${escapeHTML(fullName)}
+                </h1>
+
+                <p>
+                    Dossier scolaire — Midori High
+                </p>
+
+            </div>
+
+            <div class="status">
+                Élève
+            </div>
+
+        </div>
+
+
+        <div class="section">
+
+            <div class="section-title">
+                👤 Informations personnelles
+            </div>
+
+            <div class="info-grid">
+
+                <div class="info">
+
+                    <span class="label">
+                        Nom complet
+                    </span>
+
+                    <span class="value">
+                        ${escapeHTML(student.full_name || "—")}
+                    </span>
+
+                </div>
+
+
+                <div class="info">
+
+                    <span class="label">
+                        Identifiant
+                    </span>
+
+                    <span class="value">
+                        ${escapeHTML(student.username || "—")}
+                    </span>
+
+                </div>
+
+
+                <div class="info">
+
+                    <span class="label">
+                        Classe
+                    </span>
+
+                    <span class="value">
+                        ${escapeHTML(student.class_name || "—")}
+                    </span>
+
+                </div>
+
+
+                <div class="info">
+
+                    <span class="label">
+                        Date de naissance
+                    </span>
+
+                    <span class="value">
+                        ${student.birth_date || "—"}
+                    </span>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="section">
+
+            <div class="section-title">
+                📋 Scolarité
+            </div>
+
+            <div class="empty-section">
+                Les informations de scolarité seront disponibles ici.
+            </div>
+
+        </div>
+
+
+        <div class="section">
+
+            <div class="section-title">
+                📅 Absences et retards
+            </div>
+
+            <div class="empty-section">
+                Aucune donnée d'absence ou de retard pour le moment.
+            </div>
+
+        </div>
+
+
+        <div class="section">
+
+            <div class="section-title">
+                📝 Notes
+            </div>
+
+            <div class="empty-section">
+                Les notes de l'élève seront affichées ici.
+            </div>
+
+        </div>
+
+
+        <div class="section">
+
+            <div class="section-title">
+                ⚠️ Sanctions et comportement
+            </div>
+
+            <div class="empty-section">
+                Aucune sanction enregistrée.
+            </div>
+
+        </div>
+
+    `;
+
+}
+
+
+// Lancer
+
+loadStudent();
+
+
+</script>
+
+</body>
+</html>
