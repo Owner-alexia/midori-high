@@ -110,6 +110,9 @@
         }
 
         .nav-item {
+            display: block;
+            color: white;
+            text-decoration: none;
             padding: 12px;
             border-radius: 8px;
             margin-bottom: 5px;
@@ -217,6 +220,7 @@
         }
 
         @media (max-width: 900px) {
+
             .cards {
                 grid-template-columns: repeat(2, 1fr);
             }
@@ -231,6 +235,7 @@
         }
 
         @media (max-width: 650px) {
+
             .sidebar {
                 display: none;
             }
@@ -252,24 +257,49 @@
 
 <body>
 
+    <!-- BARRE DU HAUT -->
+
     <header class="topbar">
 
         <div class="brand">
-            <div class="logo">MH</div>
+
+            <div class="logo">
+                MH
+            </div>
 
             <div class="brand-text">
-                <strong>Midori High</strong>
-                <span>Portail administratif</span>
+
+                <strong>
+                    Midori High
+                </strong>
+
+                <span>
+                    Portail administratif
+                </span>
+
             </div>
+
         </div>
 
+
         <div class="profile">
+
             <div class="profile-info">
-                <strong>Administration</strong>
-                <span>Administrateur</span>
+
+                <strong>
+                    Administration
+                </strong>
+
+                <span>
+                    Administrateur
+                </span>
+
             </div>
 
-            <div class="avatar">A</div>
+            <div class="avatar">
+                A
+            </div>
+
         </div>
 
     </header>
@@ -277,98 +307,169 @@
 
     <div class="layout">
 
+
+        <!-- MENU LATERAL -->
+
         <aside class="sidebar">
 
             <div class="sidebar-title">
                 Administration
             </div>
 
-            <div class="nav-item active">
+
+            <a
+                href="dashboard.html"
+                class="nav-item active"
+            >
                 📊 Tableau de bord
-            </div>
+            </a>
 
-            <div class="nav-item">
+
+            <a
+                href="students.html"
+                class="nav-item"
+            >
                 👨‍🎓 Élèves
-            </div>
+            </a>
 
-            <div class="nav-item">
+
+            <a
+                href="#"
+                class="nav-item"
+            >
                 👨‍🏫 Professeurs
-            </div>
+            </a>
 
-            <div class="nav-item">
+
+            <a
+                href="#"
+                class="nav-item"
+            >
                 👮 Surveillants
-            </div>
+            </a>
 
-            <div class="nav-item">
+
+            <a
+                href="#"
+                class="nav-item"
+            >
                 🏫 Classes
-            </div>
+            </a>
 
 
             <div class="sidebar-title">
                 Scolarité
             </div>
 
-            <div class="nav-item">
+
+            <a
+                href="#"
+                class="nav-item"
+            >
                 📚 Matières
-            </div>
+            </a>
 
-            <div class="nav-item">
+
+            <a
+                href="#"
+                class="nav-item"
+            >
                 🕐 Emplois du temps
-            </div>
+            </a>
 
-            <div class="nav-item">
+
+            <a
+                href="#"
+                class="nav-item"
+            >
                 📝 Notes
-            </div>
+            </a>
 
-            <div class="nav-item">
+
+            <a
+                href="#"
+                class="nav-item"
+            >
                 📋 Absences
-            </div>
+            </a>
 
 
             <div class="sidebar-title">
                 Système
             </div>
 
-            <div class="nav-item">
+
+            <a
+                href="#"
+                class="nav-item"
+            >
                 📢 Annonces
-            </div>
+            </a>
 
-            <div class="nav-item">
+
+            <a
+                href="#"
+                class="nav-item"
+            >
                 📜 Journal d'activité
-            </div>
+            </a>
 
-            <div class="nav-item">
+
+            <a
+                href="#"
+                class="nav-item"
+            >
                 ⚙️ Paramètres
-            </div>
+            </a>
 
         </aside>
 
 
+        <!-- CONTENU PRINCIPAL -->
+
         <main class="main">
 
+
             <div class="welcome">
-                <h1>Bonjour, Administration 👋</h1>
+
+                <h1>
+                    Bonjour, Administration 👋
+                </h1>
 
                 <p>
                     Bienvenue sur le portail administratif de Midori High.
                 </p>
+
             </div>
 
 
+            <!-- CARTES -->
+
             <div class="cards">
 
+
+                <!-- ÉLÈVES -->
+
                 <div class="card">
+
                     <div class="card-title">
                         Élèves inscrits
                     </div>
 
-                    <div class="card-number">
-                        0
+                    <div
+                        class="card-number"
+                        id="studentsCount"
+                    >
+                        —
                     </div>
+
                 </div>
 
 
+                <!-- PROFESSEURS -->
+
                 <div class="card">
+
                     <div class="card-title">
                         Professeurs
                     </div>
@@ -376,10 +477,14 @@
                     <div class="card-number">
                         0
                     </div>
+
                 </div>
 
 
+                <!-- CLASSES -->
+
                 <div class="card">
+
                     <div class="card-title">
                         Classes
                     </div>
@@ -387,10 +492,14 @@
                     <div class="card-number">
                         0
                     </div>
+
                 </div>
 
 
+                <!-- ABSENCES -->
+
                 <div class="card">
+
                     <div class="card-title">
                         Absences aujourd'hui
                     </div>
@@ -398,12 +507,18 @@
                     <div class="card-number">
                         0
                     </div>
+
                 </div>
 
             </div>
 
 
+            <!-- CONTENU DU BAS -->
+
             <div class="content-grid">
+
+
+                <!-- ACTIVITÉ -->
 
                 <section class="panel">
 
@@ -411,7 +526,9 @@
                         📜 Activité récente
                     </h2>
 
+
                     <div class="activity">
+
                         <span>
                             Connexion de l'administration
                         </span>
@@ -419,9 +536,12 @@
                         <span class="activity-time">
                             Maintenant
                         </span>
+
                     </div>
 
+
                     <div class="activity">
+
                         <span>
                             Aucun autre événement enregistré
                         </span>
@@ -429,10 +549,13 @@
                         <span class="activity-time">
                             —
                         </span>
+
                     </div>
 
                 </section>
 
+
+                <!-- ACTIONS RAPIDES -->
 
                 <section class="panel">
 
@@ -440,17 +563,21 @@
                         ⚡ Actions rapides
                     </h2>
 
+
                     <div class="quick-action">
                         ➕ Ajouter un élève
                     </div>
+
 
                     <div class="quick-action">
                         ➕ Ajouter un professeur
                     </div>
 
+
                     <div class="quick-action">
                         🏫 Gérer les classes
                     </div>
+
 
                     <div class="quick-action">
                         🕐 Modifier l'emploi du temps
@@ -463,6 +590,120 @@
         </main>
 
     </div>
+
+
+    <!-- SUPABASE -->
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+
+    <script>
+
+        /*
+         * ==========================================
+         * CONNEXION SUPABASE
+         * ==========================================
+         */
+
+        const SUPABASE_URL =
+            "https://esiwwkphbqkqqcfelktn.supabase.co";
+
+        const SUPABASE_KEY =
+            "sb_publishable_Gn6HhpZXdeoaWhWJ7wRWLw_D3dXLTnX";
+
+
+        const supabaseClient =
+            window.supabase.createClient(
+                SUPABASE_URL,
+                SUPABASE_KEY
+            );
+
+
+        /*
+         * ==========================================
+         * VÉRIFICATION DE LA CONNEXION
+         * ==========================================
+         */
+
+        async function checkUser() {
+
+            const { data } =
+                await supabaseClient.auth.getUser();
+
+
+            if (!data.user) {
+
+                window.location.href =
+                    "index.html";
+
+                return false;
+            }
+
+
+            return true;
+        }
+
+
+        /*
+         * ==========================================
+         * COMPTER LES ÉLÈVES
+         * ==========================================
+         */
+
+        async function loadStudentsCount() {
+
+
+            const connected =
+                await checkUser();
+
+
+            if (!connected) {
+                return;
+            }
+
+
+            const { count, error } =
+                await supabaseClient
+                    .from("students")
+                    .select("*", {
+                        count: "exact",
+                        head: true
+                    });
+
+
+            if (error) {
+
+                console.error(
+                    "Erreur lors du chargement du nombre d'élèves :",
+                    error
+                );
+
+
+                document.getElementById(
+                    "studentsCount"
+                ).textContent = "—";
+
+
+                return;
+            }
+
+
+            document.getElementById(
+                "studentsCount"
+            ).textContent = count ?? 0;
+
+        }
+
+
+        /*
+         * ==========================================
+         * LANCER LE TABLEAU DE BORD
+         * ==========================================
+         */
+
+        loadStudentsCount();
+
+    </script>
 
 </body>
 </html>
