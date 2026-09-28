@@ -1,462 +1,582 @@
+```html
 <!DOCTYPE html>
-
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Élèves — Midori High</title>
 
-```
-<style>
-    * {
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
-    }
+    <title>Midori High — Élèves</title>
 
-    body {
-        font-family: Arial, sans-serif;
-        background: #f4f7f6;
-        color: #1f2937;
-        min-height: 100vh;
-    }
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-    .topbar {
-        height: 70px;
-        background: white;
-        border-bottom: 1px solid #e5e7eb;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 0 30px;
-    }
-
-    .brand {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-    }
-
-    .logo {
-        width: 42px;
-        height: 42px;
-        border-radius: 50%;
-        background: #2f6f5e;
-        color: white;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: bold;
-    }
-
-    .brand strong {
-        display: block;
-        font-size: 17px;
-    }
-
-    .brand span {
-        font-size: 12px;
-        color: #6b7280;
-    }
-
-    .layout {
-        display: flex;
-        min-height: calc(100vh - 70px);
-    }
-
-    .sidebar {
-        width: 240px;
-        background: #183d34;
-        padding: 25px 15px;
-        color: white;
-    }
-
-    .sidebar-title {
-        font-size: 11px;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        opacity: 0.6;
-        margin: 10px 12px;
-    }
-
-    .nav-item {
-        display: block;
-        color: white;
-        text-decoration: none;
-        padding: 12px;
-        border-radius: 8px;
-        margin-bottom: 5px;
-        font-size: 14px;
-    }
-
-    .nav-item:hover,
-    .nav-item.active {
-        background: #2f6f5e;
-    }
-
-    .main {
-        flex: 1;
-        padding: 35px;
-    }
-
-    .header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 20px;
-        margin-bottom: 25px;
-    }
-
-    .header h1 {
-        font-size: 28px;
-        margin-bottom: 7px;
-    }
-
-    .header p {
-        color: #6b7280;
-    }
-
-    .add-button {
-        background: #2f6f5e;
-        color: white;
-        border: none;
-        padding: 13px 18px;
-        border-radius: 9px;
-        font-weight: bold;
-        cursor: pointer;
-    }
-
-    .add-button:hover {
-        background: #25594b;
-    }
-
-    .toolbar {
-        background: white;
-        padding: 18px;
-        border: 1px solid #e5e7eb;
-        border-radius: 12px;
-        margin-bottom: 20px;
-    }
-
-    .search {
-        width: 100%;
-        max-width: 450px;
-        padding: 12px;
-        border: 1px solid #d1d5db;
-        border-radius: 8px;
-        font-size: 14px;
-        outline: none;
-    }
-
-    .search:focus {
-        border-color: #2f6f5e;
-    }
-
-    .table-container {
-        background: white;
-        border: 1px solid #e5e7eb;
-        border-radius: 12px;
-        overflow-x: auto;
-    }
-
-    table {
-        width: 100%;
-        border-collapse: collapse;
-    }
-
-    th {
-        background: #f8faf9;
-        text-align: left;
-        padding: 15px;
-        font-size: 12px;
-        color: #6b7280;
-        text-transform: uppercase;
-    }
-
-    td {
-        padding: 15px;
-        border-top: 1px solid #f0f0f0;
-        font-size: 14px;
-    }
-
-    .empty {
-        text-align: center;
-        padding: 50px;
-        color: #9ca3af;
-    }
-
-    .action {
-        border: none;
-        background: #eef4f1;
-        padding: 8px 10px;
-        border-radius: 7px;
-        cursor: pointer;
-        margin-right: 5px;
-    }
-
-    .action:hover {
-        background: #dcebe6;
-    }
-
-    .delete {
-        background: #fef2f2;
-    }
-
-    .delete:hover {
-        background: #fee2e2;
-    }
-
-    .modal {
-        display: none;
-        position: fixed;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.4);
-        align-items: center;
-        justify-content: center;
-        padding: 20px;
-        z-index: 100;
-    }
-
-    .modal.show {
-        display: flex;
-    }
-
-    .modal-box {
-        width: 100%;
-        max-width: 500px;
-        background: white;
-        border-radius: 15px;
-        padding: 30px;
-    }
-
-    .modal-box h2 {
-        margin-bottom: 25px;
-    }
-
-    .form-group {
-        margin-bottom: 17px;
-    }
-
-    .form-group label {
-        display: block;
-        font-size: 13px;
-        font-weight: bold;
-        margin-bottom: 7px;
-    }
-
-    .form-group input,
-    .form-group select {
-        width: 100%;
-        padding: 12px;
-        border: 1px solid #d1d5db;
-        border-radius: 8px;
-        font-size: 14px;
-    }
-
-    .modal-actions {
-        display: flex;
-        gap: 10px;
-        margin-top: 25px;
-    }
-
-    .modal-actions button {
-        flex: 1;
-        padding: 12px;
-        border: none;
-        border-radius: 8px;
-        cursor: pointer;
-        font-weight: bold;
-    }
-
-    .save {
-        background: #2f6f5e;
-        color: white;
-    }
-
-    .cancel {
-        background: #e5e7eb;
-    }
-
-    #message {
-        margin-top: 15px;
-        text-align: center;
-        font-size: 13px;
-    }
-
-    @media (max-width: 700px) {
-        .sidebar {
-            display: none;
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
         }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f6f8f7;
+            color: #24332d;
+        }
+
+        .layout {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* SIDEBAR */
+
+        .sidebar {
+            width: 250px;
+            background: #ffffff;
+            border-right: 1px solid #e5e9e7;
+            padding: 25px 15px;
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 35px;
+        }
+
+        .logo h1 {
+            font-size: 23px;
+            color: #456b59;
+        }
+
+        .logo p {
+            font-size: 12px;
+            color: #8b9992;
+            margin-top: 5px;
+        }
+
+        .section-title {
+            font-size: 11px;
+            text-transform: uppercase;
+            color: #9aa6a1;
+            margin: 20px 10px 8px;
+            font-weight: bold;
+        }
+
+        .nav-item {
+            display: block;
+            padding: 11px 13px;
+            margin-bottom: 4px;
+            border-radius: 8px;
+            text-decoration: none;
+            color: #52625a;
+            font-size: 14px;
+            transition: 0.2s;
+        }
+
+        .nav-item:hover {
+            background: #f0f5f2;
+            color: #456b59;
+        }
+
+        .nav-item.active {
+            background: #e8f1ec;
+            color: #456b59;
+            font-weight: bold;
+        }
+
+        /* MAIN */
 
         .main {
+            flex: 1;
+            padding: 30px;
+        }
+
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .topbar h2 {
+            font-size: 25px;
+            color: #2e4037;
+        }
+
+        .topbar p {
+            color: #8a9891;
+            font-size: 13px;
+            margin-top: 5px;
+        }
+
+        .add-btn {
+            border: none;
+            background: #456b59;
+            color: white;
+            padding: 11px 17px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .add-btn:hover {
+            background: #385b4a;
+        }
+
+        /* TOOLBAR */
+
+        .toolbar {
+            background: white;
+            border: 1px solid #e4e9e6;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1px solid #dce4df;
+            border-radius: 8px;
+            outline: none;
+            font-size: 14px;
+        }
+
+        .search-input:focus {
+            border-color: #8eaa9b;
+        }
+
+        .count {
+            margin-top: 10px;
+            font-size: 13px;
+            color: #89958f;
+        }
+
+        /* TABLE */
+
+        .table-card {
+            background: white;
+            border: 1px solid #e4e9e6;
+            border-radius: 14px;
+            overflow: hidden;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            text-align: left;
+            padding: 15px;
+            background: #f8faf9;
+            color: #718078;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+
+        td {
+            padding: 15px;
+            border-top: 1px solid #edf0ee;
+            font-size: 14px;
+            color: #405148;
+        }
+
+        tr:hover td {
+            background: #fbfcfb;
+        }
+
+        .student-name {
+            font-weight: bold;
+            color: #30473b;
+        }
+
+        .username {
+            color: #89958f;
+            font-size: 12px;
+            margin-top: 3px;
+        }
+
+        .class-badge {
+            display: inline-block;
+            padding: 5px 9px;
+            border-radius: 20px;
+            background: #e8f1ec;
+            color: #456b59;
+            font-size: 12px;
+        }
+
+        .no-class {
+            color: #9aa49f;
+            font-size: 13px;
+        }
+
+        .actions {
+            display: flex;
+            gap: 7px;
+        }
+
+        .action-btn {
+            border: 1px solid #dce4df;
+            background: white;
+            padding: 7px 9px;
+            border-radius: 7px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .action-btn:hover {
+            background: #f3f6f4;
+        }
+
+        .delete-btn:hover {
+            background: #fff2f2;
+            border-color: #eccaca;
+        }
+
+        .empty {
+            text-align: center;
+            padding: 40px;
+            color: #8d9993;
+            font-size: 14px;
+        }
+
+        /* MODAL */
+
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(30, 45, 38, 0.35);
+            justify-content: center;
+            align-items: center;
             padding: 20px;
+            z-index: 1000;
         }
 
-        .header {
-            align-items: flex-start;
-            flex-direction: column;
+        .modal-content {
+            width: 100%;
+            max-width: 500px;
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
         }
-    }
-</style>
-```
 
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-header h3 {
+            color: #30473b;
+        }
+
+        .close-btn {
+            border: none;
+            background: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #78857e;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            color: #52625a;
+            margin-bottom: 7px;
+            font-weight: bold;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 11px 12px;
+            border: 1px solid #dce4df;
+            border-radius: 8px;
+            outline: none;
+            font-size: 14px;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            border-color: #8eaa9b;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .cancel-btn {
+            border: 1px solid #dce4df;
+            background: white;
+            color: #52625a;
+            padding: 10px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .save-btn {
+            border: none;
+            background: #456b59;
+            color: white;
+            padding: 10px 17px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .error {
+            display: none;
+            background: #fff0f0;
+            border: 1px solid #f0cccc;
+            color: #a04d4d;
+            padding: 12px 15px;
+            border-radius: 9px;
+            margin-bottom: 15px;
+            font-size: 13px;
+        }
+
+        @media (max-width: 800px) {
+
+            .layout {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                border-right: none;
+                border-bottom: 1px solid #e5e9e7;
+            }
+
+            .topbar {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .table-card {
+                overflow-x: auto;
+            }
+
+            table {
+                min-width: 750px;
+            }
+        }
+    </style>
 </head>
 
 <body>
 
-<header class="topbar">
-
-```
-<div class="brand">
-    <div class="logo">MH</div>
-
-    <div>
-        <strong>Midori High</strong>
-        <span>Portail administratif</span>
-    </div>
-</div>
-
-<div>
-    <strong>Administration</strong>
-    <span>Administrateur</span>
-</div>
-```
-
-</header>
-
 <div class="layout">
 
-```
-<aside class="sidebar">
+    <!-- SIDEBAR -->
 
-    <div class="sidebar-title">Administration</div>
+    <aside class="sidebar">
 
-    <a href="dashboard.html" class="nav-item">
-        📊 Tableau de bord
-    </a>
-
-    <a href="students.html" class="nav-item active">
-        👨‍🎓 Élèves
-    </a>
-
-    <a href="#" class="nav-item">
-        👨‍🏫 Professeurs
-    </a>
-
-    <a href="#" class="nav-item">
-        👮 Surveillants
-    </a>
-
-    <a href="#" class="nav-item">
-        🏫 Classes
-    </a>
-
-    <div class="sidebar-title">Scolarité</div>
-
-    <a href="#" class="nav-item">
-        📚 Matières
-    </a>
-
-    <a href="#" class="nav-item">
-        🕐 Emplois du temps
-    </a>
-
-    <a href="#" class="nav-item">
-        📝 Notes
-    </a>
-
-    <a href="#" class="nav-item">
-        📋 Absences
-    </a>
-
-</aside>
-
-
-<main class="main">
-
-    <div class="header">
-
-        <div>
-            <h1>👨‍🎓 Élèves</h1>
-            <p>Gestion des élèves de Midori High</p>
+        <div class="logo">
+            <h1>Midori High</h1>
+            <p>Administration</p>
         </div>
 
-        <button class="add-button" onclick="openModal()">
-            + Ajouter un élève
-        </button>
+        <div class="section-title">
+            Administration
+        </div>
 
-    </div>
+        <a href="dashboard.html" class="nav-item">
+            📊 Tableau de bord
+        </a>
+
+        <a href="students.html" class="nav-item active">
+            👨‍🎓 Élèves
+        </a>
+
+        <a href="professors.html" class="nav-item">
+            👨‍🏫 Professeurs
+        </a>
+
+        <a href="#" class="nav-item">
+            👮 Surveillants
+        </a>
+
+        <a href="classes.html" class="nav-item">
+            🏫 Classes
+        </a>
 
 
-    <div class="toolbar">
+        <div class="section-title">
+            Scolarité
+        </div>
 
-        <input
-            type="text"
-            id="search"
-            class="search"
-            placeholder="🔎 Rechercher un élève..."
-        >
+        <a href="#" class="nav-item">
+            📚 Matières
+        </a>
 
-    </div>
+        <a href="#" class="nav-item">
+            🕐 Emplois du temps
+        </a>
+
+        <a href="#" class="nav-item">
+            📝 Notes
+        </a>
+
+        <a href="absences.html" class="nav-item">
+            📋 Absences
+        </a>
 
 
-    <div class="table-container">
+        <div class="section-title">
+            Système
+        </div>
 
-        <table>
+        <a href="#" class="nav-item">
+            📢 Annonces
+        </a>
 
-            <thead>
-                <tr>
-                    <th>Identifiant</th>
-                    <th>Nom complet</th>
-                    <th>Classe</th>
-                    <th>Date de naissance</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
+        <a href="#" class="nav-item">
+            📜 Journal d'activité
+        </a>
 
-            <tbody id="studentsTable">
+        <a href="#" class="nav-item">
+            ⚙️ Paramètres
+        </a>
 
-                <tr>
-                    <td colspan="5" class="empty">
-                        Chargement...
-                    </td>
-                </tr>
+    </aside>
 
-            </tbody>
 
-        </table>
+    <!-- MAIN -->
 
-    </div>
+    <main class="main">
 
-</main>
-```
+        <div class="topbar">
+
+            <div>
+                <h2>Élèves</h2>
+
+                <p>
+                    Gestion des élèves et de leurs classes
+                </p>
+            </div>
+
+            <button
+                class="add-btn"
+                onclick="openAddModal()"
+            >
+                + Ajouter un élève
+            </button>
+
+        </div>
+
+
+        <div
+            id="errorBox"
+            class="error"
+        ></div>
+
+
+        <!-- RECHERCHE -->
+
+        <div class="toolbar">
+
+            <input
+                type="text"
+                id="searchInput"
+                class="search-input"
+                placeholder="🔎 Rechercher par nom, pseudo ou classe..."
+                oninput="filterStudents()"
+            >
+
+            <div
+                class="count"
+                id="studentCount"
+            >
+                Chargement...
+            </div>
+
+        </div>
+
+
+        <!-- TABLE -->
+
+        <div class="table-card">
+
+            <table>
+
+                <thead>
+
+                    <tr>
+                        <th>Élève</th>
+                        <th>Classe</th>
+                        <th>Date de naissance</th>
+                        <th>Actions</th>
+                    </tr>
+
+                </thead>
+
+                <tbody id="studentsTable">
+
+                    <tr>
+                        <td
+                            colspan="4"
+                            class="empty"
+                        >
+                            Chargement des élèves...
+                        </td>
+                    </tr>
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </main>
 
 </div>
 
-<!-- MODALE AJOUT / MODIFICATION -->
 
-<div class="modal" id="studentModal">
+<!-- MODAL -->
 
-```
-<div class="modal-box">
+<div
+    class="modal"
+    id="studentModal"
+>
 
-    <h2 id="modalTitle">Ajouter un élève</h2>
+    <div class="modal-content">
 
-    <form id="studentForm">
+        <div class="modal-header">
 
-        <input type="hidden" id="studentId">
+            <h3 id="modalTitle">
+                Ajouter un élève
+            </h3>
+
+            <button
+                class="close-btn"
+                onclick="closeModal()"
+            >
+                ×
+            </button>
+
+        </div>
+
 
         <div class="form-group">
 
             <label for="username">
-                Identifiant
+                Pseudo Roblox
             </label>
 
             <input
                 type="text"
                 id="username"
-                placeholder="Ex : alex.martin"
-                required
+                placeholder="Ex : AlexMartin"
             >
 
         </div>
@@ -472,7 +592,6 @@
                 type="text"
                 id="fullName"
                 placeholder="Ex : Alex Martin"
-                required
             >
 
         </div>
@@ -480,15 +599,17 @@
 
         <div class="form-group">
 
-            <label for="className">
+            <label for="classId">
                 Classe
             </label>
 
-            <input
-                type="text"
-                id="className"
-                placeholder="Ex : 2-B"
-            >
+            <select id="classId">
+
+                <option value="">
+                    Aucune classe
+                </option>
+
+            </select>
 
         </div>
 
@@ -507,324 +628,717 @@
         </div>
 
 
-        <div id="message"></div>
-
-
         <div class="modal-actions">
 
             <button
-                type="button"
-                class="cancel"
+                class="cancel-btn"
                 onclick="closeModal()"
             >
                 Annuler
             </button>
 
             <button
-                type="submit"
-                class="save"
+                class="save-btn"
+                onclick="saveStudent()"
             >
                 Enregistrer
             </button>
 
         </div>
 
-    </form>
-
-</div>
-```
+    </div>
 
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <script>
 
-const SUPABASE_URL = "https://esiwwkphbqkqqcfelktn.supabase.co";
+    /* =================================
+       SUPABASE
+    ================================= */
 
-const SUPABASE_KEY = "sb_publishable_Gn6HhpZXdeoaWhWJ7wRWLw_D3dXLTnX";
+    const SUPABASE_URL =
+        "https://esiwwkphbqkqqcfelktn.supabase.co";
 
-const supabaseClient = window.supabase.createClient(
-    SUPABASE_URL,
-    SUPABASE_KEY
-);
+    const SUPABASE_KEY =
+        "sb_publishable_Gn6HhpZXdeoaWhWJ7wRWLw_D3dXLTnX";
+
+    const supabaseClient =
+        window.supabase.createClient(
+            SUPABASE_URL,
+            SUPABASE_KEY
+        );
 
 
-let students = [];
-let editingId = null;
+    /* =================================
+       VARIABLES
+    ================================= */
+
+    let students = [];
+
+    let classes = [];
+
+    let editingStudentId = null;
 
 
-// Vérifier la connexion
+    /* =================================
+       AUTHENTIFICATION
+    ================================= */
 
-async function checkUser() {
+    async function checkUser() {
 
-    const { data } = await supabaseClient.auth.getUser();
+        const { data } =
+            await supabaseClient.auth.getUser();
 
-    if (!data.user) {
-        window.location.href = "index.html";
-        return false;
+        if (!data.user) {
+
+            window.location.href =
+                "index.html";
+
+            return false;
+        }
+
+        return true;
     }
 
-    return true;
-}
+
+    /* =================================
+       ERREUR
+    ================================= */
+
+    function showError(message) {
+
+        const box =
+            document.getElementById(
+                "errorBox"
+            );
+
+        box.textContent = message;
+
+        box.style.display = "block";
+
+    }
 
 
-// Charger les élèves
+    function hideError() {
 
-async function loadStudents() {
+        document.getElementById(
+            "errorBox"
+        ).style.display = "none";
 
-    const connected = await checkUser();
+    }
 
-    if (!connected) return;
 
-    const { data, error } = await supabaseClient
-        .from("students")
-        .select("*")
-        .order("full_name", { ascending: true });
+    /* =================================
+       CHARGER LES CLASSES
+    ================================= */
 
-    if (error) {
+    async function loadClasses() {
 
-        console.error(error);
+        const { data, error } =
+            await supabaseClient
+                .from("classes")
+                .select(
+                    "id, name, level, section"
+                )
+                .order("name", {
+                    ascending: true
+                });
 
-        document.getElementById("studentsTable").innerHTML = `
-            <tr>
-                <td colspan="5" class="empty">
-                    Impossible de charger les élèves.
-                </td>
-            </tr>
+
+        if (error) {
+
+            console.error(
+                "Erreur récupération classes :",
+                error
+            );
+
+            showError(
+                "Impossible de récupérer les classes."
+            );
+
+            return;
+        }
+
+
+        classes = data || [];
+
+        populateClassSelect();
+
+    }
+
+
+    /* =================================
+       REMPLIR LE SELECT
+    ================================= */
+
+    function populateClassSelect() {
+
+        const select =
+            document.getElementById(
+                "classId"
+            );
+
+
+        select.innerHTML = `
+            <option value="">
+                Aucune classe
+            </option>
         `;
 
-        return;
+
+        classes.forEach(classItem => {
+
+            const option =
+                document.createElement(
+                    "option"
+                );
+
+            option.value =
+                classItem.id;
+
+            option.textContent =
+                classItem.name;
+
+            select.appendChild(option);
+
+        });
+
     }
 
-    students = data || [];
 
-    displayStudents(students);
-}
+    /* =================================
+       CHARGER LES ÉLÈVES
+    ================================= */
+
+    async function loadStudents() {
+
+        hideError();
 
 
-// Afficher les élèves
+        const table =
+            document.getElementById(
+                "studentsTable"
+            );
 
-function displayStudents(list) {
-
-    const table = document.getElementById("studentsTable");
-
-    if (list.length === 0) {
 
         table.innerHTML = `
             <tr>
-                <td colspan="5" class="empty">
-                    Aucun élève enregistré.
+                <td colspan="4" class="empty">
+                    Chargement des élèves...
                 </td>
             </tr>
         `;
 
-        return;
+
+        const { data, error } =
+            await supabaseClient
+                .from("students")
+                .select(`
+                    id,
+                    username,
+                    full_name,
+                    class_name,
+                    class_id,
+                    birth_date,
+                    classes (
+                        id,
+                        name,
+                        level,
+                        section
+                    )
+                `)
+                .order("full_name", {
+                    ascending: true
+                });
+
+
+        if (error) {
+
+            console.error(
+                "Erreur récupération élèves :",
+                error
+            );
+
+            showError(
+                "Impossible de récupérer les élèves."
+            );
+
+            table.innerHTML = `
+                <tr>
+                    <td colspan="4" class="empty">
+                        Erreur de chargement.
+                    </td>
+                </tr>
+            `;
+
+            return;
+        }
+
+
+        students = data || [];
+
+        displayStudents(students);
+
     }
 
 
-    table.innerHTML = list.map(student => `
+    /* =================================
+       AFFICHER LES ÉLÈVES
+    ================================= */
 
-        <tr>
+    function displayStudents(list) {
 
-            <td>${escapeHTML(student.username)}</td>
-
-            <td>${escapeHTML(student.full_name)}</td>
-
-            <td>${escapeHTML(student.class_name || "—")}</td>
-
-            <td>${student.birth_date || "—"}</td>
-
-            <td>
-
-                <button
-                    class="action"
-                    onclick="viewStudent('${student.id}')"
-                    title="Voir le dossier"
-                >
-                    👁️
-                </button>
-
-                <button
-                    class="action"
-                    onclick="editStudent('${student.id}')"
-                    title="Modifier"
-                >
-                    ✏️
-                </button>
-
-                <button
-                    class="action delete"
-                    onclick="deleteStudent('${student.id}')"
-                    title="Supprimer"
-                >
-                    🗑️
-                </button>
-
-            </td>
-
-        </tr>
-
-    `).join("");
-
-}
+        const table =
+            document.getElementById(
+                "studentsTable"
+            );
 
 
-// Ouvrir le dossier individuel
-
-function viewStudent(id) {
-
-    window.location.href = "student.html?id=" + encodeURIComponent(id);
-
-}
+        const count =
+            document.getElementById(
+                "studentCount"
+            );
 
 
-// Recherche
-
-document.getElementById("search").addEventListener("input", function() {
-
-    const search = this.value.toLowerCase();
-
-    const filtered = students.filter(student =>
-        (student.username || "").toLowerCase().includes(search) ||
-        (student.full_name || "").toLowerCase().includes(search) ||
-        (student.class_name || "").toLowerCase().includes(search)
-    );
-
-    displayStudents(filtered);
-
-});
+        count.textContent =
+            `${list.length} élève${list.length > 1 ? "s" : ""}`;
 
 
-// Ouvrir la fenêtre
+        if (list.length === 0) {
 
-function openModal(student = null) {
+            table.innerHTML = `
+                <tr>
+                    <td colspan="4" class="empty">
+                        Aucun élève trouvé.
+                    </td>
+                </tr>
+            `;
 
-    document.getElementById("studentModal").classList.add("show");
+            return;
+        }
 
-    document.getElementById("message").textContent = "";
 
-    if (student) {
+        table.innerHTML =
+            list.map(student => {
 
-        editingId = student.id;
+                const className =
+                    student.classes?.name ||
+                    student.class_name ||
+                    null;
 
-        document.getElementById("modalTitle").textContent =
-            "Modifier un élève";
 
-        document.getElementById("username").value =
-            student.username || "";
+                const birthDate =
+                    student.birth_date
+                        ? formatDate(
+                            student.birth_date
+                        )
+                        : "—";
 
-        document.getElementById("fullName").value =
-            student.full_name || "";
 
-        document.getElementById("className").value =
-            student.class_name || "";
+                return `
 
-        document.getElementById("birthDate").value =
-            student.birth_date || "";
+                    <tr>
 
-    } else {
+                        <td>
 
-        editingId = null;
+                            <div class="student-name">
+                                ${escapeHtml(
+                                    student.full_name || "—"
+                                )}
+                            </div>
 
-        document.getElementById("modalTitle").textContent =
+                            <div class="username">
+                                ${
+                                    student.username
+                                        ? "@" + escapeHtml(
+                                            student.username.replace(/^@/, "")
+                                        )
+                                        : "—"
+                                }
+                            </div>
+
+                        </td>
+
+
+                        <td>
+
+                            ${
+                                className
+                                    ? `
+                                        <span class="class-badge">
+                                            ${escapeHtml(className)}
+                                        </span>
+                                      `
+                                    : `
+                                        <span class="no-class">
+                                            Non affecté
+                                        </span>
+                                      `
+                            }
+
+                        </td>
+
+
+                        <td>
+                            ${birthDate}
+                        </td>
+
+
+                        <td>
+
+                            <div class="actions">
+
+                                <button
+                                    class="action-btn"
+                                    onclick="viewStudent('${student.id}')"
+                                    title="Voir le dossier"
+                                >
+                                    👁️
+                                </button>
+
+                                <button
+                                    class="action-btn"
+                                    onclick="editStudent('${student.id}')"
+                                    title="Modifier"
+                                >
+                                    ✏️
+                                </button>
+
+                                <button
+                                    class="action-btn delete-btn"
+                                    onclick="deleteStudent('${student.id}')"
+                                    title="Supprimer"
+                                >
+                                    🗑️
+                                </button>
+
+                            </div>
+
+                        </td>
+
+                    </tr>
+
+                `;
+
+            }).join("");
+
+    }
+
+
+    /* =================================
+       RECHERCHE
+    ================================= */
+
+    function filterStudents() {
+
+        const search =
+            document.getElementById(
+                "searchInput"
+            ).value
+            .toLowerCase()
+            .trim();
+
+
+        if (!search) {
+
+            displayStudents(students);
+
+            return;
+        }
+
+
+        const filtered =
+            students.filter(student => {
+
+                const fullName =
+                    (student.full_name || "")
+                        .toLowerCase();
+
+                const username =
+                    (student.username || "")
+                        .replace(/^@/, "")
+                        .toLowerCase();
+
+                const className =
+                    (
+                        student.classes?.name ||
+                        student.class_name ||
+                        ""
+                    ).toLowerCase();
+
+
+                return (
+                    fullName.includes(search) ||
+                    username.includes(search) ||
+                    className.includes(search)
+                );
+
+            });
+
+
+        displayStudents(filtered);
+
+    }
+
+
+    /* =================================
+       AJOUT
+    ================================= */
+
+    function openAddModal() {
+
+        editingStudentId = null;
+
+
+        document.getElementById(
+            "modalTitle"
+        ).textContent =
             "Ajouter un élève";
 
-        document.getElementById("studentForm").reset();
+
+        document.getElementById(
+            "username"
+        ).value = "";
+
+
+        document.getElementById(
+            "fullName"
+        ).value = "";
+
+
+        document.getElementById(
+            "classId"
+        ).value = "";
+
+
+        document.getElementById(
+            "birthDate"
+        ).value = "";
+
+
+        document.getElementById(
+            "studentModal"
+        ).style.display =
+            "flex";
 
     }
 
-}
 
+    /* =================================
+       FERMER MODAL
+    ================================= */
 
-// Fermer la fenêtre
+    function closeModal() {
 
-function closeModal() {
+        document.getElementById(
+            "studentModal"
+        ).style.display =
+            "none";
 
-    document.getElementById("studentModal")
-        .classList.remove("show");
-
-}
-
-
-// Modifier
-
-function editStudent(id) {
-
-    const student = students.find(s => s.id === id);
-
-    if (student) {
-        openModal(student);
     }
 
-}
+
+    /* =================================
+       MODIFIER
+    ================================= */
+
+    function editStudent(id) {
+
+        const student =
+            students.find(
+                item => item.id === id
+            );
 
 
-// Enregistrer
+        if (!student) {
+            return;
+        }
 
-document.getElementById("studentForm").addEventListener(
-    "submit",
-    async function(event) {
 
-        event.preventDefault();
+        editingStudentId = id;
 
-        const message = document.getElementById("message");
+
+        document.getElementById(
+            "modalTitle"
+        ).textContent =
+            "Modifier l'élève";
+
+
+        document.getElementById(
+            "username"
+        ).value =
+            student.username || "";
+
+
+        document.getElementById(
+            "fullName"
+        ).value =
+            student.full_name || "";
+
+
+        document.getElementById(
+            "classId"
+        ).value =
+            student.class_id || "";
+
+
+        document.getElementById(
+            "birthDate"
+        ).value =
+            student.birth_date || "";
+
+
+        document.getElementById(
+            "studentModal"
+        ).style.display =
+            "flex";
+
+    }
+
+
+    /* =================================
+       ENREGISTRER
+    ================================= */
+
+    async function saveStudent() {
+
+        hideError();
+
 
         const username =
-            document.getElementById("username").value.trim();
+            document.getElementById(
+                "username"
+            ).value.trim();
+
 
         const fullName =
-            document.getElementById("fullName").value.trim();
+            document.getElementById(
+                "fullName"
+            ).value.trim();
 
-        const className =
-            document.getElementById("className").value.trim();
+
+        const classId =
+            document.getElementById(
+                "classId"
+            ).value || null;
+
 
         const birthDate =
-            document.getElementById("birthDate").value || null;
+            document.getElementById(
+                "birthDate"
+            ).value || null;
 
 
-        message.style.color = "#6b7280";
-        message.textContent = "Enregistrement...";
+        if (!username) {
+
+            alert(
+                "Veuillez renseigner le pseudo Roblox."
+            );
+
+            return;
+        }
 
 
-        if (editingId) {
+        if (!fullName) {
 
-            const { error } = await supabaseClient
-                .from("students")
-                .update({
-                    username: username,
-                    full_name: fullName,
-                    class_name: className || null,
-                    birth_date: birthDate
-                })
-                .eq("id", editingId);
+            alert(
+                "Veuillez renseigner le nom complet."
+            );
+
+            return;
+        }
+
+
+        let className = null;
+
+
+        if (classId) {
+
+            const selectedClass =
+                classes.find(
+                    item => item.id === classId
+                );
+
+
+            if (selectedClass) {
+
+                className =
+                    selectedClass.name;
+
+            }
+
+        }
+
+
+        const studentData = {
+
+            username,
+
+            full_name: fullName,
+
+            class_id: classId,
+
+            class_name: className,
+
+            birth_date: birthDate
+
+        };
+
+
+        /* MODIFICATION */
+
+        if (editingStudentId) {
+
+            const { error } =
+                await supabaseClient
+                    .from("students")
+                    .update(studentData)
+                    .eq(
+                        "id",
+                        editingStudentId
+                    );
 
 
             if (error) {
 
-                message.style.color = "#dc2626";
-                message.textContent = error.message;
+                console.error(
+                    "Erreur modification élève :",
+                    error
+                );
+
+                showError(
+                    "Impossible de modifier l'élève."
+                );
 
                 return;
             }
 
+        }
 
-        } else {
 
-            const { error } = await supabaseClient
-                .from("students")
-                .insert({
-                    username: username,
-                    full_name: fullName,
-                    class_name: className || null,
-                    birth_date: birthDate
-                });
+        /* AJOUT */
+
+        else {
+
+            const { error } =
+                await supabaseClient
+                    .from("students")
+                    .insert([
+                        studentData
+                    ]);
 
 
             if (error) {
 
-                message.style.color = "#dc2626";
-                message.textContent = error.message;
+                console.error(
+                    "Erreur ajout élève :",
+                    error
+                );
+
+                showError(
+                    "Impossible d'ajouter l'élève."
+                );
 
                 return;
             }
@@ -837,65 +1351,165 @@ document.getElementById("studentForm").addEventListener(
         await loadStudents();
 
     }
-);
 
 
-// Supprimer
+    /* =================================
+       SUPPRIMER
+    ================================= */
 
-async function deleteStudent(id) {
+    async function deleteStudent(id) {
 
-    const student = students.find(s => s.id === id);
-
-    if (!student) return;
-
-
-    const confirmed = confirm(
-        "Voulez-vous vraiment supprimer " +
-        student.full_name +
-        " ?"
-    );
-
-    if (!confirmed) return;
+        const student =
+            students.find(
+                item => item.id === id
+            );
 
 
-    const { error } = await supabaseClient
-        .from("students")
-        .delete()
-        .eq("id", id);
+        if (!student) {
+            return;
+        }
 
 
-    if (error) {
+        const confirmed =
+            confirm(
+                `Voulez-vous vraiment supprimer l'élève "${student.full_name}" ?`
+            );
 
-        alert("Erreur : " + error.message);
 
-        return;
+        if (!confirmed) {
+            return;
+        }
+
+
+        const { error } =
+            await supabaseClient
+                .from("students")
+                .delete()
+                .eq("id", id);
+
+
+        if (error) {
+
+            console.error(
+                "Erreur suppression élève :",
+                error
+            );
+
+            showError(
+                "Impossible de supprimer l'élève."
+            );
+
+            return;
+        }
+
+
+        await loadStudents();
+
     }
 
 
-    await loadStudents();
+    /* =================================
+       DOSSIER ÉLÈVE
+    ================================= */
 
-}
+    function viewStudent(id) {
 
+        window.location.href =
+            "student.html?id=" +
+            encodeURIComponent(id);
 
-// Protection contre l'affichage de HTML
-
-function escapeHTML(value) {
-
-    return String(value)
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
-
-}
+    }
 
 
-// Lancer la page
+    /* =================================
+       FORMAT DATE
+    ================================= */
 
-loadStudents();
+    function formatDate(date) {
+
+        const parts =
+            date.split("-");
+
+
+        if (parts.length !== 3) {
+            return date;
+        }
+
+
+        return (
+            parts[2] +
+            "/" +
+            parts[1] +
+            "/" +
+            parts[0]
+        );
+
+    }
+
+
+    /* =================================
+       SÉCURITÉ HTML
+    ================================= */
+
+    function escapeHtml(value) {
+
+        return String(value)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+
+    }
+
+
+    /* =================================
+       FERMER MODAL
+    ================================= */
+
+    document
+        .getElementById("studentModal")
+        .addEventListener(
+            "click",
+            function(event) {
+
+                if (
+                    event.target === this
+                ) {
+
+                    closeModal();
+
+                }
+
+            }
+        );
+
+
+    /* =================================
+       INITIALISATION
+    ================================= */
+
+    async function init() {
+
+        const authenticated =
+            await checkUser();
+
+        if (!authenticated) {
+            return;
+        }
+
+
+        await loadClasses();
+
+        await loadStudents();
+
+    }
+
+
+    init();
 
 </script>
 
 </body>
 </html>
+```
