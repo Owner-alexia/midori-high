@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administration — Midori High</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f7f6;
+            color: #1f2937;
+            min-height: 100vh;
+        }
+
+        .topbar {
+            height: 70px;
+            background: white;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 30px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            background: #2f6f5e;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        .brand-text strong {
+            display: block;
+            font-size: 17px;
+        }
+
+        .brand-text span {
+            font-size: 12px;
+            color: #6b7280;
+        }
+
+        .profile {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .avatar {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: #dcebe6;
+            color: #2f6f5e;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        .profile-info {
+            text-align: right;
+        }
+
+        .profile-info strong {
+            display: block;
+            font-size: 14px;
+        }
+
+        .profile-info span {
+            font-size: 12px;
+            color: #6b7280;
+        }
+
+        .layout {
+            display: flex;
+            min-height: calc(100vh - 70px);
+        }
+
+        .sidebar {
+            width: 240px;
+            background: #183d34;
+            padding: 25px 15px;
+            color: white;
+        }
+
+        .sidebar-title {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            opacity: 0.6;
+            margin: 10px 12px;
+        }
+
+        .nav-item {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .nav-item:hover,
+        .nav-item.active {
+            background: #2f6f5e;
+        }
+
+        .main {
+            flex: 1;
+            padding: 35px;
+            max-width: 1400px;
+        }
+
+        .welcome {
+            margin-bottom: 30px;
+        }
+
+        .welcome h1 {
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+
+        .welcome p {
+            color: #6b7280;
+        }
+
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 18px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: white;
+            padding: 22px;
+            border-radius: 13px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .card-title {
+            font-size: 13px;
+            color: #6b7280;
+            margin-bottom: 10px;
+        }
+
+        .card-number {
+            font-size: 29px;
+            font-weight: bold;
+        }
+
+        .content-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+        }
+
+        .panel {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 13px;
+            padding: 24px;
+        }
+
+        .panel h2 {
+            font-size: 18px;
+            margin-bottom: 20px;
+        }
+
+        .activity {
+            display: flex;
+            justify-content: space-between;
+            padding: 14px 0;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 13px;
+        }
+
+        .activity:last-child {
+            border-bottom: none;
+        }
+
+        .activity-time {
+            color: #9ca3af;
+            font-size: 12px;
+            white-space: nowrap;
+            margin-left: 15px;
+        }
+
+        .quick-action {
+            padding: 14px;
+            background: #f5f8f7;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .quick-action:hover {
+            background: #e7f0ed;
+        }
+
+        @media (max-width: 900px) {
+            .cards {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .content-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .sidebar {
+                width: 200px;
+            }
+        }
+
+        @media (max-width: 650px) {
+            .sidebar {
+                display: none;
+            }
+
+            .main {
+                padding: 20px;
+            }
+
+            .cards {
+                grid-template-columns: 1fr;
+            }
+
+            .profile-info {
+                display: none;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <header class="topbar">
+
+        <div class="brand">
+            <div class="logo">MH</div>
+
+            <div class="brand-text">
+                <strong>Midori High</strong>
+                <span>Portail administratif</span>
+            </div>
+        </div>
+
+        <div class="profile">
+            <div class="profile-info">
+                <strong>Administration</strong>
+                <span>Administrateur</span>
+            </div>
+
+            <div class="avatar">A</div>
+        </div>
+
+    </header>
+
+
+    <div class="layout">
+
+        <aside class="sidebar">
+
+            <div class="sidebar-title">
+                Administration
+            </div>
+
+            <div class="nav-item active">
+                📊 Tableau de bord
+            </div>
+
+            <div class="nav-item">
+                👨‍🎓 Élèves
+            </div>
+
+            <div class="nav-item">
+                👨‍🏫 Professeurs
+            </div>
+
+            <div class="nav-item">
+                👮 Surveillants
+            </div>
+
+            <div class="nav-item">
+                🏫 Classes
+            </div>
+
+
+            <div class="sidebar-title">
+                Scolarité
+            </div>
+
+            <div class="nav-item">
+                📚 Matières
+            </div>
+
+            <div class="nav-item">
+                🕐 Emplois du temps
+            </div>
+
+            <div class="nav-item">
+                📝 Notes
+            </div>
+
+            <div class="nav-item">
+                📋 Absences
+            </div>
+
+
+            <div class="sidebar-title">
+                Système
+            </div>
+
+            <div class="nav-item">
+                📢 Annonces
+            </div>
+
+            <div class="nav-item">
+                📜 Journal d'activité
+            </div>
+
+            <div class="nav-item">
+                ⚙️ Paramètres
+            </div>
+
+        </aside>
+
+
+        <main class="main">
+
+            <div class="welcome">
+                <h1>Bonjour, Administration 👋</h1>
+
+                <p>
+                    Bienvenue sur le portail administratif de Midori High.
+                </p>
+            </div>
+
+
+            <div class="cards">
+
+                <div class="card">
+                    <div class="card-title">
+                        Élèves inscrits
+                    </div>
+
+                    <div class="card-number">
+                        0
+                    </div>
+                </div>
+
+
+                <div class="card">
+                    <div class="card-title">
+                        Professeurs
+                    </div>
+
+                    <div class="card-number">
+                        0
+                    </div>
+                </div>
+
+
+                <div class="card">
+                    <div class="card-title">
+                        Classes
+                    </div>
+
+                    <div class="card-number">
+                        0
+                    </div>
+                </div>
+
+
+                <div class="card">
+                    <div class="card-title">
+                        Absences aujourd'hui
+                    </div>
+
+                    <div class="card-number">
+                        0
+                    </div>
+                </div>
+
+            </div>
+
+
+            <div class="content-grid">
+
+                <section class="panel">
+
+                    <h2>
+                        📜 Activité récente
+                    </h2>
+
+                    <div class="activity">
+                        <span>
+                            Connexion de l'administration
+                        </span>
+
+                        <span class="activity-time">
+                            Maintenant
+                        </span>
+                    </div>
+
+                    <div class="activity">
+                        <span>
+                            Aucun autre événement enregistré
+                        </span>
+
+                        <span class="activity-time">
+                            —
+                        </span>
+                    </div>
+
+                </section>
+
+
+                <section class="panel">
+
+                    <h2>
+                        ⚡ Actions rapides
+                    </h2>
+
+                    <div class="quick-action">
+                        ➕ Ajouter un élève
+                    </div>
+
+                    <div class="quick-action">
+                        ➕ Ajouter un professeur
+                    </div>
+
+                    <div class="quick-action">
+                        🏫 Gérer les classes
+                    </div>
+
+                    <div class="quick-action">
+                        🕐 Modifier l'emploi du temps
+                    </div>
+
+                </section>
+
+            </div>
+
+        </main>
+
+    </div>
+
+</body>
+</html>
