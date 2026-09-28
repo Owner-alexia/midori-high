@@ -220,7 +220,6 @@
         }
 
         @media (max-width: 900px) {
-
             .cards {
                 grid-template-columns: repeat(2, 1fr);
             }
@@ -235,7 +234,6 @@
         }
 
         @media (max-width: 650px) {
-
             .sidebar {
                 display: none;
             }
@@ -257,453 +255,366 @@
 
 <body>
 
-    <!-- BARRE DU HAUT -->
+<header class="topbar">
 
-    <header class="topbar">
+    <div class="brand">
 
-        <div class="brand">
-
-            <div class="logo">
-                MH
-            </div>
-
-            <div class="brand-text">
-
-                <strong>
-                    Midori High
-                </strong>
-
-                <span>
-                    Portail administratif
-                </span>
-
-            </div>
-
+        <div class="logo">
+            MH
         </div>
 
+        <div class="brand-text">
 
-        <div class="profile">
+            <strong>
+                Midori High
+            </strong>
 
-            <div class="profile-info">
-
-                <strong>
-                    Administration
-                </strong>
-
-                <span>
-                    Administrateur
-                </span>
-
-            </div>
-
-            <div class="avatar">
-                A
-            </div>
+            <span>
+                Portail administratif
+            </span>
 
         </div>
-
-    </header>
-
-
-    <div class="layout">
-
-
-        <!-- MENU LATERAL -->
-
-        <aside class="sidebar">
-
-            <div class="sidebar-title">
-                Administration
-            </div>
-
-
-            <a
-                href="dashboard.html"
-                class="nav-item active"
-            >
-                📊 Tableau de bord
-            </a>
-
-
-            <a
-                href="students.html"
-                class="nav-item"
-            >
-                👨‍🎓 Élèves
-            </a>
-
-
-            <a
-                href="#"
-                class="nav-item"
-            >
-                👨‍🏫 Professeurs
-            </a>
-
-
-            <a
-                href="#"
-                class="nav-item"
-            >
-                👮 Surveillants
-            </a>
-
-
-            <a
-                href="#"
-                class="nav-item"
-            >
-                🏫 Classes
-            </a>
-
-
-            <div class="sidebar-title">
-                Scolarité
-            </div>
-
-
-            <a
-                href="#"
-                class="nav-item"
-            >
-                📚 Matières
-            </a>
-
-
-            <a
-                href="#"
-                class="nav-item"
-            >
-                🕐 Emplois du temps
-            </a>
-
-
-            <a
-                href="#"
-                class="nav-item"
-            >
-                📝 Notes
-            </a>
-
-
-            <a
-                href="#"
-                class="nav-item"
-            >
-                📋 Absences
-            </a>
-
-
-            <div class="sidebar-title">
-                Système
-            </div>
-
-
-            <a
-                href="#"
-                class="nav-item"
-            >
-                📢 Annonces
-            </a>
-
-
-            <a
-                href="#"
-                class="nav-item"
-            >
-                📜 Journal d'activité
-            </a>
-
-
-            <a
-                href="#"
-                class="nav-item"
-            >
-                ⚙️ Paramètres
-            </a>
-
-        </aside>
-
-
-        <!-- CONTENU PRINCIPAL -->
-
-        <main class="main">
-
-
-            <div class="welcome">
-
-                <h1>
-                    Bonjour, Administration 👋
-                </h1>
-
-                <p>
-                    Bienvenue sur le portail administratif de Midori High.
-                </p>
-
-            </div>
-
-
-            <!-- CARTES -->
-
-            <div class="cards">
-
-
-                <!-- ÉLÈVES -->
-
-                <div class="card">
-
-                    <div class="card-title">
-                        Élèves inscrits
-                    </div>
-
-                    <div
-                        class="card-number"
-                        id="studentsCount"
-                    >
-                        —
-                    </div>
-
-                </div>
-
-
-                <!-- PROFESSEURS -->
-
-                <div class="card">
-
-                    <div class="card-title">
-                        Professeurs
-                    </div>
-
-                    <div class="card-number">
-                        0
-                    </div>
-
-                </div>
-
-
-                <!-- CLASSES -->
-
-                <div class="card">
-
-                    <div class="card-title">
-                        Classes
-                    </div>
-
-                    <div class="card-number">
-                        0
-                    </div>
-
-                </div>
-
-
-                <!-- ABSENCES -->
-
-                <div class="card">
-
-                    <div class="card-title">
-                        Absences aujourd'hui
-                    </div>
-
-                    <div class="card-number">
-                        0
-                    </div>
-
-                </div>
-
-            </div>
-
-
-            <!-- CONTENU DU BAS -->
-
-            <div class="content-grid">
-
-
-                <!-- ACTIVITÉ -->
-
-                <section class="panel">
-
-                    <h2>
-                        📜 Activité récente
-                    </h2>
-
-
-                    <div class="activity">
-
-                        <span>
-                            Connexion de l'administration
-                        </span>
-
-                        <span class="activity-time">
-                            Maintenant
-                        </span>
-
-                    </div>
-
-
-                    <div class="activity">
-
-                        <span>
-                            Aucun autre événement enregistré
-                        </span>
-
-                        <span class="activity-time">
-                            —
-                        </span>
-
-                    </div>
-
-                </section>
-
-
-                <!-- ACTIONS RAPIDES -->
-
-                <section class="panel">
-
-                    <h2>
-                        ⚡ Actions rapides
-                    </h2>
-
-
-                    <div class="quick-action">
-                        ➕ Ajouter un élève
-                    </div>
-
-
-                    <div class="quick-action">
-                        ➕ Ajouter un professeur
-                    </div>
-
-
-                    <div class="quick-action">
-                        🏫 Gérer les classes
-                    </div>
-
-
-                    <div class="quick-action">
-                        🕐 Modifier l'emploi du temps
-                    </div>
-
-                </section>
-
-            </div>
-
-        </main>
 
     </div>
 
 
-    <!-- SUPABASE -->
+    <div class="profile">
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+        <div class="profile-info">
 
+            <strong>
+                Administration
+            </strong>
 
-    <script>
+            <span>
+                Administrateur
+            </span>
 
-        /*
-         * ==========================================
-         * CONNEXION SUPABASE
-         * ==========================================
-         */
+        </div>
 
-        const SUPABASE_URL =
-            "https://esiwwkphbqkqqcfelktn.supabase.co";
+        <div class="avatar">
+            A
+        </div>
 
-        const SUPABASE_KEY =
-            "sb_publishable_Gn6HhpZXdeoaWhWJ7wRWLw_D3dXLTnX";
+    </div>
 
-
-        const supabaseClient =
-            window.supabase.createClient(
-                SUPABASE_URL,
-                SUPABASE_KEY
-            );
+</header>
 
 
-        /*
-         * ==========================================
-         * VÉRIFICATION DE LA CONNEXION
-         * ==========================================
-         */
-
-        async function checkUser() {
-
-            const { data } =
-                await supabaseClient.auth.getUser();
+<div class="layout">
 
 
-            if (!data.user) {
+    <aside class="sidebar">
 
-                window.location.href =
-                    "index.html";
-
-                return false;
-            }
+        <div class="sidebar-title">
+            Administration
+        </div>
 
 
-            return true;
-        }
+        <a href="dashboard.html" class="nav-item active">
+            📊 Tableau de bord
+        </a>
 
 
-        /*
-         * ==========================================
-         * COMPTER LES ÉLÈVES
-         * ==========================================
-         */
-
-        async function loadStudentsCount() {
+        <a href="students.html" class="nav-item">
+            👨‍🎓 Élèves
+        </a>
 
 
-            const connected =
-                await checkUser();
+        <a href="#" class="nav-item">
+            👨‍🏫 Professeurs
+        </a>
 
 
-            if (!connected) {
-                return;
-            }
+        <a href="#" class="nav-item">
+            👮 Surveillants
+        </a>
 
 
-            const { count, error } =
-                await supabaseClient
-                    .from("students")
-                    .select("*", {
-                        count: "exact",
-                        head: true
-                    });
+        <a href="#" class="nav-item">
+            🏫 Classes
+        </a>
 
 
-            if (error) {
-
-                console.error(
-                    "Erreur lors du chargement du nombre d'élèves :",
-                    error
-                );
+        <div class="sidebar-title">
+            Scolarité
+        </div>
 
 
-                document.getElementById(
-                    "studentsCount"
-                ).textContent = "—";
+        <a href="#" class="nav-item">
+            📚 Matières
+        </a>
 
 
-                return;
-            }
+        <a href="#" class="nav-item">
+            🕐 Emplois du temps
+        </a>
 
 
-            document.getElementById(
-                "studentsCount"
-            ).textContent = count ?? 0;
-
-        }
+        <a href="#" class="nav-item">
+            📝 Notes
+        </a>
 
 
-        /*
-         * ==========================================
-         * LANCER LE TABLEAU DE BORD
-         * ==========================================
-         */
+        <a href="#" class="nav-item">
+            📋 Absences
+        </a>
 
-        loadStudentsCount();
 
-    </script>
+        <div class="sidebar-title">
+            Système
+        </div>
+
+
+        <a href="#" class="nav-item">
+            📢 Annonces
+        </a>
+
+
+        <a href="#" class="nav-item">
+            📜 Journal d'activité
+        </a>
+
+
+        <a href="#" class="nav-item">
+            ⚙️ Paramètres
+        </a>
+
+    </aside>
+
+
+    <main class="main">
+
+        <div class="welcome">
+
+            <h1>
+                Bonjour, Administration 👋
+            </h1>
+
+            <p>
+                Bienvenue sur le portail administratif de Midori High.
+            </p>
+
+        </div>
+
+
+        <div class="cards">
+
+
+            <div class="card">
+
+                <div class="card-title">
+                    Élèves inscrits
+                </div>
+
+                <div
+                    class="card-number"
+                    id="studentsCount"
+                >
+                    Chargement...
+                </div>
+
+            </div>
+
+
+            <div class="card">
+
+                <div class="card-title">
+                    Professeurs
+                </div>
+
+                <div class="card-number">
+                    0
+                </div>
+
+            </div>
+
+
+            <div class="card">
+
+                <div class="card-title">
+                    Classes
+                </div>
+
+                <div class="card-number">
+                    0
+                </div>
+
+            </div>
+
+
+            <div class="card">
+
+                <div class="card-title">
+                    Absences aujourd'hui
+                </div>
+
+                <div class="card-number">
+                    0
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="content-grid">
+
+
+            <section class="panel">
+
+                <h2>
+                    📜 Activité récente
+                </h2>
+
+
+                <div class="activity">
+
+                    <span>
+                        Connexion de l'administration
+                    </span>
+
+                    <span class="activity-time">
+                        Maintenant
+                    </span>
+
+                </div>
+
+
+                <div class="activity">
+
+                    <span>
+                        Aucun autre événement enregistré
+                    </span>
+
+                    <span class="activity-time">
+                        —
+                    </span>
+
+                </div>
+
+            </section>
+
+
+            <section class="panel">
+
+                <h2>
+                    ⚡ Actions rapides
+                </h2>
+
+
+                <div class="quick-action">
+                    ➕ Ajouter un élève
+                </div>
+
+
+                <div class="quick-action">
+                    ➕ Ajouter un professeur
+                </div>
+
+
+                <div class="quick-action">
+                    🏫 Gérer les classes
+                </div>
+
+
+                <div class="quick-action">
+                    🕐 Modifier l'emploi du temps
+                </div>
+
+            </section>
+
+        </div>
+
+    </main>
+
+</div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+
+const SUPABASE_URL =
+    "https://esiwwkphbqkqqcfelktn.supabase.co";
+
+const SUPABASE_KEY =
+    "sb_publishable_Gn6HhpZXdeoaWhWJ7wRWLw_D3dXLTnX";
+
+const supabaseClient =
+    window.supabase.createClient(
+        SUPABASE_URL,
+        SUPABASE_KEY
+    );
+
+
+async function loadStudentsCount() {
+
+    const countElement =
+        document.getElementById("studentsCount");
+
+
+    countElement.textContent =
+        "Chargement...";
+
+
+    const { data: userData, error: userError } =
+        await supabaseClient.auth.getUser();
+
+
+    if (userError || !userData.user) {
+
+        console.error(
+            "Utilisateur non connecté :",
+            userError
+        );
+
+        countElement.textContent = "—";
+
+        return;
+    }
+
+
+    const { data, error } =
+        await supabaseClient
+            .from("students")
+            .select("id");
+
+
+    if (error) {
+
+        console.error(
+            "ERREUR SUPABASE :",
+            error
+        );
+
+
+        countElement.textContent = "ERR";
+
+        alert(
+            "Impossible de récupérer les élèves.\n\n" +
+            error.message
+        );
+
+        return;
+    }
+
+
+    console.log(
+        "Élèves récupérés :",
+        data
+    );
+
+
+    countElement.textContent =
+        data ? data.length : 0;
+
+}
+
+
+loadStudentsCount();
+
+</script>
 
 </body>
 </html>
