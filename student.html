@@ -1,12 +1,14 @@
 <!DOCTYPE html>
 
 <html lang="fr">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dossier élève — Midori High</title>
 
 ```
+<title>Dossier élève — Midori High</title>
+
 <style>
 
     * {
@@ -200,6 +202,95 @@
         font-weight: 600;
     }
 
+    /* STATISTIQUES ABSENCES */
+
+    .absence-stats {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 15px;
+        padding: 20px;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .absence-stat {
+        background: #f8faf9;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        padding: 18px;
+        text-align: center;
+    }
+
+    .absence-stat-number {
+        font-size: 25px;
+        font-weight: bold;
+        color: #2f6f5e;
+        margin-bottom: 5px;
+    }
+
+    .absence-stat-label {
+        font-size: 12px;
+        color: #6b7280;
+    }
+
+    /* TABLE ABSENCES */
+
+    .absence-table-container {
+        overflow-x: auto;
+    }
+
+    .absence-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .absence-table th {
+        background: #f8faf9;
+        color: #6b7280;
+        font-size: 11px;
+        text-transform: uppercase;
+        text-align: left;
+        padding: 14px 18px;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .absence-table td {
+        padding: 15px 18px;
+        border-bottom: 1px solid #f0f0f0;
+        font-size: 14px;
+    }
+
+    .absence-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .badge {
+        display: inline-block;
+        padding: 5px 9px;
+        border-radius: 15px;
+        font-size: 11px;
+        font-weight: bold;
+    }
+
+    .badge-absence {
+        background: #fef2f2;
+        color: #dc2626;
+    }
+
+    .badge-retard {
+        background: #fff7ed;
+        color: #ea580c;
+    }
+
+    .badge-justifie {
+        background: #ecfdf5;
+        color: #059669;
+    }
+
+    .badge-non-justifie {
+        background: #fef2f2;
+        color: #dc2626;
+    }
+
     .empty-section {
         padding: 30px;
         text-align: center;
@@ -218,6 +309,14 @@
         color: #dc2626;
         padding: 20px;
         border-radius: 10px;
+    }
+
+    @media (max-width: 800px) {
+
+        .absence-stats {
+            grid-template-columns: 1fr;
+        }
+
     }
 
     @media (max-width: 700px) {
@@ -246,6 +345,7 @@
         .info:nth-child(odd) {
             border-right: none;
         }
+
     }
 
 </style>
@@ -325,7 +425,7 @@
         📝 Notes
     </a>
 
-    <a href="#" class="nav-item">
+    <a href="absences.html" class="nav-item">
         📋 Absences
     </a>
 
@@ -356,13 +456,11 @@
 
 <script>
 
-
 const SUPABASE_URL =
     "https://esiwwkphbqkqqcfelktn.supabase.co";
 
 const SUPABASE_KEY =
     "sb_publishable_Gn6HhpZXdeoaWhWJ7wRWLw_D3dXLTnX";
-
 
 const supabaseClient =
     window.supabase.createClient(
@@ -371,7 +469,9 @@ const supabaseClient =
     );
 
 
-// Vérification utilisateur
+// ===============================
+// VÉRIFICATION UTILISATEUR
+// ===============================
 
 async function checkUser() {
 
@@ -389,33 +489,39 @@ async function checkUser() {
 }
 
 
-// Récupérer l'ID dans l'URL
+// ===============================
+// RÉCUPÉRER L'ID DE L'ÉLÈVE
+// ===============================
 
 function getStudentId() {
 
     const params =
-        new URLSearchParams(window.location.search);
+        new URLSearchParams(
+            window.location.search
+        );
 
     return params.get("id");
-
 }
 
 
-// Échapper le HTML
+// ===============================
+// ÉCHAPPER LE HTML
+// ===============================
 
 function escapeHTML(value) {
 
-    return String(value)
+    return String(value ?? "")
         .replaceAll("&", "&amp;")
         .replaceAll("<", "&lt;")
         .replaceAll(">", "&gt;")
         .replaceAll('"', "&quot;")
         .replaceAll("'", "&#039;");
-
 }
 
 
-// Afficher une erreur
+// ===============================
+// AFFICHER UNE ERREUR
+// ===============================
 
 function showError(message) {
 
@@ -426,80 +532,298 @@ function showError(message) {
         </div>
 
     `;
-
 }
 
 
-// Charger le dossier
+// ===============================
+// FORMATTER UNE DATE
+// ===============================
 
-async function loadStudent() {
+function formatDate(date) {
 
-    const connected = await checkUser();
+    if (!date) return "—";
 
-    if (!connected) return;
+    const parts = date.split("-");
 
-
-    const studentId = getStudentId();
-
-
-    if (!studentId) {
-
-        showError(
-            "Aucun élève n'a été sélectionné."
-        );
-
-        return;
+    if (parts.length !== 3) {
+        return date;
     }
 
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+}
 
-    const { data: student, error } =
+
+// ===============================
+// CHARGER LES ABSENCES
+// ===============================
+
+async function loadAbsences(studentId) {
+
+    const { data, error } =
         await supabaseClient
-            .from("students")
+            .from("absences")
             .select("*")
-            .eq("id", studentId)
-            .single();
-
+            .eq("student_id", studentId)
+            .order("date", {
+                ascending: false
+            })
+            .order("created_at", {
+                ascending: false
+            });
 
     if (error) {
 
-        console.error(error);
-
-        showError(
-            "Impossible de charger le dossier de cet élève."
+        console.error(
+            "Erreur chargement absences :",
+            error
         );
 
-        return;
+        return {
+            data: [],
+            error
+        };
     }
 
-
-    if (!student) {
-
-        showError(
-            "Élève introuvable."
-        );
-
-        return;
-    }
-
-
-    displayStudent(student);
-
+    return {
+        data: data || [],
+        error: null
+    };
 }
 
 
-// Afficher le dossier
+// ===============================
+// CONSTRUIRE LA SECTION ABSENCES
+// ===============================
 
-function displayStudent(student) {
+function buildAbsencesSection(absences) {
+
+    const totalAbsences =
+        absences.filter(
+            item => item.type === "absence"
+        ).length;
+
+    const totalRetards =
+        absences.filter(
+            item => item.type === "retard"
+        ).length;
+
+    const totalJustifiees =
+        absences.filter(
+            item => item.justifie === true
+        ).length;
+
+
+    let historyHTML = "";
+
+
+    if (absences.length === 0) {
+
+        historyHTML = `
+
+            <div class="empty-section">
+                Aucun retard ou aucune absence enregistré pour cet élève.
+            </div>
+
+        `;
+
+    } else {
+
+        historyHTML = `
+
+            <div class="absence-table-container">
+
+                <table class="absence-table">
+
+                    <thead>
+
+                        <tr>
+
+                            <th>
+                                Date
+                            </th>
+
+                            <th>
+                                Type
+                            </th>
+
+                            <th>
+                                Heure
+                            </th>
+
+                            <th>
+                                Motif
+                            </th>
+
+                            <th>
+                                Justification
+                            </th>
+
+                        </tr>
+
+                    </thead>
+
+                    <tbody>
+
+                        ${absences.map(item => {
+
+                            const typeHTML =
+                                item.type === "absence"
+
+                                ? `
+                                    <span class="badge badge-absence">
+                                        Absence
+                                    </span>
+                                `
+
+                                : `
+                                    <span class="badge badge-retard">
+                                        Retard
+                                    </span>
+                                `;
+
+
+                            const justificationHTML =
+                                item.justifie
+
+                                ? `
+                                    <span class="badge badge-justifie">
+                                        ✓ Justifiée
+                                    </span>
+                                `
+
+                                : `
+                                    <span class="badge badge-non-justifie">
+                                        ✕ Non justifiée
+                                    </span>
+                                `;
+
+
+                            return `
+
+                                <tr>
+
+                                    <td>
+                                        ${escapeHTML(
+                                            formatDate(item.date)
+                                        )}
+                                    </td>
+
+                                    <td>
+                                        ${typeHTML}
+                                    </td>
+
+                                    <td>
+                                        ${escapeHTML(
+                                            item.heure_arrivee || "—"
+                                        )}
+                                    </td>
+
+                                    <td>
+                                        ${escapeHTML(
+                                            item.motif || "—"
+                                        )}
+                                    </td>
+
+                                    <td>
+                                        ${justificationHTML}
+                                    </td>
+
+                                </tr>
+
+                            `;
+
+                        }).join("")}
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        `;
+
+    }
+
+
+    return `
+
+        <div class="section">
+
+            <div class="section-title">
+                📅 Absences et retards
+            </div>
+
+
+            <div class="absence-stats">
+
+                <div class="absence-stat">
+
+                    <div class="absence-stat-number">
+                        ${totalAbsences}
+                    </div>
+
+                    <div class="absence-stat-label">
+                        Absence${totalAbsences > 1 ? "s" : ""}
+                    </div>
+
+                </div>
+
+
+                <div class="absence-stat">
+
+                    <div class="absence-stat-number">
+                        ${totalRetards}
+                    </div>
+
+                    <div class="absence-stat-label">
+                        Retard${totalRetards > 1 ? "s" : ""}
+                    </div>
+
+                </div>
+
+
+                <div class="absence-stat">
+
+                    <div class="absence-stat-number">
+                        ${totalJustifiees}
+                    </div>
+
+                    <div class="absence-stat-label">
+                        Justifiée${totalJustifiees > 1 ? "s" : ""}
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            ${historyHTML}
+
+        </div>
+
+    `;
+}
+
+
+// ===============================
+// AFFICHER LE DOSSIER
+// ===============================
+
+function displayStudent(student, absences) {
 
     const fullName =
         student.full_name || "Élève";
+
 
     const initials =
         fullName
             .split(" ")
             .filter(Boolean)
             .slice(0, 2)
-            .map(word => word.charAt(0))
+            .map(
+                word =>
+                    word.charAt(0)
+            )
             .join("")
             .toUpperCase();
 
@@ -546,7 +870,9 @@ function displayStudent(student) {
                     </span>
 
                     <span class="value">
-                        ${escapeHTML(student.full_name || "—")}
+                        ${escapeHTML(
+                            student.full_name || "—"
+                        )}
                     </span>
 
                 </div>
@@ -559,7 +885,9 @@ function displayStudent(student) {
                     </span>
 
                     <span class="value">
-                        ${escapeHTML(student.username || "—")}
+                        ${escapeHTML(
+                            student.username || "—"
+                        )}
                     </span>
 
                 </div>
@@ -572,7 +900,9 @@ function displayStudent(student) {
                     </span>
 
                     <span class="value">
-                        ${escapeHTML(student.class_name || "—")}
+                        ${escapeHTML(
+                            student.class_name || "—"
+                        )}
                     </span>
 
                 </div>
@@ -585,7 +915,9 @@ function displayStudent(student) {
                     </span>
 
                     <span class="value">
-                        ${student.birth_date || "—"}
+                        ${escapeHTML(
+                            student.birth_date || "—"
+                        )}
                     </span>
 
                 </div>
@@ -608,17 +940,7 @@ function displayStudent(student) {
         </div>
 
 
-        <div class="section">
-
-            <div class="section-title">
-                📅 Absences et retards
-            </div>
-
-            <div class="empty-section">
-                Aucune donnée d'absence ou de retard pour le moment.
-            </div>
-
-        </div>
+        ${buildAbsencesSection(absences)}
 
 
         <div class="section">
@@ -647,14 +969,114 @@ function displayStudent(student) {
         </div>
 
     `;
+}
+
+
+// ===============================
+// CHARGER LE DOSSIER COMPLET
+// ===============================
+
+async function loadStudent() {
+
+    const connected =
+        await checkUser();
+
+    if (!connected) return;
+
+
+    const studentId =
+        getStudentId();
+
+
+    if (!studentId) {
+
+        showError(
+            "Aucun élève n'a été sélectionné."
+        );
+
+        return;
+    }
+
+
+    // Récupération de l'élève
+
+    const {
+        data: student,
+        error: studentError
+    } =
+        await supabaseClient
+            .from("students")
+            .select("*")
+            .eq("id", studentId)
+            .single();
+
+
+    if (studentError) {
+
+        console.error(
+            "Erreur élève :",
+            studentError
+        );
+
+        showError(
+            "Impossible de charger le dossier de cet élève."
+        );
+
+        return;
+    }
+
+
+    if (!student) {
+
+        showError(
+            "Élève introuvable."
+        );
+
+        return;
+    }
+
+
+    // Récupération des absences
+
+    const {
+        data: absences,
+        error: absenceError
+    } =
+        await loadAbsences(studentId);
+
+
+    if (absenceError) {
+
+        console.error(
+            "Erreur absences :",
+            absenceError
+        );
+
+        // On continue quand même à afficher
+        // le dossier de l'élève.
+
+        displayStudent(
+            student,
+            []
+        );
+
+        return;
+    }
+
+
+    displayStudent(
+        student,
+        absences
+    );
 
 }
 
 
-// Lancer
+// ===============================
+// LANCEMENT
+// ===============================
 
 loadStudent();
-
 
 </script>
 
