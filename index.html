@@ -99,6 +99,11 @@
             background: #25594b;
         }
 
+        button:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+
         .footer {
             text-align: center;
             margin-top: 25px;
@@ -109,7 +114,6 @@
         #message {
             margin-top: 15px;
             text-align: center;
-            color: #dc2626;
             font-size: 14px;
         }
     </style>
@@ -147,7 +151,7 @@
                     required
                 >
 
-                <button type="submit">
+                <button type="submit" id="loginButton">
                     Se connecter
                 </button>
 
@@ -163,24 +167,78 @@
 
     </div>
 
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
     <script>
-        document.getElementById("loginForm").addEventListener("submit", function(event) {
+
+        const SUPABASE_URL = "https://esiwwkphbqkqqcfelktn.supabase.co";
+
+        const SUPABASE_KEY = "sb_publishable_Gn6HhpZXdeoaWhWJ7wRWLw_D3dXLTnX";
+
+        const supabaseClient = window.supabase.createClient(
+            SUPABASE_URL,
+            SUPABASE_KEY
+        );
+
+        document.getElementById("loginForm").addEventListener("submit", async function(event) {
 
             event.preventDefault();
 
-            const username = document.getElementById("username").value;
+            const username = document.getElementById("username").value.trim();
             const password = document.getElementById("password").value;
             const message = document.getElementById("message");
+            const button = document.getElementById("loginButton");
 
-            if (username === "admin" && password === "midori123") {
+            message.textContent = "";
+            button.disabled = true;
+            button.textContent = "Connexion...";
+
+            try {
+
+                /*
+                 * Pour le moment, Supabase Auth utilise l'adresse e-mail
+                 * du compte créé dans Authentication > Users.
+                 *
+                 * L'identifiant "admin" sera ensuite relié à ce compte.
+                 */
+
+                const email = username === "admin"
+    ? "admin@midori-high.fr"
+    : username;
+
+                const { data, error } = await supabaseClient.auth.signInWithPassword({
+                    email: email,
+                    password: password
+                });
+
+                if (error) {
+                    throw error;
+                }
+
                 message.style.color = "#16a34a";
                 message.textContent = "Connexion réussie !";
-            } else {
+
+                setTimeout(() => {
+                    window.location.href = "dashboard.html";
+                }, 800);
+
+            } catch (error) {
+
+                console.error(error);
+
                 message.style.color = "#dc2626";
                 message.textContent = "Identifiant ou mot de passe incorrect.";
+
+            } finally {
+
+                button.disabled = false;
+                button.textContent = "Se connecter";
+
             }
 
         });
+
     </script>
 
 </body>
