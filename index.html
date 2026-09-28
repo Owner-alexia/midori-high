@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Midori High — Portail Administratif</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            min-height: 100vh;
+            background: #f1f5f4;
+            color: #1f2937;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .login-container {
+            width: 100%;
+            max-width: 430px;
+            padding: 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 18px;
+            padding: 40px;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.08);
+        }
+
+        .logo {
+            width: 70px;
+            height: 70px;
+            margin: 0 auto 20px;
+            border-radius: 50%;
+            background: #2f6f5e;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 30px;
+            font-weight: bold;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 27px;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #6b7280;
+            margin-bottom: 32px;
+            font-size: 14px;
+        }
+
+        label {
+            display: block;
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        input {
+            width: 100%;
+            padding: 13px;
+            border: 1px solid #d1d5db;
+            border-radius: 9px;
+            margin-bottom: 18px;
+            font-size: 15px;
+            outline: none;
+        }
+
+        input:focus {
+            border-color: #2f6f5e;
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 9px;
+            background: #2f6f5e;
+            color: white;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #25594b;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 25px;
+            color: #9ca3af;
+            font-size: 12px;
+        }
+
+        #message {
+            margin-top: 15px;
+            text-align: center;
+            color: #dc2626;
+            font-size: 14px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="login-container">
+
+        <div class="card">
+
+            <div class="logo">MH</div>
+
+            <h1>Midori High</h1>
+
+            <p class="subtitle">
+                Portail administratif
+            </p>
+
+            <form id="loginForm">
+
+                <label for="username">Identifiant</label>
+                <input
+                    type="text"
+                    id="username"
+                    placeholder="Votre identifiant"
+                    required
+                >
+
+                <label for="password">Mot de passe</label>
+                <input
+                    type="password"
+                    id="password"
+                    placeholder="Votre mot de passe"
+                    required
+                >
+
+                <button type="submit">
+                    Se connecter
+                </button>
+
+                <div id="message"></div>
+
+            </form>
+
+            <div class="footer">
+                © Midori High — Portail administratif
+            </div>
+
+        </div>
+
+    </div>
+
+    <script>
+        document.getElementById("loginForm").addEventListener("submit", function(event) {
+
+            event.preventDefault();
+
+            const username = document.getElementById("username").value;
+            const password = document.getElementById("password").value;
+            const message = document.getElementById("message");
+
+            if (username === "admin" && password === "midori123") {
+                message.style.color = "#16a34a";
+                message.textContent = "Connexion réussie !";
+            } else {
+                message.style.color = "#dc2626";
+                message.textContent = "Identifiant ou mot de passe incorrect.";
+            }
+
+        });
+    </script>
+
+</body>
+</html>
