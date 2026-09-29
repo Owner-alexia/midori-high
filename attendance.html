@@ -1009,24 +1009,162 @@ function changeStatus(select) {
 
 
 // SAVE ATTENDANCE
-
+    
 async function saveAttendance() {
 
-    const courseId =
-        document.getElementById(
-            "courseSelect"
+```
+const courseId =
+    document.getElementById(
+        "courseSelect"
+    ).value;
+
+const date =
+    document.getElementById(
+        "attendanceDate"
+    ).value;
+
+
+if (!courseId || !date) {
+
+    showMessage(
+        "Sélectionnez un cours et une date.",
+        "error"
+    );
+
+    return;
+}
+
+
+const rows =
+    document.querySelectorAll(
+        ".student-row"
+    );
+
+
+if (rows.length === 0) {
+
+    showMessage(
+        "Aucun élève à enregistrer.",
+        "error"
+    );
+
+    return;
+}
+
+
+for (const row of rows) {
+
+    const studentId =
+        row.dataset.studentId;
+
+    const status =
+        row.querySelector(
+            ".status-select"
         ).value;
 
-    const date =
-        document.getElementById(
-            "attendanceDate"
+    const arrival =
+        row.querySelector(
+            ".arrival-input"
         ).value;
 
 
-    if (!courseId || !date) {
+    /*
+     * 1. ENREGISTREMENT DANS ATTENDANCE
+     */
+
+    const { data: existingAttendance } =
+        await supabaseClient
+            .from("attendance")
+            .select("id")
+            .eq(
+                "timetable_id",
+                courseId
+            )
+            .eq(
+                "student_id",
+                studentId
+            )
+            .eq(
+                "date",
+                date
+            )
+            .maybeSingle();
+
+
+    let attendanceError;
+
+
+    const attendanceData = {
+
+        timetable_id:
+            courseId,
+
+        student_id:
+            studentId,
+
+        date:
+            date,
+
+        status:
+            status,
+
+        arrival_time:
+            status === "retard"
+                ? (arrival || null)
+                : null,
+
+        reason:
+            null,
+
+        justified:
+            false,
+
+        comment:
+            null
+
+    };
+
+
+    if (existingAttendance) {
+
+        const result =
+            await supabaseClient
+                .from("attendance")
+                .update(
+                    attendanceData
+                )
+                .eq(
+                    "id",
+                    existingAttendance.id
+                );
+
+        attendanceError =
+            result.error;
+
+    } else {
+
+        const result =
+            await supabaseClient
+                .from("attendance")
+                .insert(
+                    attendanceData
+                );
+
+        attendanceError =
+            result.error;
+
+    }
+
+
+    if (attendanceError) {
+
+        console.error(
+            "Erreur attendance :",
+            attendanceError
+        );
 
         showMessage(
-            "Sélectionnez un cours et une date.",
+            "Erreur lors de l'enregistrement de l'appel.",
             "error"
         );
 
@@ -1034,135 +1172,94 @@ async function saveAttendance() {
     }
 
 
-    const rows =
-        document.querySelectorAll(
-            ".student-row"
+    /*
+     * 2. SUPPRESSION DES ANCIENNES ABSENCES
+     *
+     * On supprime l'ancien enregistrement
+     * pour cet élève et cette date.
+     */
+
+    const { error: deleteAbsenceError } =
+        await supabaseClient
+            .from("absences")
+            .delete()
+            .eq(
+                "student_id",
+                studentId
+            )
+            .eq(
+                "date",
+                date
+            );
+
+
+    if (deleteAbsenceError) {
+
+        console.error(
+            "Erreur suppression ancienne absence :",
+            deleteAbsenceError
         );
 
+        showMessage(
+            "L'appel a été enregistré, mais la synchronisation des absences a rencontré une erreur.",
+            "error"
+        );
 
-    const records =
-        Array.from(rows).map(row => {
-
-            const studentId =
-                row.dataset.studentId;
-
-            const status =
-                row.querySelector(
-                    ".status-select"
-                ).value;
-
-            const arrival =
-                row.querySelector(
-                    ".arrival-input"
-                ).value;
+        return;
+    }
 
 
-            return {
+    /*
+     * 3. CRÉATION AUTOMATIQUE DE L'ABSENCE
+     */
 
-                timetable_id:
-                    courseId,
+    if (
+        status === "absent" ||
+        status === "retard"
+    ) {
 
-                student_id:
-                    studentId,
+        const absenceData = {
 
-                date:
-                    date,
+            student_id:
+                studentId,
 
-                status:
-                    status,
+            date:
+                date,
 
-                arrival_time:
-                    status === "retard"
-                        ? (arrival || null)
-                        : null,
+            type:
+                status,
 
-                reason:
-                    null,
+            heure_arrivee:
+                status === "retard"
+                    ? (arrival || null)
+                    : null,
 
-                justified:
-                    false,
+            motif:
+                null,
 
-                comment:
-                    null
+            justifie:
+                false
 
-            };
-
-        });
+        };
 
 
-    for (const record of records) {
-
-        const { data: existing } =
+        const { error: insertAbsenceError } =
             await supabaseClient
-                .from("attendance")
-                .select("id")
-                .eq(
-                    "timetable_id",
-                    record.timetable_id
-                )
-                .eq(
-                    "student_id",
-                    record.student_id
-                )
-                .eq(
-                    "date",
-                    record.date
-                )
-                .maybeSingle();
+                .from("absences")
+                .insert(
+                    absenceData
+                );
 
 
-        let error;
-
-
-        if (existing) {
-
-            const result =
-                await supabaseClient
-                    .from("attendance")
-                    .update({
-                        status:
-                            record.status,
-                        arrival_time:
-                            record.arrival_time,
-                        reason:
-                            record.reason,
-                        justified:
-                            record.justified,
-                        comment:
-                            record.comment
-                    })
-                    .eq(
-                        "id",
-                        existing.id
-                    );
-
-            error =
-                result.error;
-
-        } else {
-
-            const result =
-                await supabaseClient
-                    .from("attendance")
-                    .insert(
-                        record
-                    );
-
-            error =
-                result.error;
-
-        }
-
-
-        if (error) {
+        if (insertAbsenceError) {
 
             console.error(
-                "Erreur sauvegarde :",
-                error
+                "Erreur création absence :",
+                insertAbsenceError
             );
 
             showMessage(
-                "Une erreur est survenue pendant l'enregistrement.",
+                "L'appel a été enregistré, mais l'absence n'a pas pu être synchronisée.",
                 "error"
             );
 
@@ -1171,19 +1268,27 @@ async function saveAttendance() {
 
     }
 
-
-    await loadExistingAttendance(
-        courseId,
-        date
-    );
+}
 
 
-    showMessage(
-        "✅ L'appel a été enregistré avec succès.",
-        "success"
-    );
+/*
+ * 4. RECHARGEMENT
+ */
+
+await loadExistingAttendance(
+    courseId,
+    date
+);
+
+
+showMessage(
+    "✅ L'appel a été enregistré et les absences ont été synchronisées.",
+    "success"
+);
+```
 
 }
+
 
 
 // MESSAGE
