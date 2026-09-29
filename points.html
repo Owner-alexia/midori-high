@@ -737,41 +737,30 @@ const pointRules = {
 async function checkUser() {
 
 ```
-const {
-    data: { session },
-    error
-} = await supabaseClient.auth.getSession();
+const result = await supabaseClient.auth.getSession();
 
-if (error) {
+console.log("SESSION SUPABASE :", result);
 
-    console.error(
-        "Erreur vérification session :",
-        error
-    );
-
+if (result.error) {
+    alert("Erreur Supabase : " + result.error.message);
     return false;
 }
 
-if (!session) {
-
-    console.log(
-        "Aucune session Supabase détectée."
-    );
-
-    window.location.href = "index.html";
-
+if (!result.data.session) {
+    alert("AUCUNE SESSION TROUVÉE");
     return false;
 }
 
-console.log(
-    "Session détectée :",
-    session.user.email
+alert(
+    "SESSION TROUVÉE !\n\nCompte : " +
+    result.data.session.user.email
 );
 
 return true;
 ```
 
 }
+
 
 
 /* =========================
