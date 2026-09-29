@@ -953,10 +953,10 @@ async function renderAccess(p) {
       <div class="card">
         <h3>Gestion des accès</h3>
         <p class="muted" style="margin-top:8px">« Modifier » change le profil du portail et sa fiche liée. « Révoquer l’accès » empêche la connexion au portail sans supprimer le compte Supabase Authentication.</p>
-        <p class="muted">Pour changer un mot de passe ou supprimer définitivement un utilisateur Auth, utilisez Supabase Authentication / une fonction serveur protégée.</p>
+        <p class="muted">« Supprimer définitivement » supprime le compte Supabase Authentication via une fonction serveur sécurisée. Cette action est irréversible.</p>
       </div>
     </div>` +
-    `<div class="card" style="margin-top:15px"><h3>Comptes portail</h3><div class="table-wrap" style="margin-top:10px"><table class="table"><thead><tr><th>E-mail</th><th>Identifiant</th><th>Nom</th><th>Rôle</th><th>État</th><th>Créé</th><th>Actions</th></tr></thead><tbody>${profs.map(x => `<tr><td>${esc(x.email)}</td><td>${esc(x.username)}</td><td>${esc(x.full_name)}</td><td>${badge(ROLE_LABEL[x.role] || x.role)}</td><td>${x.active ? '<span class="tag">Actif</span>' : '<span class="tag red">Révoqué</span>'}</td><td>${dtFR(x.created_at)}</td><td><div class="actions"><button class="btn secondary small" data-edit-profile="${esc(x.id)}">Modifier</button>${String(x.id) === String(p.id) ? '' : `<button class="btn ${x.active ? 'danger' : 'secondary'} small" data-toggle-profile="${esc(x.id)}" data-current="${x.active ? 'true' : 'false'}">${x.active ? 'Révoquer l’accès' : 'Réactiver'}</button>`}</div></td></tr>`).join('') || tableEmpty(7)}</tbody></table></div></div>`;
+    `<div class="card" style="margin-top:15px"><h3>Comptes portail</h3><div class="table-wrap" style="margin-top:10px"><table class="table"><thead><tr><th>E-mail</th><th>Identifiant</th><th>Nom</th><th>Rôle</th><th>État</th><th>Créé</th><th>Actions</th></tr></thead><tbody>${profs.map(x => `<tr><td>${esc(x.email)}</td><td>${esc(x.username)}</td><td>${esc(x.full_name)}</td><td>${badge(ROLE_LABEL[x.role] || x.role)}</td><td>${x.active ? '<span class="tag">Actif</span>' : '<span class="tag red">Révoqué</span>'}</td><td>${dtFR(x.created_at)}</td><td><div class="actions"><button class="btn secondary small" data-edit-profile="${esc(x.id)}">Modifier</button>${String(x.id) === String(p.id) ? '' : `<button class="btn ${x.active ? 'danger' : 'secondary'} small" data-toggle-profile="${esc(x.id)}" data-current="${x.active ? 'true' : 'false'}">${x.active ? 'Révoquer l’accès' : 'Réactiver'}</button><button class="btn danger small" data-delete-profile="${esc(x.id)}" data-profile-email="${esc(x.email || '')}">🗑️ Supprimer définitivement</button>`}</div></td></tr>`).join('') || tableEmpty(7)}</tbody></table></div></div>`;
 
   const form = qs('#accessForm');
   const formTitle = qs('#accessFormTitle');
@@ -1090,6 +1090,42 @@ async function renderAccess(p) {
       toast(r.active ? 'Accès réactivé.' : 'Accès révoqué.');
       location.reload();
     } catch (er) {
+      toast(errMsg(er), 'error');
+    }
+  });
+
+  qsa('[data-delete-profile]').forEach(b => b.onclick = async () => {
+    const id = b.dataset.deleteProfile;
+    const email = b.dataset.profileEmail || 'ce compte';
+    const first = confirm(`⚠️ SUPPRESSION DÉFINITIVE\n\nLe compte ${email} sera supprimé de Supabase Authentication ainsi que son accès au portail.\n\nCette action est irréversible. Continuer ?`);
+    if (!first) return;
+
+    const second = prompt(`Pour confirmer la suppression définitive de ${email}, tapez SUPPRIMER`);
+    if (second !== 'SUPPRIMER') {
+      toast('Suppression annulée.', 'error');
+      return;
+    }
+
+    try {
+      b.disabled = true;
+      b.textContent = 'Suppression…';
+      const { data, error } = await sb.functions.invoke('admin-delete-user', {
+        body: { user_id: id }
+      });
+      if (error) {
+        let message = errMsg(error);
+        try {
+          const ctx = await error.context?.json?.();
+          if (ctx?.error) message = ctx.error;
+        } catch (_) {}
+        throw new Error(message);
+      }
+      await log('delete', 'profile', id, { email, permanent_auth_delete: true });
+      toast(data?.warning || 'Compte supprimé définitivement.');
+      location.reload();
+    } catch (er) {
+      b.disabled = false;
+      b.textContent = '🗑️ Supprimer définitivement';
       toast(errMsg(er), 'error');
     }
   });

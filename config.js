@@ -4,4 +4,4 @@ window.MIDORI_CONFIG = {
   ADMIN_EMAIL: "nana.udo@midori.fr"
 };
 
-window.MIDORI_BUILD = "messagerie-devoirs-2026-09-29-v6";
+window.MIDORI_BUILD = "messagerie-devoirs-2026-09-29-v7";
