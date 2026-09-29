@@ -4,8 +4,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-```
 <title>Midori High — Emploi du temps</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -318,72 +316,55 @@
         }
     }
 </style>
-```
-
 </head>
 
 <body>
-
-```
 <aside class="sidebar">
 
     <div class="logo">
         🌿 Midori High
+        <div style="font-size:12px; opacity:.65; margin-top:4px;">Portail Administratif</div>
     </div>
 
     <div class="section-title">Administration</div>
 
-    <a href="dashboard.html" class="nav-item">
-        🏠 Tableau de bord
-    </a>
+        <a href="dashboard.html" class="nav-item">
+            📊 Tableau de bord
+        </a>
 
-    <a href="students.html" class="nav-item">
-        👨‍🎓 Élèves
-    </a>
+        <a href="students.html" class="nav-item">
+            👨‍🎓 Élèves
+        </a>
 
-    <a href="professors.html" class="nav-item">
-        👩‍🏫 Professeurs
-    </a>
+        <a href="professors.html" class="nav-item">
+            👨‍🏫 Professeurs
+        </a>
 
-    <a href="#" class="nav-item">
-        🛡️ Surveillants
-    </a>
-
-    <a href="classes.html" class="nav-item">
-        🏫 Classes
-    </a>
+        <a href="classes.html" class="nav-item">
+            🏫 Classes
+        </a>
 
     <div class="section-title">Scolarité</div>
 
-    <a href="subjects.html" class="nav-item">
-        📚 Matières
-    </a>
+        <a href="subjects.html" class="nav-item">
+            📚 Matières
+        </a>
 
-    <a href="timetable.html" class="nav-item active">
-        🕐 Emploi du temps
-    </a>
+        <a href="timetable.html" class="nav-item active">
+            🕐 Emploi du temps
+        </a>
 
-    <a href="#" class="nav-item">
-        📝 Notes
-    </a>
+        <a href="attendance.html" class="nav-item">
+            📋 Fiches d'appel
+        </a>
 
-    <a href="absences.html" class="nav-item">
-        📋 Absences
-    </a>
+        <a href="absences.html" class="nav-item">
+            ❌ Absences
+        </a>
 
-    <div class="section-title">Système</div>
-
-    <a href="#" class="nav-item">
-        📢 Annonces
-    </a>
-
-    <a href="#" class="nav-item">
-        📜 Journal d'activité
-    </a>
-
-    <a href="#" class="nav-item">
-        ⚙️ Paramètres
-    </a>
+        <a href="points.html" class="nav-item">
+            ⭐ Points
+        </a>
 
 </aside>
 
@@ -575,15 +556,13 @@
     </div>
 
 </div>
-```
-
 <script>
 
 const SUPABASE_URL =
     "https://esiwwkphbqkqqcfelktn.supabase.co";
 
 const SUPABASE_KEY =
-    "sb_publishable_Gn6HhpZXdeoaWhWJ7wRWLw_D3dXLTnX";
+    "sb_publishable_Gn6H6hpZXdeoaWhW7jRWLw_D3dXLTnX";
 
 const supabaseClient =
     window.supabase.createClient(
