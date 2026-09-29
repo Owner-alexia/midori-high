@@ -423,7 +423,7 @@ async function renderMessages(p) {
       const attachmentHtml = (ar.data||[]).map(a=>`<button type="button" class="btn secondary small" data-download="${esc(a.id)}" data-path="${esc(a.storage_path)}">📎 ${esc(a.file_name)}</button>`).join(' ') || '<span class="muted">Aucune pièce jointe.</span>';
       const canReply = mode === 'inbox';
       const host=qs('#messageModalHost');
-      host.innerHTML=modal('msgView','Message',`<div class="card" style="box-shadow:none;padding:0;border:0"><div class="muted">De : ${esc(sender)}<br>À : ${esc(recipient)}<br>${dtFR(m.sent_at)}</div><h2 style="font-size:21px;margin:15px 0 10px">${esc(m.subject)}</h2><div style="white-space:pre-wrap;line-height:1.6">${esc(m.body)}</div><div style="margin-top:16px"><strong>Pièces jointes</strong><div class="actions" style="margin-top:8px">${attachmentHtml}</div></div><div class="actions" style="margin-top:18px">${canReply?'<button id="replyMsg" class="btn primary">↩️ Répondre</button>':''}<button class="btn secondary" data-close="msgView">Fermer</button></div></div>`);
+      host.innerHTML=modal('msgView','Message',`<div class="card" style="box-shadow:none;padding:0;border:0"><div class="muted">De : ${esc(sender)}<br>À : ${esc(recipient)}<br>${dtFR(m.sent_at)}</div><h2 style="font-size:21px;margin:15px 0 10px">${esc(m.subject)}</h2><div style="white-space:pre-wrap;line-height:1.6">${esc(m.body)}</div><div style="margin-top:16px"><strong>Pièces jointes</strong><div class="actions" style="margin-top:8px">${attachmentHtml}</div></div><div class="actions" style="margin-top:18px">${canReply?'<button id="replyMsg" class="btn primary">↩️ Répondre</button>':''}<button id="deleteMsgView" class="btn danger">🗑️ Supprimer</button><button class="btn secondary" data-close="msgView">Fermer</button></div></div>`);
       openModal('msgView'); closeBindings();
       qsa('[data-download]').forEach(x=>x.onclick=async()=>{
         try { const r=await sb.storage.from(MESSAGE_BUCKET).createSignedUrl(x.dataset.path,60); if(r.error) throw r.error; window.open(r.data.signedUrl,'_blank'); } catch(er){ toast(errMsg(er),'error'); }
@@ -434,6 +434,22 @@ async function renderMessages(p) {
         qs('#msgCompose [name="subject"]').value=`Re: ${m.subject}`;
         qs('#msgCompose [name="body"]').value=`\n\n--- Message précédent ---\n${m.body}`;
         openModal('msgCompose');
+      });
+      qs('#deleteMsgView')?.addEventListener('click', async () => {
+        if (!confirm('Supprimer définitivement ce message ?')) return;
+        const b = qs('#deleteMsgView');
+        try {
+          b.disabled = true;
+          await deleteInternalMessage(m.id);
+          await log('delete', 'message', m.id, null);
+          closeModal('msgView');
+          toast('Message supprimé.');
+          await renderMessages(p);
+          await loadUnreadBadge();
+        } catch (er) {
+          b.disabled = false;
+          toast(errMsg(er), 'error');
+        }
       });
       await loadUnreadBadge();
       btn.classList.remove('msg-unread');
@@ -742,7 +758,7 @@ async function renderGrades(p, restricted = false) {
   if (p.role === 'student') visible = list.filter(g => g.student_id === p.student_id);
   const form = p.role === 'admin' || p.role === 'professor';
   qs('#app').innerHTML = head('Notes', p.role === 'student' ? 'Votre relevé de notes.' : 'Gestion des évaluations scolaires.') + (form ? `<div class="toolbar"><button id="ga" class="btn primary">+ Ajouter une note</button></div>` : '') +
-    `<div class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Élève</th><th>Matière</th><th>Note</th><th>Coefficient</th><th>Évaluation</th><th>Date</th><th>Professeur</th></tr></thead><tbody>${visible.map(g => `<tr><td>${esc(g.students?.full_name || '')}<span>${esc(g.students?.class_name || '')}</span></td><td>${esc(g.subjects?.name || '')}</td><td><strong>${Number(g.value).toFixed(2)}/20</strong></td><td>${esc(g.coefficient ?? 1)}</td><td>${esc(g.label || '—')}</td><td>${dateFR(g.grade_date)}</td><td>${esc(g.professors?.full_name || '—')}</td></tr>`).join('') || tableEmpty(7)}</tbody></table></div></div>` +
+    `<div class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Élève</th><th>Matière</th><th>Note</th><th>Coefficient</th><th>Évaluation</th><th>Date</th><th>Professeur</th></tr></thead><tbody>${visible.map(g => `<tr><td>${esc(g.students?.full_name || '')}<span>${esc(g.students?.class_name || '')}</span></td><td>${esc(g.subjects?.name || '')}</td><td><strong>${g.value == null ? '—' : Number(g.value).toFixed(2) + '/20'}</strong></td><td>${esc(g.coefficient ?? 1)}</td><td>${esc(g.label || '—')}</td><td>${dateFR(g.grade_date)}</td><td>${esc(g.professors?.full_name || '—')}</td></tr>`).join('') || tableEmpty(7)}</tbody></table></div></div>` +
     (form ? modal('gm', 'Ajouter une note', `<form id="gf" class="form"><div class="field full"><label>Élève</label><select name="student_id" required>${opts(students, 'id', 'full_name')}</select></div><div class="field"><label>Matière</label><select name="subject_id" required>${opts(subjects)}</select></div><div class="field"><label>Note /20</label><input name="value" type="number" min="0" max="20" step="0.01" required></div><div class="field"><label>Coefficient</label><input name="coefficient" type="number" min="0.1" step="0.1" value="1" required></div><div class="field"><label>Évaluation</label><input name="label" placeholder="Contrôle, examen, oral…"></div><div class="field"><label>Date</label><input name="grade_date" type="date" value="${today()}" required></div><div class="field full"><label>Commentaire</label><textarea name="comment"></textarea></div><div class="field full"><button class="btn primary">Enregistrer</button></div></form>`) : '');
   if (form) { qs('#ga').onclick = () => openModal('gm'); closeBindings(); qs('#gf').onsubmit = async e => { e.preventDefault(); const f = new FormData(e.target); try { const professor_id = p.role === 'professor' ? (await professorRow(p)).id : null; if (p.role === 'professor' && !professor_id) throw new Error('Professeur introuvable.'); const r = await add('grades', { student_id: f.get('student_id'), subject_id: f.get('subject_id'), professor_id, value: Number(f.get('value')), coefficient: Number(f.get('coefficient') || 1), label: f.get('label') || null, comment: f.get('comment') || null, grade_date: f.get('grade_date') }); await log('create', 'grade', r.id, { value: r.value }); toast('Note enregistrée.'); location.reload(); } catch (er) { toast(errMsg(er), 'error'); } }; }
 }
@@ -912,38 +928,171 @@ async function renderAccess(p) {
     rows('professors', 'id,username,full_name,subject', { order: 'full_name' }),
     rows('supervisors', 'id,username,full_name', { order: 'full_name' })
   ]);
+
   const queryUser = new URLSearchParams(location.search).get('username') || '';
   const preStudent = students.find(x => x.username === queryUser);
   const preTeacher = teachers.find(x => x.username === queryUser);
   const preSupervisor = supervisors.find(x => x.username === queryUser);
-  qs('#app').innerHTML = head('Accès & comptes', 'Reliez un compte Supabase Auth à un espace du portail.') +
-    `<div class="notice" style="margin-bottom:15px"><strong>Principe :</strong> le mot de passe reste dans Supabase Authentication. Ici, vous attribuez le rôle et, quand nécessaire, vous reliez le compte à une fiche existante.</div>` +
-    `<div class="grid g2"><div class="card"><h3>Créer / lier un accès</h3><form id="accessForm" class="form" style="margin-top:12px"><div class="field full"><label>E-mail du compte Supabase</label><input name="email" type="email" placeholder="prenom@midori.fr" required></div><div class="field"><label>Rôle</label><select id="accessRole" name="role"><option value="student">Élève</option><option value="professor">Professeur</option><option value="surveillant">Surveillant</option><option value="psychologue">Psychologue</option><option value="infirmiere">Infirmière</option><option value="admin">Administration</option></select></div><div class="field"><label>Fiche à relier</label><select id="accessLink"><option value="">Aucune fiche / professionnel santé / admin</option></select></div><div class="field"><label>Identifiant portail</label><input id="accessUsername" name="username" value="${esc(queryUser)}" placeholder="pseudo.roblox" required></div><div class="field"><label>Nom affiché</label><input id="accessName" name="full_name" value="${esc(preStudent?.full_name || preTeacher?.full_name || preSupervisor?.full_name || '')}" placeholder="Nom et prénom" required></div><div class="field"><label>Actif</label><select name="active"><option value="true">Oui</option><option value="false">Non</option></select></div><div class="field full"><div id="accessHint" class="notice">Choisissez un rôle. Pour un élève, professeur ou surveillant, sélectionnez sa fiche : l’identifiant et le nom seront préremplis.</div></div><div class="field full"><button class="btn primary">Créer / mettre à jour le profil</button></div></form></div><div class="card"><h3>Procédure</h3><p class="muted" style="margin-top:8px">1. Supabase → Authentication → Users → Add user.</p><p class="muted">2. Créez son e-mail + mot de passe et confirmez le compte.</p><p class="muted">3. Ici, choisissez son rôle et sa fiche si nécessaire.</p><p class="muted">4. Pour un professeur, ajoutez ensuite ses classes dans « Professeurs ».</p><p class="muted">5. Pour un élève, sa classe doit déjà être renseignée dans « Élèves ».</p></div></div>` +
-    `<div class="card" style="margin-top:15px"><h3>Comptes portail</h3><div class="table-wrap" style="margin-top:10px"><table class="table"><thead><tr><th>E-mail</th><th>Identifiant</th><th>Nom</th><th>Rôle</th><th>État</th><th>Créé</th></tr></thead><tbody>${profs.map(x => `<tr><td>${esc(x.email)}</td><td>${esc(x.username)}</td><td>${esc(x.full_name)}</td><td>${badge(ROLE_LABEL[x.role] || x.role)}</td><td><button class="btn ${x.active ? 'danger' : 'secondary'} small" data-toggle-profile="${esc(x.id)}" data-current="${x.active ? 'true' : 'false'}">${x.active ? 'Révoquer l’accès' : 'Réactiver'}</button></td><td>${dtFR(x.created_at)}</td></tr>`).join('') || tableEmpty(6)}</tbody></table></div></div>`;
 
+  qs('#app').innerHTML = head('Accès & comptes', 'Gérez les rôles, les fiches liées et l’accès au portail.') +
+    `<div class="grid g2">
+      <div class="card">
+        <h3 id="accessFormTitle">Créer / lier un accès</h3>
+        <form id="accessForm" class="form" style="margin-top:12px">
+          <input type="hidden" name="id" value="">
+          <div class="field full"><label>E-mail du compte Supabase</label><input name="email" type="email" placeholder="prenom@midori.fr" required><small id="emailHint" class="muted">Pour une création, utilisez l’e-mail du compte créé dans Supabase Authentication.</small></div>
+          <div class="field"><label>Rôle</label><select id="accessRole" name="role"><option value="student">Élève</option><option value="professor">Professeur</option><option value="surveillant">Surveillant</option><option value="psychologue">Psychologue</option><option value="infirmiere">Infirmière</option><option value="admin">Administration</option></select></div>
+          <div class="field"><label>Fiche à relier</label><select id="accessLink"><option value="">Aucune fiche / personnel santé / admin</option></select></div>
+          <div class="field"><label>Identifiant portail</label><input id="accessUsername" name="username" value="${esc(queryUser)}" placeholder="pseudo.roblox" required></div>
+          <div class="field"><label>Nom affiché</label><input id="accessName" name="full_name" value="${esc(preStudent?.full_name || preTeacher?.full_name || preSupervisor?.full_name || '')}" placeholder="Nom et prénom" required></div>
+          <div class="field"><label>Accès</label><select name="active"><option value="true">Actif</option><option value="false">Révoqué</option></select></div>
+          <div class="field full"><div id="accessHint" class="notice">Choisissez un rôle puis, pour un élève, professeur ou surveillant, la fiche correspondante.</div></div>
+          <div class="field full actions"><button id="accessSubmit" class="btn primary" type="submit">Créer / mettre à jour le profil</button><button id="accessCancel" class="btn secondary" type="button" style="display:none">Annuler la modification</button></div>
+        </form>
+      </div>
+      <div class="card">
+        <h3>Gestion des accès</h3>
+        <p class="muted" style="margin-top:8px">« Modifier » change le profil du portail et sa fiche liée. « Révoquer l’accès » empêche la connexion au portail sans supprimer le compte Supabase Authentication.</p>
+        <p class="muted">Pour changer un mot de passe ou supprimer définitivement un utilisateur Auth, utilisez Supabase Authentication / une fonction serveur protégée.</p>
+      </div>
+    </div>` +
+    `<div class="card" style="margin-top:15px"><h3>Comptes portail</h3><div class="table-wrap" style="margin-top:10px"><table class="table"><thead><tr><th>E-mail</th><th>Identifiant</th><th>Nom</th><th>Rôle</th><th>État</th><th>Créé</th><th>Actions</th></tr></thead><tbody>${profs.map(x => `<tr><td>${esc(x.email)}</td><td>${esc(x.username)}</td><td>${esc(x.full_name)}</td><td>${badge(ROLE_LABEL[x.role] || x.role)}</td><td>${x.active ? '<span class="tag">Actif</span>' : '<span class="tag red">Révoqué</span>'}</td><td>${dtFR(x.created_at)}</td><td><div class="actions"><button class="btn secondary small" data-edit-profile="${esc(x.id)}">Modifier</button>${String(x.id) === String(p.id) ? '' : `<button class="btn ${x.active ? 'danger' : 'secondary'} small" data-toggle-profile="${esc(x.id)}" data-current="${x.active ? 'true' : 'false'}">${x.active ? 'Révoquer l’accès' : 'Réactiver'}</button>`}</div></td></tr>`).join('') || tableEmpty(7)}</tbody></table></div></div>`;
+
+  const form = qs('#accessForm');
+  const formTitle = qs('#accessFormTitle');
+  const submitBtn = qs('#accessSubmit');
+  const cancelBtn = qs('#accessCancel');
+  const emailInput = form.elements.email;
+  const idInput = form.elements.id;
   const roleSelect = qs('#accessRole');
   const linkSelect = qs('#accessLink');
   const usernameInput = qs('#accessUsername');
   const nameInput = qs('#accessName');
+  const activeSelect = form.elements.active;
   const hint = qs('#accessHint');
-  const rebuildLinkOptions = () => {
+
+  const rebuildLinkOptions = (selectedId = '') => {
     const role = roleSelect.value;
     let source = [];
     if (role === 'student') source = students.map(x => ({ id: x.id, username: x.username, full_name: x.full_name, label: `${x.full_name} · ${x.username}` }));
     if (role === 'professor') source = teachers.map(x => ({ id: x.id, username: x.username, full_name: x.full_name, label: `${x.full_name} · ${x.subject || 'Professeur'}` }));
     if (role === 'surveillant') source = supervisors.map(x => ({ id: x.id, username: x.username, full_name: x.full_name, label: `${x.full_name} · ${x.username}` }));
-    linkSelect.innerHTML = `<option value="">Aucune fiche / professionnel santé / admin</option>` + source.map(x => `<option value="${esc(x.id)}" data-username="${esc(x.username)}" data-name="${esc(x.full_name)}">${esc(x.label)}</option>`).join('');
+    linkSelect.innerHTML = `<option value="">Aucune fiche / personnel santé / admin</option>` + source.map(x => `<option value="${esc(x.id)}" data-username="${esc(x.username)}" data-name="${esc(x.full_name)}">${esc(x.label)}</option>`).join('');
+    if (selectedId) linkSelect.value = selectedId;
     hint.textContent = role === 'student' ? 'La fiche élève sélectionnée sera reliée au compte.' : role === 'professor' ? 'La fiche professeur sélectionnée sera reliée au compte. Pensez ensuite à lui affecter ses classes.' : role === 'surveillant' ? 'La fiche surveillant sélectionnée sera reliée au compte.' : role === 'psychologue' ? 'Aucune fiche de personnel supplémentaire n’est nécessaire.' : role === 'infirmiere' ? 'Aucune fiche de personnel supplémentaire n’est nécessaire.' : 'Ce compte aura les droits d’administration du portail.';
   };
-  rebuildLinkOptions();
-  if (preStudent) roleSelect.value = 'student'; else if (preTeacher) roleSelect.value = 'professor'; else if (preSupervisor) roleSelect.value = 'surveillant';
-  rebuildLinkOptions();
-  const pre = preStudent || preTeacher || preSupervisor;
-  if (pre) { linkSelect.value = pre.id; usernameInput.value = pre.username; nameInput.value = pre.full_name; }
-  roleSelect.onchange = () => { rebuildLinkOptions(); if (!['student','professor','surveillant'].includes(roleSelect.value)) { linkSelect.value=''; } };
-  linkSelect.onchange = () => { const o = linkSelect.selectedOptions[0]; if (!o?.dataset.username) return; usernameInput.value = o.dataset.username; nameInput.value = o.dataset.name || ''; };
-  qs('#accessForm').onsubmit = async e => { e.preventDefault(); const f = new FormData(e.target); try { const r = await sb.rpc('admin_create_profile', { p_email: f.get('email'), p_username: f.get('username'), p_full_name: f.get('full_name'), p_role: f.get('role'), p_active: f.get('active') === 'true' }); if (r.error) throw r.error; await log('create', 'profile', r.data?.id || null, { username: f.get('username'), role: f.get('role') }); toast('Accès créé / mis à jour.'); location.reload(); } catch (er) { toast(errMsg(er), 'error'); } };
-  qsa('[data-toggle-profile]').forEach(b => b.onclick = async () => { try { const r = await update('profiles', b.dataset.toggleProfile, { active: b.dataset.current !== 'true' }); await log('update', 'profile', r.id, { active: r.active }); toast(r.active ? 'Accès activé.' : 'Accès désactivé.'); location.reload(); } catch (er) { toast(errMsg(er), 'error'); } });
+
+  const resetForm = () => {
+    form.reset();
+    idInput.value = '';
+    emailInput.readOnly = false;
+    emailInput.style.opacity = '';
+    formTitle.textContent = 'Créer / lier un accès';
+    submitBtn.textContent = 'Créer / mettre à jour le profil';
+    cancelBtn.style.display = 'none';
+    const pre = preStudent || preTeacher || preSupervisor;
+    if (preStudent) roleSelect.value = 'student';
+    else if (preTeacher) roleSelect.value = 'professor';
+    else if (preSupervisor) roleSelect.value = 'surveillant';
+    rebuildLinkOptions(pre?.id || '');
+    if (pre) { linkSelect.value = pre.id; usernameInput.value = pre.username; nameInput.value = pre.full_name; }
+  };
+
+  const startEdit = profile => {
+    idInput.value = profile.id;
+    emailInput.value = profile.email || '';
+    emailInput.readOnly = true;
+    emailInput.style.opacity = '.7';
+    roleSelect.value = profile.role || 'student';
+    rebuildLinkOptions(profile.student_id || profile.professor_id || profile.supervisor_id || '');
+    usernameInput.value = profile.username || '';
+    nameInput.value = profile.full_name || '';
+    activeSelect.value = profile.active === false ? 'false' : 'true';
+    formTitle.textContent = `Modifier l’accès — ${profile.full_name || profile.username || 'compte'}`;
+    submitBtn.textContent = 'Enregistrer les modifications';
+    cancelBtn.style.display = '';
+    form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  resetForm();
+  roleSelect.onchange = () => {
+    rebuildLinkOptions();
+    if (!['student','professor','surveillant'].includes(roleSelect.value)) linkSelect.value = '';
+  };
+  linkSelect.onchange = () => {
+    const o = linkSelect.selectedOptions[0];
+    if (!o?.dataset.username) return;
+    usernameInput.value = o.dataset.username;
+    nameInput.value = o.dataset.name || '';
+  };
+  cancelBtn.onclick = resetForm;
+
+  form.onsubmit = async e => {
+    e.preventDefault();
+    try {
+      const fd = new FormData(form);
+      const editingId = String(fd.get('id') || '').trim();
+      const role = String(fd.get('role') || 'student');
+      const linkId = linkSelect.value || null;
+      const linkPayload = {
+        student_id: role === 'student' ? linkId : null,
+        professor_id: role === 'professor' ? linkId : null,
+        supervisor_id: role === 'surveillant' ? linkId : null
+      };
+
+      if (editingId) {
+        if (editingId === String(p.id) && (fd.get('active') === 'false' || role !== 'admin')) throw new Error('Vous ne pouvez pas désactiver ou retirer votre propre rôle administrateur ici.');
+        const r = await update('profiles', editingId, {
+          username: String(fd.get('username') || '').trim(),
+          full_name: String(fd.get('full_name') || '').trim(),
+          role,
+          active: fd.get('active') === 'true',
+          ...linkPayload
+        });
+        await log('update', 'profile', r.id, { username: r.username, role: r.role, active: r.active });
+        toast('Accès modifié.');
+      } else {
+        const r = await sb.rpc('admin_create_profile', {
+          p_email: fd.get('email'),
+          p_username: fd.get('username'),
+          p_full_name: fd.get('full_name'),
+          p_role: role,
+          p_active: fd.get('active') === 'true'
+        });
+        if (r.error) throw r.error;
+        let profileId = r.data?.id || (Array.isArray(r.data) ? r.data[0]?.id : null);
+        if (!profileId) {
+          const fr = await sb.from('profiles').select('id').eq('email', fd.get('email')).maybeSingle();
+          if (fr.error) throw fr.error;
+          profileId = fr.data?.id || null;
+        }
+        if (profileId) await update('profiles', profileId, linkPayload);
+        await log('create', 'profile', profileId, { username: fd.get('username'), role });
+        toast('Accès créé / mis à jour.');
+      }
+      location.reload();
+    } catch (er) {
+      toast(errMsg(er), 'error');
+    }
+  };
+
+  qsa('[data-edit-profile]').forEach(b => b.onclick = () => {
+    const profile = profs.find(x => String(x.id) === String(b.dataset.editProfile));
+    if (profile) startEdit(profile);
+  });
+
+  qsa('[data-toggle-profile]').forEach(b => b.onclick = async () => {
+    const isActive = b.dataset.current === 'true';
+    if (!confirm(isActive ? 'Révoquer l’accès de ce compte au portail ?' : 'Réactiver l’accès de ce compte ?')) return;
+    try {
+      const r = await update('profiles', b.dataset.toggleProfile, { active: !isActive });
+      await log('update', 'profile', r.id, { active: r.active });
+      toast(r.active ? 'Accès réactivé.' : 'Accès révoqué.');
+      location.reload();
+    } catch (er) {
+      toast(errMsg(er), 'error');
+    }
+  });
 }
 
 async function renderLogs() {
@@ -993,7 +1142,7 @@ async function renderSupervisorSanctions(p) { qs('#app').innerHTML = head('Sanct
 async function renderSupervisorAbsences(p) { await renderAbsences(p); }
 
 async function studentRow(p) { if (!p.student_id) throw new Error('Votre compte n’est pas encore lié à une fiche élève.'); const r = await sb.from('students').select('*').eq('id', p.student_id).single(); if (r.error) throw r.error; return r.data; }
-async function renderStudentSpace(p) { const s = await studentRow(p); const [a, g, h, pts] = await Promise.all([sb.from('absences').select('id,type,justifie', { count: 'exact' }).eq('student_id', s.id), sb.from('grades').select('value,coefficient').eq('student_id', s.id), sb.from('homework').select('id,class_id').eq('class_id', s.class_id), sb.from('student_points').select('points').eq('student_id', s.id)]); if (a.error) throw a.error; if (g.error) throw g.error; if (h.error) throw h.error; if (pts.error) throw pts.error; const total = (pts.data || []).reduce((n,x)=>n+Number(x.points||0),0); const avg = (g.data || []).length ? (g.data.reduce((n,x)=>n+Number(x.value)*Number(x.coefficient||1),0)/g.data.reduce((n,x)=>n+Number(x.coefficient||1),0)).toFixed(2) : '—'; qs('#app').innerHTML = head('Espace élève', 'Votre vie scolaire à Midori High.') + `<div class="hero"><h2>Bienvenue, ${esc(s.full_name)}.</h2><p>${esc(s.class_name || 'Classe non renseignée')} · réputation : ${esc(reputation(total))}</p><div class="actions"><a href="student-grades.html" class="btn secondary">💯 Mes notes</a><a href="student-homework.html" class="btn secondary">📓 Mes devoirs</a><a href="student-timetable.html" class="btn secondary">🗓️ Mon emploi du temps</a></div></div><div class="grid g4" style="margin-top:15px">${statCard('Absences', a.count || 0, '⏱️')}${statCard('Moyenne', `${avg}/20`, '💯')}${statCard('Réputation', `${total} pts`, '⭐')}${statCard('Devoirs', h.data?.length || 0, '📓')}</div>`; }
+async function renderStudentSpace(p) { const s = await studentRow(p); const [a, g, h, pts] = await Promise.all([sb.from('absences').select('id,type,justifie', { count: 'exact' }).eq('student_id', s.id), sb.from('grades').select('value,coefficient').eq('student_id', s.id), sb.from('homework').select('id,class_id').eq('class_id', s.class_id), sb.from('student_points').select('points').eq('student_id', s.id)]); if (a.error) throw a.error; if (g.error) throw g.error; if (h.error) throw h.error; if (pts.error) throw pts.error; const total = (pts.data || []).reduce((n,x)=>n+Number(x.points||0),0); const validGrades = (g.data || []).filter(x => x.value != null); const avg = validGrades.length ? (validGrades.reduce((n,x)=>n+Number(x.value)*Number(x.coefficient||1),0)/validGrades.reduce((n,x)=>n+Number(x.coefficient||1),0)).toFixed(2) : '—'; qs('#app').innerHTML = head('Espace élève', 'Votre vie scolaire à Midori High.') + `<div class="hero"><h2>Bienvenue, ${esc(s.full_name)}.</h2><p>${esc(s.class_name || 'Classe non renseignée')} · réputation : ${esc(reputation(total))}</p><div class="actions"><a href="student-grades.html" class="btn secondary">💯 Mes notes</a><a href="student-homework.html" class="btn secondary">📓 Mes devoirs</a><a href="student-timetable.html" class="btn secondary">🗓️ Mon emploi du temps</a></div></div><div class="grid g4" style="margin-top:15px">${statCard('Absences', a.count || 0, '⏱️')}${statCard('Moyenne', `${avg}/20`, '💯')}${statCard('Réputation', `${total} pts`, '⭐')}${statCard('Devoirs', h.data?.length || 0, '📓')}</div>`; }
 async function renderStudentGrades(p) { await renderGrades({ ...p, role:'student' }); }
 async function renderStudentHomework(p) { await renderHomework({ ...p, role:'student' }); }
 async function renderStudentTimetable(p) { const s = await studentRow(p); const list = await rows('timetable', 'day_of_week,start_time,end_time,room,classes(name),professors(full_name),subjects(name),class_id', { order:'day_of_week' }); const own = list.filter(x=>x.class_id===s.class_id); const days=['','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche']; qs('#app').innerHTML=head('Mon emploi du temps','Planning de votre classe.')+`<div class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Jour</th><th>Horaire</th><th>Matière</th><th>Professeur</th><th>Salle</th></tr></thead><tbody>${own.map(r=>`<tr><td>${days[r.day_of_week]}</td><td>${String(r.start_time).slice(0,5)}–${String(r.end_time).slice(0,5)}</td><td>${esc(r.subjects?.name||'')}</td><td>${esc(r.professors?.full_name||'')}</td><td>${esc(r.room||'—')}</td></tr>`).join('')||tableEmpty(5)}</tbody></table></div></div>`; }

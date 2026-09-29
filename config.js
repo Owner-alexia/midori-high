@@ -1,2 +1,2 @@
-window.MIDORI_CONFIG={SUPABASE_URL:"https://esiwwkphbqkqqcfelktn.supabase.co",SUPABASE_KEY:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVzaXd3a3BoYnFrcXFjZmVsa3RuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA2MDkwNTIsImV4cCI6MjEwNjE4NTA1Mn0.i1V9vbAbSWKGBcAx6ZZDg3uBfwhawJnUDDs9YSztMEk",ADMIN_EMAIL:"nana.udo@midori.fr"};
+window.MIDORI_CONFIG={SUPABASE_URL:"https://esiwwkphbqkqqcfelktn.supabase.co",SUPABASE_KEY:"sb_publishable_Gn6H6hpZXdeoaWhW7jRWLw_D3dXLTnX",ADMIN_EMAIL:"nana.udo@midori.fr"};
 window.MIDORI_BUILD='messagerie-devoirs-2026-09-29';
