@@ -1,0 +1,1282 @@
+<!DOCTYPE html>
+
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+```
+<title>Midori High — Fiches d'appel</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        font-family: Arial, sans-serif;
+    }
+
+    body {
+        background: #f6f8f7;
+        color: #26352f;
+    }
+
+    .sidebar {
+        position: fixed;
+        left: 0;
+        top: 0;
+        width: 240px;
+        height: 100vh;
+        background: #ffffff;
+        border-right: 1px solid #e5ebe8;
+        padding: 25px 15px;
+    }
+
+    .logo {
+        font-size: 22px;
+        font-weight: bold;
+        color: #466b59;
+        text-align: center;
+        margin-bottom: 30px;
+    }
+
+    .section-title {
+        font-size: 12px;
+        color: #9aa7a1;
+        text-transform: uppercase;
+        margin: 20px 10px 8px;
+    }
+
+    .nav-item {
+        display: block;
+        text-decoration: none;
+        color: #53615b;
+        padding: 11px 13px;
+        border-radius: 9px;
+        margin-bottom: 4px;
+        font-size: 14px;
+    }
+
+    .nav-item:hover {
+        background: #eef4f1;
+    }
+
+    .nav-item.active {
+        background: #e5efe9;
+        color: #315744;
+        font-weight: bold;
+    }
+
+    .main {
+        margin-left: 240px;
+        padding: 30px;
+    }
+
+    .top {
+        margin-bottom: 25px;
+    }
+
+    .top h1 {
+        font-size: 28px;
+        color: #30473c;
+    }
+
+    .top p {
+        color: #84918b;
+        margin-top: 5px;
+    }
+
+    .panel {
+        background: white;
+        border: 1px solid #e5ebe8;
+        border-radius: 14px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+
+    .panel h2 {
+        font-size: 18px;
+        color: #30473c;
+        margin-bottom: 15px;
+    }
+
+    .filters {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 15px;
+    }
+
+    .form-group label {
+        display: block;
+        font-size: 13px;
+        font-weight: bold;
+        color: #53615b;
+        margin-bottom: 6px;
+    }
+
+    select,
+    input,
+    textarea {
+        width: 100%;
+        padding: 11px 12px;
+        border: 1px solid #dce5e0;
+        border-radius: 8px;
+        outline: none;
+        background: white;
+    }
+
+    textarea {
+        resize: vertical;
+        min-height: 70px;
+    }
+
+    .course-info {
+        display: none;
+        margin-top: 20px;
+        padding: 18px;
+        background: #f3f7f5;
+        border-radius: 10px;
+    }
+
+    .course-info.visible {
+        display: block;
+    }
+
+    .course-info h3 {
+        color: #30473c;
+        margin-bottom: 10px;
+    }
+
+    .course-details {
+        display: flex;
+        gap: 25px;
+        flex-wrap: wrap;
+        color: #65736c;
+        font-size: 14px;
+    }
+
+    .attendance-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+        gap: 15px;
+        flex-wrap: wrap;
+    }
+
+    .date-input {
+        width: auto;
+    }
+
+    .student-row {
+        display: grid;
+        grid-template-columns: 1fr 160px 150px;
+        gap: 15px;
+        align-items: center;
+        padding: 14px 0;
+        border-bottom: 1px solid #edf1ef;
+    }
+
+    .student-row:last-child {
+        border-bottom: none;
+    }
+
+    .student-name {
+        font-weight: bold;
+        color: #30473c;
+    }
+
+    .student-username {
+        font-size: 12px;
+        color: #96a09b;
+        margin-top: 4px;
+    }
+
+    .status-select.present {
+        border-color: #b8d3c2;
+        background: #f0f7f3;
+    }
+
+    .status-select.absent {
+        border-color: #e3bcbc;
+        background: #fdf1f1;
+    }
+
+    .status-select.retard {
+        border-color: #dfcfaa;
+        background: #fbf7ec;
+    }
+
+    .arrival-input {
+        display: none;
+    }
+
+    .arrival-input.visible {
+        display: block;
+    }
+
+    .save-container {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 20px;
+    }
+
+    .save-btn {
+        border: none;
+        background: #4f7864;
+        color: white;
+        padding: 13px 22px;
+        border-radius: 9px;
+        cursor: pointer;
+        font-weight: bold;
+    }
+
+    .save-btn:hover {
+        background: #3f6452;
+    }
+
+    .empty {
+        padding: 35px;
+        text-align: center;
+        color: #8a9690;
+    }
+
+    .message {
+        display: none;
+        padding: 12px;
+        border-radius: 8px;
+        margin-top: 15px;
+        font-size: 14px;
+    }
+
+    .message.success {
+        display: block;
+        background: #edf7f0;
+        color: #477056;
+    }
+
+    .message.error {
+        display: block;
+        background: #faeeee;
+        color: #a14d4d;
+    }
+
+    @media (max-width: 800px) {
+
+        .sidebar {
+            width: 190px;
+        }
+
+        .main {
+            margin-left: 190px;
+        }
+
+        .filters {
+            grid-template-columns: 1fr;
+        }
+
+        .student-row {
+            grid-template-columns: 1fr;
+            gap: 8px;
+        }
+
+    }
+</style>
+```
+
+</head>
+
+<body>
+
+```
+<aside class="sidebar">
+
+    <div class="logo">
+        🌿 Midori High
+    </div>
+
+    <div class="section-title">
+        Administration
+    </div>
+
+    <a href="dashboard.html" class="nav-item">
+        🏠 Tableau de bord
+    </a>
+
+    <a href="students.html" class="nav-item">
+        👨‍🎓 Élèves
+    </a>
+
+    <a href="professors.html" class="nav-item">
+        👩‍🏫 Professeurs
+    </a>
+
+    <a href="#" class="nav-item">
+        🛡️ Surveillants
+    </a>
+
+    <a href="classes.html" class="nav-item">
+        🏫 Classes
+    </a>
+
+    <div class="section-title">
+        Scolarité
+    </div>
+
+    <a href="subjects.html" class="nav-item">
+        📚 Matières
+    </a>
+
+    <a href="timetable.html" class="nav-item">
+        🕐 Emploi du temps
+    </a>
+
+    <a href="attendance.html" class="nav-item active">
+        📋 Fiches d'appel
+    </a>
+
+    <a href="#" class="nav-item">
+        📝 Notes
+    </a>
+
+    <a href="absences.html" class="nav-item">
+        📋 Absences
+    </a>
+
+    <div class="section-title">
+        Système
+    </div>
+
+    <a href="#" class="nav-item">
+        📢 Annonces
+    </a>
+
+    <a href="#" class="nav-item">
+        📜 Journal d'activité
+    </a>
+
+    <a href="#" class="nav-item">
+        ⚙️ Paramètres
+    </a>
+
+</aside>
+
+
+<main class="main">
+
+    <div class="top">
+
+        <h1>📋 Fiches d'appel</h1>
+
+        <p>
+            Effectuez l'appel des élèves pour chaque cours.
+        </p>
+
+    </div>
+
+
+    <!-- SELECTION DU COURS -->
+
+    <div class="panel">
+
+        <h2>🕐 Sélection du cours</h2>
+
+        <div class="filters">
+
+            <div class="form-group">
+
+                <label>Date</label>
+
+                <input
+                    type="date"
+                    id="attendanceDate"
+                >
+
+            </div>
+
+            <div class="form-group">
+
+                <label>Cours</label>
+
+                <select id="courseSelect">
+
+                    <option value="">
+                        Sélectionner un cours
+                    </option>
+
+                </select>
+
+            </div>
+
+        </div>
+
+
+        <div
+            id="courseInfo"
+            class="course-info"
+        >
+
+            <h3 id="courseTitle">
+                —
+            </h3>
+
+            <div class="course-details">
+
+                <span id="courseClass">
+                    🏫 Classe : —
+                </span>
+
+                <span id="courseProfessor">
+                    👩‍🏫 Professeur : —
+                </span>
+
+                <span id="courseSubject">
+                    📚 Matière : —
+                </span>
+
+                <span id="courseTime">
+                    🕐 Horaire : —
+                </span>
+
+                <span id="courseRoom">
+                    🚪 Salle : —
+                </span>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- APPEL -->
+
+    <div
+        class="panel"
+        id="attendancePanel"
+        style="display:none;"
+    >
+
+        <div class="attendance-header">
+
+            <h2>
+                👨‍🎓 Présence des élèves
+            </h2>
+
+        </div>
+
+        <div id="studentsList">
+
+            <div class="empty">
+                Sélectionnez un cours.
+            </div>
+
+        </div>
+
+        <div class="save-container">
+
+            <button
+                class="save-btn"
+                onclick="saveAttendance()"
+            >
+                💾 Enregistrer l'appel
+            </button>
+
+        </div>
+
+        <div
+            id="message"
+            class="message"
+        ></div>
+
+    </div>
+
+</main>
+```
+
+<script>
+
+const SUPABASE_URL =
+    "https://esiwwkphbqkqqcfelktn.supabase.co";
+
+const SUPABASE_KEY =
+    "sb_publishable_Gn6HhpZXdeoaWhWJ7wRWLw_D3dXLTnX";
+
+const supabaseClient =
+    window.supabase.createClient(
+        SUPABASE_URL,
+        SUPABASE_KEY
+    );
+
+
+let courses = [];
+let students = [];
+let existingAttendance = [];
+
+
+// AUTH
+
+async function checkUser() {
+
+    const { data } =
+        await supabaseClient.auth.getUser();
+
+    if (!data.user) {
+
+        window.location.href =
+            "index.html";
+
+        return false;
+    }
+
+    return true;
+}
+
+
+// DATE DU JOUR
+
+function getToday() {
+
+    const now = new Date();
+
+    const year =
+        now.getFullYear();
+
+    const month =
+        String(
+            now.getMonth() + 1
+        ).padStart(2, "0");
+
+    const day =
+        String(
+            now.getDate()
+        ).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
+}
+
+
+// JOUR DE LA SEMAINE
+
+function getDayOfWeek(dateString) {
+
+    const date =
+        new Date(
+            dateString + "T00:00:00"
+        );
+
+    const day =
+        date.getDay();
+
+    return day === 0 ? 7 : day;
+}
+
+
+// LOAD COURSES
+
+async function loadCourses() {
+
+    const date =
+        document.getElementById(
+            "attendanceDate"
+        ).value;
+
+    if (!date) return;
+
+    const day =
+        getDayOfWeek(date);
+
+
+    const { data, error } =
+        await supabaseClient
+            .from("timetable")
+            .select(`
+                id,
+                class_id,
+                professor_id,
+                subject_id,
+                day_of_week,
+                start_time,
+                end_time,
+                room,
+                classes (
+                    name
+                ),
+                professors (
+                    full_name
+                ),
+                subjects (
+                    name
+                )
+            `)
+            .eq("day_of_week", day)
+            .order("start_time");
+
+
+    if (error) {
+
+        console.error(
+            "Erreur cours :",
+            error
+        );
+
+        return;
+    }
+
+
+    courses = data || [];
+
+
+    const select =
+        document.getElementById(
+            "courseSelect"
+        );
+
+    select.innerHTML = `
+        <option value="">
+            Sélectionner un cours
+        </option>
+    `;
+
+
+    courses.forEach(course => {
+
+        const option =
+            document.createElement(
+                "option"
+            );
+
+        option.value =
+            course.id;
+
+        const className =
+            course.classes?.name
+            || "Classe inconnue";
+
+        const subjectName =
+            course.subjects?.name
+            || "Matière inconnue";
+
+        const start =
+            course.start_time
+                ?.slice(0, 5)
+                || "";
+
+        const end =
+            course.end_time
+                ?.slice(0, 5)
+                || "";
+
+        option.textContent =
+            `${start} - ${end} | ${className} | ${subjectName}`;
+
+        select.appendChild(option);
+
+    });
+
+}
+
+
+// LOAD STUDENTS
+
+async function loadStudents(course) {
+
+    const classId =
+        course.class_id;
+
+
+    const { data, error } =
+        await supabaseClient
+            .from("students")
+            .select("*")
+            .eq("class_id", classId)
+            .order("full_name");
+
+
+    if (error) {
+
+        console.error(
+            "Erreur élèves :",
+            error
+        );
+
+        return;
+    }
+
+
+    students = data || [];
+
+}
+
+
+// LOAD EXISTING ATTENDANCE
+
+async function loadExistingAttendance(
+    courseId,
+    date
+) {
+
+    const { data, error } =
+        await supabaseClient
+            .from("attendance")
+            .select("*")
+            .eq("timetable_id", courseId)
+            .eq("date", date);
+
+
+    if (error) {
+
+        console.error(
+            "Erreur appel existant :",
+            error
+        );
+
+        existingAttendance = [];
+
+        return;
+    }
+
+
+    existingAttendance =
+        data || [];
+
+}
+
+
+// DISPLAY COURSE
+
+async function selectCourse() {
+
+    const courseId =
+        document.getElementById(
+            "courseSelect"
+        ).value;
+
+    const date =
+        document.getElementById(
+            "attendanceDate"
+        ).value;
+
+
+    const course =
+        courses.find(
+            item => item.id === courseId
+        );
+
+
+    if (!course) {
+
+        document.getElementById(
+            "courseInfo"
+        ).classList.remove(
+            "visible"
+        );
+
+        document.getElementById(
+            "attendancePanel"
+        ).style.display =
+            "none";
+
+        return;
+    }
+
+
+    document.getElementById(
+        "courseInfo"
+    ).classList.add(
+        "visible"
+    );
+
+
+    document.getElementById(
+        "courseTitle"
+    ).textContent =
+        `📚 ${course.subjects?.name || "Matière"}`;
+
+
+    document.getElementById(
+        "courseClass"
+    ).textContent =
+        `🏫 Classe : ${course.classes?.name || "—"}`;
+
+
+    document.getElementById(
+        "courseProfessor"
+    ).textContent =
+        `👩‍🏫 Professeur : ${course.professors?.full_name || "—"}`;
+
+
+    document.getElementById(
+        "courseSubject"
+    ).textContent =
+        `📚 Matière : ${course.subjects?.name || "—"}`;
+
+
+    document.getElementById(
+        "courseTime"
+    ).textContent =
+        `🕐 Horaire : ${course.start_time?.slice(0, 5)} — ${course.end_time?.slice(0, 5)}`;
+
+
+    document.getElementById(
+        "courseRoom"
+    ).textContent =
+        `🚪 Salle : ${course.room || "Non renseignée"}`;
+
+
+    await loadStudents(course);
+
+    await loadExistingAttendance(
+        courseId,
+        date
+    );
+
+
+    renderStudents();
+
+
+    document.getElementById(
+        "attendancePanel"
+    ).style.display =
+        "block";
+
+}
+
+
+// RENDER STUDENTS
+
+function renderStudents() {
+
+    const container =
+        document.getElementById(
+            "studentsList"
+        );
+
+
+    if (students.length === 0) {
+
+        container.innerHTML = `
+            <div class="empty">
+                Aucun élève n'est associé à cette classe.
+            </div>
+        `;
+
+        return;
+    }
+
+
+    container.innerHTML =
+        students.map(student => {
+
+            const previous =
+                existingAttendance.find(
+                    item =>
+                        item.student_id ===
+                        student.id
+                );
+
+
+            const status =
+                previous?.status
+                || "present";
+
+            const arrival =
+                previous?.arrival_time
+                ?.slice(0, 5)
+                || "";
+
+            const reason =
+                previous?.reason
+                || "";
+
+
+            return `
+
+                <div
+                    class="student-row"
+                    data-student-id="${student.id}"
+                >
+
+                    <div>
+
+                        <div class="student-name">
+                            ${student.full_name}
+                        </div>
+
+                        <div class="student-username">
+                            @${student.username}
+                        </div>
+
+                    </div>
+
+
+                    <select
+                        class="status-select ${status}"
+                        onchange="changeStatus(this)"
+                    >
+
+                        <option
+                            value="present"
+                            ${status === "present" ? "selected" : ""}
+                        >
+                            ✅ Présent
+                        </option>
+
+                        <option
+                            value="absent"
+                            ${status === "absent" ? "selected" : ""}
+                        >
+                            ❌ Absent
+                        </option>
+
+                        <option
+                            value="retard"
+                            ${status === "retard" ? "selected" : ""}
+                        >
+                            ⏰ Retard
+                        </option>
+
+                    </select>
+
+
+                    <div>
+
+                        <input
+                            type="time"
+                            class="arrival-input ${status === "retard" ? "visible" : ""}"
+                            value="${arrival}"
+                            placeholder="Heure arrivée"
+                        >
+
+                        <input
+                            type="hidden"
+                            class="reason-input"
+                            value="${reason}"
+                        >
+
+                    </div>
+
+                </div>
+
+            `;
+
+        }).join("");
+
+}
+
+
+// STATUS CHANGE
+
+function changeStatus(select) {
+
+    select.className =
+        "status-select " +
+        select.value;
+
+
+    const row =
+        select.closest(
+            ".student-row"
+        );
+
+    const arrival =
+        row.querySelector(
+            ".arrival-input"
+        );
+
+
+    if (
+        select.value === "retard"
+    ) {
+
+        arrival.classList.add(
+            "visible"
+        );
+
+    } else {
+
+        arrival.classList.remove(
+            "visible"
+        );
+
+        arrival.value = "";
+
+    }
+
+}
+
+
+// SAVE ATTENDANCE
+
+async function saveAttendance() {
+
+    const courseId =
+        document.getElementById(
+            "courseSelect"
+        ).value;
+
+    const date =
+        document.getElementById(
+            "attendanceDate"
+        ).value;
+
+
+    if (!courseId || !date) {
+
+        showMessage(
+            "Sélectionnez un cours et une date.",
+            "error"
+        );
+
+        return;
+    }
+
+
+    const rows =
+        document.querySelectorAll(
+            ".student-row"
+        );
+
+
+    const records =
+        Array.from(rows).map(row => {
+
+            const studentId =
+                row.dataset.studentId;
+
+            const status =
+                row.querySelector(
+                    ".status-select"
+                ).value;
+
+            const arrival =
+                row.querySelector(
+                    ".arrival-input"
+                ).value;
+
+
+            return {
+
+                timetable_id:
+                    courseId,
+
+                student_id:
+                    studentId,
+
+                date:
+                    date,
+
+                status:
+                    status,
+
+                arrival_time:
+                    status === "retard"
+                        ? (arrival || null)
+                        : null,
+
+                reason:
+                    null,
+
+                justified:
+                    false,
+
+                comment:
+                    null
+
+            };
+
+        });
+
+
+    for (const record of records) {
+
+        const { data: existing } =
+            await supabaseClient
+                .from("attendance")
+                .select("id")
+                .eq(
+                    "timetable_id",
+                    record.timetable_id
+                )
+                .eq(
+                    "student_id",
+                    record.student_id
+                )
+                .eq(
+                    "date",
+                    record.date
+                )
+                .maybeSingle();
+
+
+        let error;
+
+
+        if (existing) {
+
+            const result =
+                await supabaseClient
+                    .from("attendance")
+                    .update({
+                        status:
+                            record.status,
+                        arrival_time:
+                            record.arrival_time,
+                        reason:
+                            record.reason,
+                        justified:
+                            record.justified,
+                        comment:
+                            record.comment
+                    })
+                    .eq(
+                        "id",
+                        existing.id
+                    );
+
+            error =
+                result.error;
+
+        } else {
+
+            const result =
+                await supabaseClient
+                    .from("attendance")
+                    .insert(
+                        record
+                    );
+
+            error =
+                result.error;
+
+        }
+
+
+        if (error) {
+
+            console.error(
+                "Erreur sauvegarde :",
+                error
+            );
+
+            showMessage(
+                "Une erreur est survenue pendant l'enregistrement.",
+                "error"
+            );
+
+            return;
+        }
+
+    }
+
+
+    await loadExistingAttendance(
+        courseId,
+        date
+    );
+
+
+    showMessage(
+        "✅ L'appel a été enregistré avec succès.",
+        "success"
+    );
+
+}
+
+
+// MESSAGE
+
+function showMessage(
+    text,
+    type
+) {
+
+    const message =
+        document.getElementById(
+            "message"
+        );
+
+    message.textContent =
+        text;
+
+    message.className =
+        "message " + type;
+
+
+    setTimeout(() => {
+
+        message.className =
+            "message";
+
+    }, 4000);
+
+}
+
+
+// DATE CHANGE
+
+document
+    .getElementById(
+        "attendanceDate"
+    )
+    .addEventListener(
+        "change",
+        async function() {
+
+            await loadCourses();
+
+            document.getElementById(
+                "courseInfo"
+            ).classList.remove(
+                "visible"
+            );
+
+            document.getElementById(
+                "attendancePanel"
+            ).style.display =
+                "none";
+
+        }
+    );
+
+
+// COURSE CHANGE
+
+document
+    .getElementById(
+        "courseSelect"
+    )
+    .addEventListener(
+        "change",
+        selectCourse
+    );
+
+
+// INITIALISATION
+
+async function init() {
+
+    const authenticated =
+        await checkUser();
+
+    if (!authenticated) return;
+
+
+    document.getElementById(
+        "attendanceDate"
+    ).value =
+        getToday();
+
+
+    await loadCourses();
+
+}
+
+init();
+
+</script>
+
+</body>
+</html>
