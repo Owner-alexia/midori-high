@@ -1,2031 +1,1693 @@
-```html
 <!DOCTYPE html>
+
 <html lang="fr">
-
 <head>
-
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <title>Points — Midori High</title>
-
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-    <style>
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        body {
-            font-family: Arial, sans-serif;
-            background: #f5f7fb;
-            color: #222;
-        }
-
-        .sidebar {
-            position: fixed;
-            left: 0;
-            top: 0;
-            width: 240px;
-            height: 100vh;
-            background: white;
-            border-right: 1px solid #e5e7eb;
-            padding: 25px 15px;
-            overflow-y: auto;
-        }
-
-        .logo {
-            font-size: 21px;
-            font-weight: bold;
-            margin-bottom: 30px;
-            padding-left: 10px;
-        }
-
-        .section-title {
-            font-size: 12px;
-            color: #999;
-            margin: 20px 10px 8px;
-            text-transform: uppercase;
-        }
-
-        .nav-item {
-            display: block;
-            padding: 11px 12px;
-            margin-bottom: 5px;
-            border-radius: 8px;
-            text-decoration: none;
-            color: #444;
-            font-size: 14px;
-        }
-
-        .nav-item:hover {
-            background: #f0f2f5;
-        }
-
-        .nav-item.active {
-            background: #e9eefc;
-            color: #3157c7;
-            font-weight: bold;
-        }
-
-        .main {
-            margin-left: 240px;
-            padding: 30px;
-        }
-
-        .topbar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 25px;
-        }
-
-        .topbar h1 {
-            font-size: 28px;
-        }
-
-        .topbar p {
-            margin-top: 6px;
-            color: #777;
-            font-size: 14px;
-        }
-
-        .btn {
-            border: none;
-            padding: 11px 16px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: bold;
-            font-size: 14px;
-        }
-
-        .btn-primary {
-            background: #3157c7;
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: #2647aa;
-        }
-
-        .search-box {
-            background: white;
-            border: 1px solid #e5e7eb;
-            border-radius: 12px;
-            padding: 18px;
-            margin-bottom: 20px;
-        }
-
-        .search-box input {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            outline: none;
-            font-size: 14px;
-        }
-
-        .search-box input:focus {
-            border-color: #3157c7;
-        }
-
-        .card {
-            background: white;
-            border: 1px solid #e5e7eb;
-            border-radius: 14px;
-            padding: 20px;
-            margin-bottom: 20px;
-        }
-
-        .card h2 {
-            font-size: 18px;
-            margin-bottom: 15px;
-        }
-
-        .student-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-
-        .student-name {
-            font-size: 18px;
-            font-weight: bold;
-        }
-
-        .student-class {
-            color: #888;
-            font-size: 13px;
-            margin-top: 4px;
-        }
-
-        .points-total {
-            font-size: 28px;
-            font-weight: bold;
-        }
-
-        .reputation {
-            display: inline-block;
-            margin-top: 5px;
-            padding: 6px 10px;
-            border-radius: 7px;
-            font-size: 12px;
-            font-weight: bold;
-        }
-
-        .reputation-parfait {
-            background: #e7f7ed;
-            color: #218838;
-        }
-
-        .reputation-normal {
-            background: #f1f3f5;
-            color: #555;
-        }
-
-        .reputation-delinquant {
-            background: #fdeaea;
-            color: #c62828;
-        }
-
-        .points-positive {
-            color: #218838;
-            font-weight: bold;
-        }
-
-        .points-negative {
-            color: #c62828;
-            font-weight: bold;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        th {
-            text-align: left;
-            padding: 12px;
-            background: #f8f9fb;
-            color: #666;
-            font-size: 13px;
-        }
-
-        td {
-            padding: 12px;
-            border-top: 1px solid #eee;
-            font-size: 14px;
-        }
-
-        .empty {
-            color: #888;
-            font-size: 14px;
-            padding: 15px 0;
-        }
-
-        .student-list {
-            display: grid;
-            gap: 12px;
-        }
-
-        .student-row {
-            background: white;
-            border: 1px solid #e5e7eb;
-            border-radius: 12px;
-            padding: 16px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 15px;
-        }
-
-        .student-row:hover {
-            border-color: #cfd7ef;
-        }
-
-        .student-info {
-            cursor: pointer;
-        }
-
-        .student-points {
-            text-align: right;
-            min-width: 130px;
-        }
-
-        .student-points strong {
-            display: block;
-            font-size: 20px;
-        }
-
-        .modal {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.45);
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-            z-index: 1000;
-        }
-
-        .modal-content {
-            background: white;
-            width: 100%;
-            max-width: 520px;
-            border-radius: 15px;
-            padding: 25px;
-        }
-
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-
-        .modal-header h2 {
-            font-size: 20px;
-        }
-
-        .close {
-            border: none;
-            background: none;
-            font-size: 25px;
-            cursor: pointer;
-            color: #777;
-        }
-
-        .form-group {
-            margin-bottom: 16px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 7px;
-            font-size: 13px;
-            font-weight: bold;
-        }
-
-        .form-group input,
-        .form-group select,
-        .form-group textarea {
-            width: 100%;
-            padding: 11px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            outline: none;
-            font-family: inherit;
-        }
-
-        .form-group textarea {
-            min-height: 80px;
-            resize: vertical;
-        }
-
-        .form-group input:focus,
-        .form-group select:focus,
-        .form-group textarea:focus {
-            border-color: #3157c7;
-        }
-
-        .points-preview {
-            background: #f8f9fb;
-            border: 1px solid #e5e7eb;
-            border-radius: 10px;
-            padding: 15px;
-            text-align: center;
-            margin-top: 5px;
-        }
-
-        .points-preview-label {
-            font-size: 12px;
-            color: #777;
-            margin-bottom: 5px;
-        }
-
-        .points-preview-value {
-            font-size: 26px;
-            font-weight: bold;
-        }
-
-        .preview-positive {
-            color: #218838;
-        }
-
-        .preview-negative {
-            color: #c62828;
-        }
-
-        .modal-actions {
-            display: flex;
-            justify-content: flex-end;
-            gap: 10px;
-            margin-top: 20px;
-        }
-
-        .btn-cancel {
-            background: #eee;
-            color: #444;
-        }
-
-        .message {
-            position: fixed;
-            right: 25px;
-            bottom: 25px;
-            padding: 14px 18px;
-            border-radius: 9px;
-            color: white;
-            display: none;
-            z-index: 2000;
-            font-size: 14px;
-        }
-
-        .message.success {
-            background: #218838;
-        }
-
-        .message.error {
-            background: #c62828;
-        }
-
-        @media (max-width: 700px) {
-
-            .sidebar {
-                position: relative;
-                width: 100%;
-                height: auto;
-            }
-
-            .main {
-                margin-left: 0;
-                padding: 20px;
-            }
-
-            .topbar {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 15px;
-            }
-
-            .student-row {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-
-            .student-points {
-                text-align: left;
-            }
-
-        }
-
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Points — Midori High</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background: #f5f7fb;
+    color: #222;
+}
+
+.sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 240px;
+    height: 100vh;
+    background: white;
+    border-right: 1px solid #e5e7eb;
+    padding: 25px 15px;
+    overflow-y: auto;
+}
+
+.logo {
+    font-size: 21px;
+    font-weight: bold;
+    margin-bottom: 30px;
+    padding-left: 10px;
+}
+
+.section-title {
+    font-size: 12px;
+    color: #999;
+    margin: 20px 10px 8px;
+    text-transform: uppercase;
+}
+
+.nav-item {
+    display: block;
+    padding: 11px 12px;
+    margin-bottom: 5px;
+    border-radius: 8px;
+    text-decoration: none;
+    color: #444;
+    font-size: 14px;
+}
+
+.nav-item:hover {
+    background: #f0f2f5;
+}
+
+.nav-item.active {
+    background: #e9eefc;
+    color: #3157c7;
+    font-weight: bold;
+}
+
+.main {
+    margin-left: 240px;
+    padding: 30px;
+}
+
+.topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+}
+
+.topbar h1 {
+    font-size: 28px;
+}
+
+.topbar p {
+    margin-top: 6px;
+    color: #777;
+    font-size: 14px;
+}
+
+.btn {
+    border: none;
+    padding: 11px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+.btn-primary {
+    background: #3157c7;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #2647aa;
+}
+
+.search-box {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 18px;
+    margin-bottom: 20px;
+}
+
+.search-box input {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    outline: none;
+    font-size: 14px;
+}
+
+.card {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.card h2 {
+    font-size: 18px;
+    margin-bottom: 15px;
+}
+
+.student-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.student-name {
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.student-class {
+    color: #888;
+    font-size: 13px;
+    margin-top: 4px;
+}
+
+.student-points {
+    text-align: right;
+    min-width: 130px;
+}
+
+.student-points strong {
+    display: block;
+    font-size: 20px;
+}
+
+.reputation {
+    display: inline-block;
+    margin-top: 5px;
+    padding: 6px 10px;
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.reputation-parfait {
+    background: #e7f7ed;
+    color: #218838;
+}
+
+.reputation-normal {
+    background: #f1f3f5;
+    color: #555;
+}
+
+.reputation-delinquant {
+    background: #fdeaea;
+    color: #c62828;
+}
+
+.points-positive {
+    color: #218838;
+    font-weight: bold;
+}
+
+.points-negative {
+    color: #c62828;
+    font-weight: bold;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th {
+    text-align: left;
+    padding: 12px;
+    background: #f8f9fb;
+    color: #666;
+    font-size: 13px;
+}
+
+td {
+    padding: 12px;
+    border-top: 1px solid #eee;
+    font-size: 14px;
+}
+
+.empty {
+    color: #888;
+    font-size: 14px;
+    padding: 15px 0;
+}
+
+.student-list {
+    display: grid;
+    gap: 12px;
+}
+
+.student-row {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
+}
+
+.student-info {
+    cursor: pointer;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: white;
+    width: 100%;
+    max-width: 520px;
+    border-radius: 15px;
+    padding: 25px;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.close {
+    border: none;
+    background: none;
+    font-size: 25px;
+    cursor: pointer;
+    color: #777;
+}
+
+.form-group {
+    margin-bottom: 16px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 7px;
+    font-size: 13px;
+    font-weight: bold;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 11px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    outline: none;
+    font-family: inherit;
+}
+
+.form-group textarea {
+    min-height: 80px;
+    resize: vertical;
+}
+
+.points-preview {
+    background: #f8f9fb;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 15px;
+    text-align: center;
+    margin-top: 5px;
+}
+
+.points-preview-label {
+    font-size: 12px;
+    color: #777;
+    margin-bottom: 5px;
+}
+
+.points-preview-value {
+    font-size: 26px;
+    font-weight: bold;
+}
+
+.preview-positive {
+    color: #218838;
+}
+
+.preview-negative {
+    color: #c62828;
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.btn-cancel {
+    background: #eee;
+    color: #444;
+}
+
+.message {
+    position: fixed;
+    right: 25px;
+    bottom: 25px;
+    padding: 14px 18px;
+    border-radius: 9px;
+    color: white;
+    display: none;
+    z-index: 2000;
+    font-size: 14px;
+}
+
+.message.success {
+    background: #218838;
+}
+
+.message.error {
+    background: #c62828;
+}
+
+@media (max-width: 700px) {
+    .sidebar {
+        position: relative;
+        width: 100%;
+        height: auto;
+    }
+
+    .main {
+        margin-left: 0;
+        padding: 20px;
+    }
+
+    .topbar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+
+    .student-row {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .student-points {
+        text-align: left;
+    }
+}
+</style>
 
 </head>
 
-
 <body>
 
+<aside class="sidebar">
 
-    <!-- SIDEBAR -->
+```
+<div class="logo">🌸 Midori High</div>
 
-    <aside class="sidebar">
+<div class="section-title">Administration</div>
 
-        <div class="logo">
-            🌸 Midori High
-        </div>
+<a href="dashboard.html" class="nav-item">🏠 Dashboard</a>
+<a href="students.html" class="nav-item">👨‍🎓 Élèves</a>
+<a href="professors.html" class="nav-item">👨‍🏫 Professeurs</a>
+<a href="surveillants.html" class="nav-item">👮 Surveillants</a>
+<a href="classes.html" class="nav-item">🏫 Classes</a>
 
+<div class="section-title">Scolarité</div>
 
-        <div class="section-title">
-            Administration
-        </div>
+<a href="subjects.html" class="nav-item">📚 Matières</a>
+<a href="timetable.html" class="nav-item">🕐 Emploi du temps</a>
+<a href="attendance.html" class="nav-item">📋 Fiches d'appel</a>
+<a href="notes.html" class="nav-item">📝 Notes</a>
+<a href="absences.html" class="nav-item">❌ Absences</a>
+<a href="points.html" class="nav-item active">⭐ Points</a>
 
-        <a href="dashboard.html" class="nav-item">
-            🏠 Dashboard
-        </a>
+<div class="section-title">Système</div>
 
-        <a href="students.html" class="nav-item">
-            👨‍🎓 Élèves
-        </a>
+<a href="announcements.html" class="nav-item">📢 Annonces</a>
+<a href="activity.html" class="nav-item">📊 Journal d'activité</a>
+<a href="settings.html" class="nav-item">⚙️ Paramètres</a>
+```
 
-        <a href="professors.html" class="nav-item">
-            👨‍🏫 Professeurs
-        </a>
+</aside>
 
-        <a href="surveillants.html" class="nav-item">
-            👮 Surveillants
-        </a>
+<main class="main">
 
-        <a href="classes.html" class="nav-item">
-            🏫 Classes
-        </a>
+```
+<div class="topbar">
 
+    <div>
+        <h1>⭐ Points des élèves</h1>
+        <p>Gestion de la réputation et de l'historique des points.</p>
+    </div>
 
-        <div class="section-title">
-            Scolarité
-        </div>
+    <button class="btn btn-primary" onclick="openAddPointModal()">
+        + Ajouter des points
+    </button>
 
-        <a href="subjects.html" class="nav-item">
-            📚 Matières
-        </a>
+</div>
 
-        <a href="timetable.html" class="nav-item">
-            🕐 Emploi du temps
-        </a>
 
-        <a href="attendance.html" class="nav-item">
-            📋 Fiches d'appel
-        </a>
+<div class="search-box">
 
-        <a href="notes.html" class="nav-item">
-            📝 Notes
-        </a>
-
-        <a href="absences.html" class="nav-item">
-            ❌ Absences
-        </a>
-
-        <a href="points.html" class="nav-item active">
-            ⭐ Points
-        </a>
-
-
-        <div class="section-title">
-            Système
-        </div>
-
-        <a href="announcements.html" class="nav-item">
-            📢 Annonces
-        </a>
-
-        <a href="activity.html" class="nav-item">
-            📊 Journal d'activité
-        </a>
-
-        <a href="settings.html" class="nav-item">
-            ⚙️ Paramètres
-        </a>
-
-    </aside>
-
-
-    <!-- CONTENU -->
-
-    <main class="main">
-
-
-        <div class="topbar">
-
-            <div>
-
-                <h1>
-                    ⭐ Points des élèves
-                </h1>
-
-                <p>
-                    Gestion de la réputation et de l'historique des points.
-                </p>
-
-            </div>
-
-            <button
-                class="btn btn-primary"
-                onclick="openAddPointModal()"
-            >
-                + Ajouter des points
-            </button>
-
-        </div>
-
-
-        <!-- RECHERCHE -->
-
-        <div class="search-box">
-
-            <input
-                type="text"
-                id="searchInput"
-                placeholder="Rechercher un élève par nom, pseudo ou classe..."
-                oninput="renderStudents()"
-            >
-
-        </div>
-
-
-        <!-- LISTE ÉLÈVES -->
-
-        <div class="card">
-
-            <h2>
-                Élèves
-            </h2>
-
-            <div
-                id="studentList"
-                class="student-list"
-            >
-
-                <p class="empty">
-                    Chargement...
-                </p>
-
-            </div>
-
-        </div>
-
-
-        <!-- HISTORIQUE -->
-
-        <div
-            id="historyCard"
-            class="card"
-            style="display:none;"
-        >
-
-            <div class="student-header">
-
-                <div>
-
-                    <div
-                        id="historyStudentName"
-                        class="student-name"
-                    >
-                        —
-                    </div>
-
-                    <div
-                        id="historyStudentClass"
-                        class="student-class"
-                    >
-                        —
-                    </div>
-
-                </div>
-
-                <div class="student-points">
-
-                    <strong id="historyTotal">
-                        0
-                    </strong>
-
-                    <span
-                        id="historyReputation"
-                        class="reputation reputation-normal"
-                    >
-                        Normal
-                    </span>
-
-                </div>
-
-            </div>
-
-
-            <h2>
-                Historique des points
-            </h2>
-
-
-            <div id="historyContainer">
-
-                <p class="empty">
-                    Chargement...
-                </p>
-
-            </div>
-
-        </div>
-
-
-    </main>
-
-
-    <!-- MODAL AJOUT -->
-
-    <div
-        id="pointModal"
-        class="modal"
+    <input
+        type="text"
+        id="searchInput"
+        placeholder="Rechercher un élève par nom, pseudo ou classe..."
+        oninput="renderStudents()"
     >
 
-        <div class="modal-content">
+</div>
 
 
-            <div class="modal-header">
+<div class="card">
 
-                <h2>
-                    Ajouter des points
-                </h2>
+    <h2>Élèves</h2>
 
-                <button
-                    class="close"
-                    onclick="closePointModal()"
-                >
-                    ×
-                </button>
+    <div id="studentList" class="student-list">
 
-            </div>
+        <p class="empty">Chargement...</p>
+
+    </div>
+
+</div>
 
 
-            <div class="form-group">
+<div
+    id="historyCard"
+    class="card"
+    style="display:none;"
+>
 
-                <label>
-                    Élève
-                </label>
+    <div class="student-header">
 
-                <select id="pointStudent">
-
-                    <option value="">
-                        Sélectionner un élève
-                    </option>
-
-                </select>
-
-            </div>
-
-
-            <div class="form-group">
-
-                <label>
-                    Type
-                </label>
-
-                <select
-                    id="pointCategory"
-                    onchange="updatePointReasons()"
-                >
-
-                    <option value="bonus">
-                        Bonus
-                    </option>
-
-                    <option value="malus">
-                        Malus
-                    </option>
-
-                </select>
-
-            </div>
-
-
-            <div class="form-group">
-
-                <label>
-                    Motif
-                </label>
-
-                <select
-                    id="pointReason"
-                    onchange="updatePointPreview()"
-                >
-                </select>
-
-            </div>
-
-
-            <!-- CHOIX SPÉCIAL POUR DÉGRADATION -->
+        <div>
 
             <div
-                class="form-group"
-                id="degradationGroup"
-                style="display:none;"
+                id="historyStudentName"
+                class="student-name"
             >
-
-                <label>
-                    Intensité de la dégradation
-                </label>
-
-                <select
-                    id="degradationValue"
-                    onchange="updatePointPreview()"
-                >
-
-                    <option value="15">
-                        -15 points
-                    </option>
-
-                    <option value="16">
-                        -16 points
-                    </option>
-
-                    <option value="17">
-                        -17 points
-                    </option>
-
-                    <option value="18">
-                        -18 points
-                    </option>
-
-                    <option value="19">
-                        -19 points
-                    </option>
-
-                    <option value="20">
-                        -20 points
-                    </option>
-
-                </select>
-
+                —
             </div>
 
-
-            <!-- APERÇU -->
-
-            <div class="points-preview">
-
-                <div class="points-preview-label">
-                    Points qui seront appliqués
-                </div>
-
-                <div
-                    id="pointsPreview"
-                    class="points-preview-value"
-                >
-                    +3
-                </div>
-
+            <div
+                id="historyStudentClass"
+                class="student-class"
+            >
+                —
             </div>
 
+        </div>
 
-            <div class="form-group" style="margin-top:16px;">
+        <div class="student-points">
 
-                <label>
-                    Commentaire facultatif
-                </label>
+            <strong id="historyTotal">
+                0 pts
+            </strong>
 
-                <textarea
-                    id="pointComment"
-                    placeholder="Ajouter une précision..."
-                ></textarea>
-
-            </div>
-
-
-            <div class="modal-actions">
-
-                <button
-                    class="btn btn-cancel"
-                    onclick="closePointModal()"
-                >
-                    Annuler
-                </button>
-
-                <button
-                    class="btn btn-primary"
-                    onclick="savePoints()"
-                >
-                    Enregistrer
-                </button>
-
-            </div>
+            <span
+                id="historyReputation"
+                class="reputation reputation-normal"
+            >
+                Normal
+            </span>
 
         </div>
 
     </div>
 
+    <h2>Historique des points</h2>
+
+    <div id="historyContainer">
+        <p class="empty">Chargement...</p>
+    </div>
+
+</div>
+```
+
+</main>
+
+<div id="pointModal" class="modal">
+
+```
+<div class="modal-content">
+
+    <div class="modal-header">
+
+        <h2>Ajouter des points</h2>
+
+        <button class="close" onclick="closePointModal()">
+            ×
+        </button>
+
+    </div>
+
+
+    <div class="form-group">
+
+        <label>Élève</label>
+
+        <select id="pointStudent">
+
+            <option value="">
+                Sélectionner un élève
+            </option>
+
+        </select>
+
+    </div>
+
+
+    <div class="form-group">
+
+        <label>Type</label>
+
+        <select
+            id="pointCategory"
+            onchange="updatePointReasons()"
+        >
+
+            <option value="bonus">
+                Bonus
+            </option>
+
+            <option value="malus">
+                Malus
+            </option>
+
+        </select>
+
+    </div>
+
+
+    <div class="form-group">
+
+        <label>Motif</label>
+
+        <select
+            id="pointReason"
+            onchange="updatePointPreview()"
+        ></select>
+
+    </div>
+
 
     <div
-        id="message"
-        class="message"
-    ></div>
+        class="form-group"
+        id="degradationGroup"
+        style="display:none;"
+    >
+
+        <label>Intensité de la dégradation</label>
+
+        <select
+            id="degradationValue"
+            onchange="updatePointPreview()"
+        >
+
+            <option value="15">-15 points</option>
+            <option value="16">-16 points</option>
+            <option value="17">-17 points</option>
+            <option value="18">-18 points</option>
+            <option value="19">-19 points</option>
+            <option value="20">-20 points</option>
+
+        </select>
+
+    </div>
 
 
-    <script>
+    <div class="points-preview">
+
+        <div class="points-preview-label">
+            Points qui seront appliqués
+        </div>
+
+        <div
+            id="pointsPreview"
+            class="points-preview-value"
+        >
+            +3
+        </div>
+
+    </div>
 
 
-        /* =========================
-           SUPABASE
-        ========================= */
+    <div class="form-group" style="margin-top:16px;">
 
-        const SUPABASE_URL =
-            "https://esiwwkphbqkqqcfelktn.supabase.co";
+        <label>Commentaire facultatif</label>
 
-        const SUPABASE_KEY =
-            "sb_publishable_Gn6H6hpZXdeoaWhW7jRWLw_D3dXLTnX";
+        <textarea
+            id="pointComment"
+            placeholder="Ajouter une précision..."
+        ></textarea>
 
-        const supabaseClient =
-            window.supabase.createClient(
-                SUPABASE_URL,
-                SUPABASE_KEY
+    </div>
+
+
+    <div class="modal-actions">
+
+        <button
+            class="btn btn-cancel"
+            onclick="closePointModal()"
+        >
+            Annuler
+        </button>
+
+        <button
+            class="btn btn-primary"
+            onclick="savePoints()"
+        >
+            Enregistrer
+        </button>
+
+    </div>
+
+</div>
+```
+
+</div>
+
+<div id="message" class="message"></div>
+
+<script>
+
+const SUPABASE_URL =
+    "https://esiwwkphbqkqqcfelktn.supabase.co";
+
+const SUPABASE_KEY =
+    "sb_publishable_Gn6H6hpZXdeoaWhW7jRWLw_D3dXLTnX";
+
+const supabaseClient =
+    window.supabase.createClient(
+        SUPABASE_URL,
+        SUPABASE_KEY
+    );
+
+
+let students = [];
+let points = [];
+let selectedStudentId = null;
+
+
+/* =========================
+   BARÈME
+========================= */
+
+const pointRules = {
+
+    bonus: {
+
+        "Bonne action": 3,
+
+        "Respect du personnel": 4,
+
+        "Présence en cours": 5,
+
+        "Participation / réussite aux examens": 7,
+
+        "Prise en charge d'une situation": 10,
+
+        "Participation à un club": 12,
+
+        "Signalement d'un élève perturbateur": 2
+
+    },
+
+    malus: {
+
+        "Mauvaise action": -4,
+
+        "Absence": -7,
+
+        "Manque de respect envers le personnel": -6,
+
+        "Bagarre": -15,
+
+        "Dégradation": -15
+
+    }
+
+};
+
+
+/* =========================
+   AUTH
+========================= */
+
+async function checkUser() {
+
+    const { data } =
+        await supabaseClient.auth.getUser();
+
+    if (!data.user) {
+
+        window.location.href =
+            "index.html";
+
+        return false;
+    }
+
+    return true;
+}
+
+
+/* =========================
+   MESSAGE
+========================= */
+
+function showMessage(text, type) {
+
+    const element =
+        document.getElementById("message");
+
+    element.textContent = text;
+
+    element.className =
+        "message " + type;
+
+    element.style.display =
+        "block";
+
+    setTimeout(() => {
+
+        element.style.display =
+            "none";
+
+    }, 3000);
+
+}
+
+
+/* =========================
+   ÉLÈVES
+========================= */
+
+async function loadStudents() {
+
+    const { data, error } =
+        await supabaseClient
+            .from("students")
+            .select(`
+                id,
+                username,
+                full_name,
+                class_name,
+                class_id
+            `)
+            .order("full_name");
+
+
+    if (error) {
+
+        console.error("Erreur élèves :", error);
+
+        document.getElementById("studentList").innerHTML =
+            '<p class="empty">Impossible de charger les élèves.</p>';
+
+        return;
+    }
+
+
+    students = data || [];
+
+
+    const select =
+        document.getElementById("pointStudent");
+
+
+    select.innerHTML =
+        '<option value="">Sélectionner un élève</option>';
+
+
+    students.forEach(student => {
+
+        const option =
+            document.createElement("option");
+
+        option.value =
+            student.id;
+
+        option.textContent =
+            `${student.full_name} — ${student.class_name || "Sans classe"}`;
+
+        select.appendChild(option);
+
+    });
+
+
+    await loadPoints();
+
+}
+
+
+/* =========================
+   POINTS
+========================= */
+
+async function loadPoints() {
+
+    const { data, error } =
+        await supabaseClient
+            .from("student_points")
+            .select("*")
+            .order(
+                "created_at",
+                {
+                    ascending: false
+                }
             );
 
 
-        let students = [];
+    if (error) {
 
-        let points = [];
+        console.error("Erreur points :", error);
 
-        let selectedStudentId = null;
+        document.getElementById("studentList").innerHTML =
+            '<p class="empty">Impossible de charger les points.</p>';
+
+        return;
+    }
 
 
-        /* =========================
-           BARÈME
-        ========================= */
+    points = data || [];
 
-        const pointRules = {
+    renderStudents();
 
-            bonus: {
+}
 
-                "Bonne action": 3,
 
-                "Respect du personnel": 4,
+/* =========================
+   TOTAL
+========================= */
 
-                "Présence en cours": 5,
+function getStudentTotal(studentId) {
 
-                "Participation / réussite aux examens": 7,
+    return points
 
-                "Prise en charge d'une situation": 10,
+        .filter(
+            point =>
+                point.student_id === studentId
+        )
 
-                "Participation à un club": 12,
+        .reduce(
+            (total, point) =>
+                total + Number(point.points),
+            0
+        );
 
-                "Signalement d'un élève perturbateur": 2
+}
 
-            },
 
-            malus: {
+/* =========================
+   RÉPUTATION
+========================= */
 
-                "Mauvaise action": -4,
+function getReputation(total) {
 
-                "Absence": -7,
+    if (total >= 600) {
 
-                "Manque de respect envers le personnel": -6,
-
-                "Bagarre": -15,
-
-                "Dégradation": -15
-
-            }
-
+        return {
+            name: "Parfait",
+            className: "reputation-parfait"
         };
 
+    }
 
-        /* =========================
-           AUTH
-        ========================= */
+    if (total >= 100) {
 
-        async function checkUser() {
+        return {
+            name: "Normal",
+            className: "reputation-normal"
+        };
 
-            const { data } =
-                await supabaseClient.auth.getUser();
+    }
 
-            if (!data.user) {
+    return {
+        name: "Délinquant",
+        className: "reputation-delinquant"
+    };
 
-                window.location.href =
-                    "index.html";
+}
 
-                return false;
-            }
 
-            return true;
-        }
+/* =========================
+   AFFICHAGE ÉLÈVES
+========================= */
 
+function renderStudents() {
 
-        /* =========================
-           MESSAGE
-        ========================= */
+    const container =
+        document.getElementById("studentList");
 
-        function showMessage(
-            text,
-            type
-        ) {
 
-            const element =
-                document.getElementById(
-                    "message"
-                );
+    const search =
+        document.getElementById("searchInput")
+            .value
+            .toLowerCase()
+            .trim();
 
-            element.textContent =
-                text;
 
-            element.className =
-                "message " + type;
+    const filtered =
+        students.filter(student => {
 
-            element.style.display =
-                "block";
+            return (
 
-            setTimeout(() => {
+                (student.full_name || "")
+                    .toLowerCase()
+                    .includes(search)
 
-                element.style.display =
-                    "none";
+                ||
 
-            }, 3000);
+                (student.username || "")
+                    .toLowerCase()
+                    .includes(search)
 
-        }
+                ||
 
+                (student.class_name || "")
+                    .toLowerCase()
+                    .includes(search)
 
-        /* =========================
-           CHARGER LES ÉLÈVES
-        ========================= */
-
-        async function loadStudents() {
-
-            const { data, error } =
-                await supabaseClient
-                    .from("students")
-                    .select(`
-                        id,
-                        username,
-                        full_name,
-                        class_name,
-                        class_id
-                    `)
-                    .order(
-                        "full_name",
-                        {
-                            ascending: true
-                        }
-                    );
-
-
-            if (error) {
-
-                console.error(
-                    "Erreur élèves :",
-                    error
-                );
-
-                document.getElementById(
-                    "studentList"
-                ).innerHTML =
-                    '<p class="empty">Impossible de charger les élèves.</p>';
-
-                return;
-            }
-
-
-            students =
-                data || [];
-
-
-            const select =
-                document.getElementById(
-                    "pointStudent"
-                );
-
-
-            select.innerHTML =
-                '<option value="">Sélectionner un élève</option>';
-
-
-            students.forEach(student => {
-
-                const option =
-                    document.createElement(
-                        "option"
-                    );
-
-                option.value =
-                    student.id;
-
-                option.textContent =
-                    `${student.full_name} — ${student.class_name || "Sans classe"}`;
-
-                select.appendChild(
-                    option
-                );
-
-            });
-
-
-            await loadPoints();
-
-        }
-
-
-        /* =========================
-           CHARGER LES POINTS
-        ========================= */
-
-        async function loadPoints() {
-
-            const { data, error } =
-                await supabaseClient
-                    .from("student_points")
-                    .select("*")
-                    .order(
-                        "created_at",
-                        {
-                            ascending: false
-                        }
-                    );
-
-
-            if (error) {
-
-                console.error(
-                    "Erreur points :",
-                    error
-                );
-
-                document.getElementById(
-                    "studentList"
-                ).innerHTML =
-                    '<p class="empty">Impossible de charger les points.</p>';
-
-                return;
-            }
-
-
-            points =
-                data || [];
-
-
-            renderStudents();
-
-        }
-
-
-        /* =========================
-           CALCUL TOTAL
-        ========================= */
-
-        function getStudentTotal(
-            studentId
-        ) {
-
-            return points
-                .filter(
-                    point =>
-                        point.student_id ===
-                        studentId
-                )
-                .reduce(
-                    (total, point) =>
-                        total +
-                        Number(point.points),
-                    0
-                );
-
-        }
-
-
-        /* =========================
-           RÉPUTATION
-        ========================= */
-
-        function getReputation(total) {
-
-            if (total >= 600) {
-
-                return {
-                    name: "Parfait",
-                    className:
-                        "reputation-parfait"
-                };
-
-            }
-
-            if (total >= 100) {
-
-                return {
-                    name: "Normal",
-                    className:
-                        "reputation-normal"
-                };
-
-            }
-
-            return {
-                name: "Délinquant",
-                className:
-                    "reputation-delinquant"
-            };
-
-        }
-
-
-        /* =========================
-           AFFICHER LES ÉLÈVES
-        ========================= */
-
-        function renderStudents() {
-
-            const container =
-                document.getElementById(
-                    "studentList"
-                );
-
-
-            const search =
-                document.getElementById(
-                    "searchInput"
-                )
-                .value
-                .toLowerCase()
-                .trim();
-
-
-            const filtered =
-                students.filter(student => {
-
-                    return (
-
-                        (student.full_name || "")
-                            .toLowerCase()
-                            .includes(search)
-
-                        ||
-
-                        (student.username || "")
-                            .toLowerCase()
-                            .includes(search)
-
-                        ||
-
-                        (student.class_name || "")
-                            .toLowerCase()
-                            .includes(search)
-
-                    );
-
-                });
-
-
-            if (filtered.length === 0) {
-
-                container.innerHTML =
-                    '<p class="empty">Aucun élève trouvé.</p>';
-
-                return;
-            }
-
-
-            container.innerHTML = "";
-
-
-            filtered.forEach(student => {
-
-                const total =
-                    getStudentTotal(
-                        student.id
-                    );
-
-
-                const reputation =
-                    getReputation(total);
-
-
-                const row =
-                    document.createElement(
-                        "div"
-                    );
-
-                row.className =
-                    "student-row";
-
-
-                row.innerHTML = `
-
-                    <div
-                        class="student-info"
-                        onclick="showHistory('${student.id}')"
-                    >
-
-                        <div class="student-name">
-                            ${escapeHtml(
-                                student.full_name
-                            )}
-                        </div>
-
-                        <div class="student-class">
-                            ${escapeHtml(
-                                student.username || ""
-                            )}
-
-                            ${
-                                student.class_name
-                                    ? " • " +
-                                      escapeHtml(
-                                          student.class_name
-                                      )
-                                    : ""
-                            }
-
-                        </div>
-
-                    </div>
-
-
-                    <div class="student-points">
-
-                        <strong>
-                            ${total} pts
-                        </strong>
-
-                        <span
-                            class="reputation ${reputation.className}"
-                        >
-                            ${reputation.name}
-                        </span>
-
-                    </div>
-
-                `;
-
-
-                container.appendChild(
-                    row
-                );
-
-            });
-
-        }
-
-
-        /* =========================
-           HISTORIQUE
-        ========================= */
-
-        function showHistory(
-            studentId
-        ) {
-
-            selectedStudentId =
-                studentId;
-
-
-            const student =
-                students.find(
-                    item =>
-                        item.id ===
-                        studentId
-                );
-
-
-            if (!student) {
-                return;
-            }
-
-
-            document.getElementById(
-                "historyCard"
-            ).style.display =
-                "block";
-
-
-            document.getElementById(
-                "historyStudentName"
-            ).textContent =
-                student.full_name;
-
-
-            document.getElementById(
-                "historyStudentClass"
-            ).textContent =
-                student.class_name ||
-                "Aucune classe";
-
-
-            const total =
-                getStudentTotal(
-                    studentId
-                );
-
-
-            const reputation =
-                getReputation(total);
-
-
-            document.getElementById(
-                "historyTotal"
-            ).textContent =
-                `${total} pts`;
-
-
-            const reputationElement =
-                document.getElementById(
-                    "historyReputation"
-                );
-
-
-            reputationElement.textContent =
-                reputation.name;
-
-
-            reputationElement.className =
-                `reputation ${reputation.className}`;
-
-
-            renderHistory(
-                studentId
             );
 
-
-            document.getElementById(
-                "historyCard"
-            ).scrollIntoView({
-                behavior: "smooth"
-            });
-
-        }
+        });
 
 
-        function renderHistory(
-            studentId
-        ) {
+    if (filtered.length === 0) {
 
-            const container =
-                document.getElementById(
-                    "historyContainer"
-                );
+        container.innerHTML =
+            '<p class="empty">Aucun élève trouvé.</p>';
 
-
-            const studentPoints =
-                points.filter(
-                    point =>
-                        point.student_id ===
-                        studentId
-                );
+        return;
+    }
 
 
-            if (
-                studentPoints.length ===
-                0
-            ) {
-
-                container.innerHTML =
-                    '<p class="empty">Aucun mouvement de points pour cet élève.</p>';
-
-                return;
-            }
+    container.innerHTML = "";
 
 
-            let html = `
+    filtered.forEach(student => {
 
-                <table>
-
-                    <thead>
-
-                        <tr>
-
-                            <th>
-                                Date
-                            </th>
-
-                            <th>
-                                Type
-                            </th>
-
-                            <th>
-                                Motif
-                            </th>
-
-                            <th>
-                                Points
-                            </th>
-
-                            <th>
-                                Ajouté par
-                            </th>
-
-                            <th>
-                                Commentaire
-                            </th>
-
-                            <th>
-                                Action
-                            </th>
-
-                        </tr>
-
-                    </thead>
-
-                    <tbody>
-
-            `;
+        const total =
+            getStudentTotal(student.id);
 
 
-            studentPoints.forEach(point => {
+        const reputation =
+            getReputation(total);
 
-                const date =
+
+        const row =
+            document.createElement("div");
+
+        row.className =
+            "student-row";
+
+
+        row.innerHTML = `
+
+            <div
+                class="student-info"
+                onclick="showHistory('${student.id}')"
+            >
+
+                <div class="student-name">
+                    ${escapeHtml(student.full_name)}
+                </div>
+
+                <div class="student-class">
+
+                    ${escapeHtml(student.username || "")}
+
+                    ${
+                        student.class_name
+                            ? " • " +
+                              escapeHtml(student.class_name)
+                            : ""
+                    }
+
+                </div>
+
+            </div>
+
+
+            <div class="student-points">
+
+                <strong>
+                    ${total} pts
+                </strong>
+
+                <span
+                    class="reputation ${reputation.className}"
+                >
+                    ${reputation.name}
+                </span>
+
+            </div>
+
+        `;
+
+
+        container.appendChild(row);
+
+    });
+
+}
+
+
+/* =========================
+   HISTORIQUE
+========================= */
+
+function showHistory(studentId) {
+
+    selectedStudentId =
+        studentId;
+
+
+    const student =
+        students.find(
+            item =>
+                item.id === studentId
+        );
+
+
+    if (!student) {
+        return;
+    }
+
+
+    document.getElementById("historyCard")
+        .style.display = "block";
+
+
+    document.getElementById("historyStudentName")
+        .textContent = student.full_name;
+
+
+    document.getElementById("historyStudentClass")
+        .textContent =
+            student.class_name ||
+            "Aucune classe";
+
+
+    const total =
+        getStudentTotal(studentId);
+
+
+    const reputation =
+        getReputation(total);
+
+
+    document.getElementById("historyTotal")
+        .textContent =
+            `${total} pts`;
+
+
+    const reputationElement =
+        document.getElementById("historyReputation");
+
+
+    reputationElement.textContent =
+        reputation.name;
+
+
+    reputationElement.className =
+        `reputation ${reputation.className}`;
+
+
+    renderHistory(studentId);
+
+
+    document.getElementById("historyCard")
+        .scrollIntoView({
+            behavior: "smooth"
+        });
+
+}
+
+
+function renderHistory(studentId) {
+
+    const container =
+        document.getElementById("historyContainer");
+
+
+    const studentPoints =
+        points.filter(
+            point =>
+                point.student_id === studentId
+        );
+
+
+    if (studentPoints.length === 0) {
+
+        container.innerHTML =
+            '<p class="empty">Aucun mouvement de points pour cet élève.</p>';
+
+        return;
+    }
+
+
+    let html = `
+
+        <table>
+
+            <thead>
+
+                <tr>
+
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Motif</th>
+                    <th>Points</th>
+                    <th>Ajouté par</th>
+                    <th>Commentaire</th>
+                    <th>Action</th>
+
+                </tr>
+
+            </thead>
+
+            <tbody>
+
+    `;
+
+
+    studentPoints.forEach(point => {
+
+        const date =
+            point.created_at
+                ? new Date(
                     point.created_at
-                        ? new Date(
-                            point.created_at
-                        ).toLocaleDateString(
-                            "fr-FR"
-                        )
-                        : "—";
+                ).toLocaleDateString("fr-FR")
+                : "—";
 
 
-                const positive =
-                    Number(point.points) >= 0;
+        const positive =
+            Number(point.points) >= 0;
 
 
-                html += `
+        html += `
 
-                    <tr>
+            <tr>
 
-                        <td>
-                            ${date}
-                        </td>
+                <td>${date}</td>
 
-                        <td>
-                            ${
-                                point.category === "bonus"
-                                    ? "Bonus"
-                                    : "Malus"
-                            }
-                        </td>
+                <td>
+                    ${
+                        point.category === "bonus"
+                            ? "Bonus"
+                            : "Malus"
+                    }
+                </td>
 
-                        <td>
-                            ${escapeHtml(
-                                point.reason
-                            )}
-                        </td>
+                <td>
+                    ${escapeHtml(point.reason)}
+                </td>
 
-                        <td
-                            class="${
-                                positive
-                                    ? "points-positive"
-                                    : "points-negative"
-                            }"
-                        >
-                            ${
-                                positive
-                                    ? "+"
-                                    : ""
-                            }${point.points}
-                        </td>
+                <td class="${
+                    positive
+                        ? "points-positive"
+                        : "points-negative"
+                }">
 
-                        <td>
-                            ${escapeHtml(
-                                point.created_by ||
-                                "—"
-                            )}
-                        </td>
+                    ${
+                        positive
+                            ? "+"
+                            : ""
+                    }${point.points}
 
-                        <td>
-                            ${escapeHtml(
-                                point.comment ||
-                                "—"
-                            )}
-                        </td>
+                </td>
 
-                        <td>
+                <td>
+                    ${escapeHtml(
+                        point.created_by || "—"
+                    )}
+                </td>
 
-                            <button
-                                class="btn"
-                                style="background:#fdeaea;color:#c62828;"
-                                onclick="deletePoint('${point.id}')"
-                            >
-                                Supprimer
-                            </button>
+                <td>
+                    ${escapeHtml(
+                        point.comment || "—"
+                    )}
+                </td>
 
-                        </td>
+                <td>
 
-                    </tr>
+                    <button
+                        class="btn"
+                        style="background:#fdeaea;color:#c62828;"
+                        onclick="deletePoint('${point.id}')"
+                    >
+                        Supprimer
+                    </button>
 
-                `;
+                </td>
+
+            </tr>
+
+        `;
+
+    });
+
+
+    html += `
+
+            </tbody>
+
+        </table>
+
+    `;
+
+
+    container.innerHTML =
+        html;
+
+}
+
+
+/* =========================
+   MODAL
+========================= */
+
+function openAddPointModal(studentId = null) {
+
+    document.getElementById("pointModal")
+        .style.display = "flex";
+
+
+    if (studentId) {
+
+        document.getElementById("pointStudent")
+            .value = studentId;
+
+    }
+
+
+    updatePointReasons();
+
+}
+
+
+function closePointModal() {
+
+    document.getElementById("pointModal")
+        .style.display = "none";
+
+
+    document.getElementById("pointStudent")
+        .value = "";
+
+
+    document.getElementById("pointComment")
+        .value = "";
+
+}
+
+
+/* =========================
+   MOTIFS
+========================= */
+
+const bonusReasons = [
+
+    "Bonne action",
+    "Respect du personnel",
+    "Présence en cours",
+    "Participation / réussite aux examens",
+    "Prise en charge d'une situation",
+    "Participation à un club",
+    "Signalement d'un élève perturbateur"
+
+];
+
+
+const malusReasons = [
+
+    "Mauvaise action",
+    "Absence",
+    "Manque de respect envers le personnel",
+    "Bagarre",
+    "Dégradation"
+
+];
+
+
+function updatePointReasons() {
+
+    const category =
+        document.getElementById("pointCategory")
+            .value;
+
+
+    const select =
+        document.getElementById("pointReason");
+
+
+    const reasons =
+        category === "bonus"
+            ? bonusReasons
+            : malusReasons;
+
+
+    select.innerHTML = "";
+
+
+    reasons.forEach(reason => {
+
+        const option =
+            document.createElement("option");
+
+        option.value =
+            reason;
+
+        option.textContent =
+            reason;
+
+        select.appendChild(option);
+
+    });
+
+
+    updatePointPreview();
+
+}
+
+
+/* =========================
+   VALEUR DU BARÈME
+========================= */
+
+function getSelectedPointValue() {
+
+    const category =
+        document.getElementById("pointCategory")
+            .value;
+
+
+    const reason =
+        document.getElementById("pointReason")
+            .value;
+
+
+    if (
+        category === "malus" &&
+        reason === "Dégradation"
+    ) {
+
+        return -Number(
+            document.getElementById("degradationValue")
+                .value
+        );
+
+    }
+
+
+    return pointRules[category][reason];
+
+}
+
+
+/* =========================
+   APERÇU
+========================= */
+
+function updatePointPreview() {
+
+    const category =
+        document.getElementById("pointCategory")
+            .value;
+
+
+    const reason =
+        document.getElementById("pointReason")
+            .value;
+
+
+    const degradationGroup =
+        document.getElementById("degradationGroup");
+
+
+    if (
+        category === "malus" &&
+        reason === "Dégradation"
+    ) {
+
+        degradationGroup.style.display =
+            "block";
+
+    } else {
+
+        degradationGroup.style.display =
+            "none";
+
+    }
+
+
+    const value =
+        getSelectedPointValue();
+
+
+    const preview =
+        document.getElementById("pointsPreview");
+
+
+    preview.textContent =
+        value >= 0
+            ? `+${value}`
+            : value;
+
+
+    preview.className =
+        "points-preview-value " +
+        (
+            value >= 0
+                ? "preview-positive"
+                : "preview-negative"
+        );
+
+}
+
+
+/* =========================
+   ENREGISTRER
+========================= */
+
+async function savePoints() {
+
+    const studentId =
+        document.getElementById("pointStudent")
+            .value;
+
+
+    const category =
+        document.getElementById("pointCategory")
+            .value;
+
+
+    const reason =
+        document.getElementById("pointReason")
+            .value;
+
+
+    const comment =
+        document.getElementById("pointComment")
+            .value
+            .trim();
+
+
+    if (!studentId) {
+
+        showMessage(
+            "Sélectionnez un élève.",
+            "error"
+        );
+
+        return;
+    }
+
+
+    const signedPoints =
+        getSelectedPointValue();
+
+
+    if (
+        signedPoints === undefined ||
+        signedPoints === null
+    ) {
+
+        showMessage(
+            "Impossible de déterminer le nombre de points.",
+            "error"
+        );
+
+        return;
+    }
+
+
+    const userResult =
+        await supabaseClient.auth.getUser();
+
+
+    const createdBy =
+        userResult.data.user?.email ||
+        "Administration";
+
+
+    const { error } =
+        await supabaseClient
+            .from("student_points")
+            .insert({
+
+                student_id: studentId,
+
+                points: signedPoints,
+
+                reason: reason,
+
+                category: category,
+
+                created_by: createdBy,
+
+                comment: comment || null
 
             });
 
 
-            html += `
+    if (error) {
 
-                    </tbody>
+        console.error(
+            "Erreur ajout points :",
+            error
+        );
 
-                </table>
+        showMessage(
+            "Impossible d'enregistrer les points.",
+            "error"
+        );
 
-            `;
+        return;
+    }
 
 
-            container.innerHTML =
-                html;
+    closePointModal();
 
-        }
 
+    await loadPoints();
 
-        /* =========================
-           MODAL
-        ========================= */
 
-        function openAddPointModal(
-            studentId = null
-        ) {
+    showHistory(studentId);
 
-            document.getElementById(
-                "pointModal"
-            ).style.display =
-                "flex";
 
+    showMessage(
+        `${signedPoints > 0 ? "+" : ""}${signedPoints} points enregistrés.`,
+        "success"
+    );
 
-            if (studentId) {
+}
 
-                document.getElementById(
-                    "pointStudent"
-                ).value =
-                    studentId;
 
-            }
+/* =========================
+   SUPPRIMER
+========================= */
 
+async function deletePoint(pointId) {
 
-            updatePointReasons();
+    const confirmation =
+        confirm(
+            "Voulez-vous vraiment supprimer ce mouvement de points ?"
+        );
 
-        }
 
+    if (!confirmation) {
+        return;
+    }
 
-        function closePointModal() {
 
-            document.getElementById(
-                "pointModal"
-            ).style.display =
-                "none";
+    const { error } =
+        await supabaseClient
+            .from("student_points")
+            .delete()
+            .eq("id", pointId);
 
 
-            document.getElementById(
-                "pointStudent"
-            ).value =
-                "";
+    if (error) {
 
+        console.error(
+            "Erreur suppression :",
+            error
+        );
 
-            document.getElementById(
-                "pointComment"
-            ).value =
-                "";
+        showMessage(
+            "Impossible de supprimer ce mouvement.",
+            "error"
+        );
 
-        }
+        return;
+    }
 
 
-        /* =========================
-           MOTIFS
-        ========================= */
+    await loadPoints();
 
-        const bonusReasons = [
 
-            "Bonne action",
-            "Respect du personnel",
-            "Présence en cours",
-            "Participation / réussite aux examens",
-            "Prise en charge d'une situation",
-            "Participation à un club",
-            "Signalement d'un élève perturbateur"
+    if (selectedStudentId) {
 
-        ];
+        showHistory(
+            selectedStudentId
+        );
 
+    }
 
-        const malusReasons = [
 
-            "Mauvaise action",
-            "Absence",
-            "Manque de respect envers le personnel",
-            "Bagarre",
-            "Dégradation"
+    showMessage(
+        "Mouvement supprimé.",
+        "success"
+    );
 
-        ];
+}
 
 
-        function updatePointReasons() {
+/* =========================
+   SÉCURITÉ
+========================= */
 
-            const category =
-                document.getElementById(
-                    "pointCategory"
-                ).value;
+function escapeHtml(value) {
 
+    return String(value)
 
-            const select =
-                document.getElementById(
-                    "pointReason"
-                );
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
 
+}
 
-            const reasons =
-                category === "bonus"
-                    ? bonusReasons
-                    : malusReasons;
 
+/* =========================
+   INITIALISATION
+========================= */
 
-            select.innerHTML = "";
+async function init() {
 
+    const connected =
+        await checkUser();
 
-            reasons.forEach(reason => {
 
-                const option =
-                    document.createElement(
-                        "option"
-                    );
+    if (!connected) {
+        return;
+    }
 
-                option.value =
-                    reason;
 
-                option.textContent =
-                    reason;
+    updatePointReasons();
 
-                select.appendChild(
-                    option
-                );
 
-            });
+    await loadStudents();
 
+}
 
-            updatePointPreview();
 
-        }
+init();
 
-
-        /* =========================
-           CALCUL DU BARÈME
-        ========================= */
-
-        function getSelectedPointValue() {
-
-            const category =
-                document.getElementById(
-                    "pointCategory"
-                ).value;
-
-
-            const reason =
-                document.getElementById(
-                    "pointReason"
-                ).value;
-
-
-            if (
-                category === "malus" &&
-                reason === "Dégradation"
-            ) {
-
-                const degradation =
-                    Number(
-                        document.getElementById(
-                            "degradationValue"
-                        ).value
-                    );
-
-                return -degradation;
-
-            }
-
-
-            return pointRules[category][reason];
-
-        }
-
-
-        /* =========================
-           APERÇU DES POINTS
-        ========================= */
-
-        function updatePointPreview() {
-
-            const category =
-                document.getElementById(
-                    "pointCategory"
-                ).value;
-
-
-            const reason =
-                document.getElementById(
-                    "pointReason"
-                ).value;
-
-
-            const degradationGroup =
-                document.getElementById(
-                    "degradationGroup"
-                );
-
-
-            if (
-                category === "malus" &&
-                reason === "Dégradation"
-            ) {
-
-                degradationGroup.style.display =
-                    "block";
-
-            } else {
-
-                degradationGroup.style.display =
-                    "none";
-
-            }
-
-
-            const value =
-                getSelectedPointValue();
-
-
-            const preview =
-                document.getElementById(
-                    "pointsPreview"
-                );
-
-
-            preview.textContent =
-                value >= 0
-                    ? `+${value}`
-                    : value;
-
-
-            preview.className =
-                "points-preview-value " +
-                (
-                    value >= 0
-                        ? "preview-positive"
-                        : "preview-negative"
-                );
-
-        }
-
-
-        /* =========================
-           ENREGISTRER
-        ========================= */
-
-        async function savePoints() {
-
-            const studentId =
-                document.getElementById(
-                    "pointStudent"
-                ).value;
-
-
-            const category =
-                document.getElementById(
-                    "pointCategory"
-                ).value;
-
-
-            const reason =
-                document.getElementById(
-                    "pointReason"
-                ).value;
-
-
-            const comment =
-                document.getElementById(
-                    "pointComment"
-                ).value
-                .trim();
-
-
-            if (!studentId) {
-
-                showMessage(
-                    "Sélectionnez un élève.",
-                    "error"
-                );
-
-                return;
-            }
-
-
-            const signedPoints =
-                getSelectedPointValue();
-
-
-            if (
-                signedPoints === undefined ||
-                signedPoints === null
-            ) {
-
-                showMessage(
-                    "Impossible de déterminer le nombre de points.",
-                    "error"
-                );
-
-                return;
-            }
-
-
-            const userResult =
-                await supabaseClient.auth.getUser();
-
-
-            const createdBy =
-                userResult.data.user?.email ||
-                "Administration";
-
-
-            const { error } =
-                await supabaseClient
-                    .from("student_points")
-                    .insert({
-
-                        student_id:
-                            studentId,
-
-                        points:
-                            signedPoints,
-
-                        reason:
-                            reason,
-
-                        category:
-                            category,
-
-                        created_by:
-                            createdBy,
-
-                        comment:
-                            comment || null
-
-                    });
-
-
-            if (error) {
-
-                console.error(
-                    "Erreur ajout points :",
-                    error
-                );
-
-                showMessage(
-                    "Impossible d'enregistrer les points.",
-                    "error"
-                );
-
-                return;
-            }
-
-
-            closePointModal();
-
-
-            await loadPoints();
-
-
-            showHistory(
-                studentId
-            );
-
-
-            showMessage(
-                `${signedPoints > 0 ? "+" : ""}${signedPoints} points enregistrés.`,
-                "success"
-            );
-
-        }
-
-
-        /* =========================
-           SUPPRIMER UN MOUVEMENT
-        ========================= */
-
-        async function deletePoint(
-            pointId
-        ) {
-
-            const confirmation =
-                confirm(
-                    "Voulez-vous vraiment supprimer ce mouvement de points ?"
-                );
-
-
-            if (!confirmation) {
-                return;
-            }
-
-
-            const { error } =
-                await supabaseClient
-                    .from("student_points")
-                    .delete()
-                    .eq(
-                        "id",
-                        pointId
-                    );
-
-
-            if (error) {
-
-                console.error(
-                    "Erreur suppression :",
-                    error
-                );
-
-                showMessage(
-                    "Impossible de supprimer ce mouvement.",
-                    "error"
-                );
-
-                return;
-            }
-
-
-            await loadPoints();
-
-
-            if (selectedStudentId) {
-
-                showHistory(
-                    selectedStudentId
-                );
-
-            }
-
-
-            showMessage(
-                "Mouvement supprimé.",
-                "success"
-            );
-
-        }
-
-
-        /* =========================
-           SÉCURITÉ AFFICHAGE
-        ========================= */
-
-        function escapeHtml(
-            value
-        ) {
-
-            return String(value)
-                .replaceAll(
-                    "&",
-                    "&amp;"
-                )
-                .replaceAll(
-                    "<",
-                    "&lt;"
-                )
-                .replaceAll(
-                    ">",
-                    "&gt;"
-                )
-                .replaceAll(
-                    '"',
-                    "&quot;"
-                )
-                .replaceAll(
-                    "'",
-                    "&#039;"
-                );
-
-        }
-
-
-        /* =========================
-           INITIALISATION
-        ========================= */
-
-        async function init() {
-
-            const connected =
-                await checkUser();
-
-
-            if (!connected) {
-                return;
-            }
-
-
-            updatePointReasons();
-
-
-            await loadStudents();
-
-        }
-
-
-        init();
-
-    </script>
+</script>
 
 </body>
-
 </html>
-```
