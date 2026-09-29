@@ -345,6 +345,19 @@ async function sendInternalMessage({ recipientId, subject, body, files = [], hom
   }
 }
 
+async function deleteInternalMessage(messageId) {
+  if (!messageId) throw new Error('Message introuvable.');
+  const ar = await sb.from('message_attachments').select('id,storage_path').eq('message_id', messageId);
+  if (ar.error) throw ar.error;
+  const paths = (ar.data || []).map(x => x.storage_path).filter(Boolean);
+  if (paths.length) {
+    const sr = await sb.storage.from(MESSAGE_BUCKET).remove(paths);
+    if (sr.error) throw sr.error;
+  }
+  const mr = await sb.from('messages').delete().eq('id', messageId);
+  if (mr.error) throw mr.error;
+}
+
 async function renderMessages(p) {
   const user = await currentUser();
   const directory = await messageDirectory();
@@ -360,10 +373,10 @@ async function renderMessages(p) {
   const personName = id => people.get(id)?.full_name || people.get(id)?.username || 'Utilisateur';
   const displayRows = (list, mode) => list.map(m => {
     const other = mode === 'inbox' ? personName(m.sender_id) : personName(m.recipient_id);
-    return `<button type="button" class="item msg-item ${!m.read_at && mode==='inbox' ? 'msg-unread' : ''}" data-msg="${esc(m.id)}" data-mode="${mode}">
-      <div style="min-width:0;text-align:left"><strong>${esc(m.subject || '(Sans objet)')}</strong><span>${mode==='inbox'?'De':'À'} : ${esc(other)} · ${dtFR(m.sent_at)}</span><p style="margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:760px">${esc(m.body || '')}</p></div>
-      <div>${m.homework_id ? '<span class="tag">📓 Devoir</span>' : ''}${!m.read_at && mode==='inbox' ? '<span class="tag red" style="margin-left:5px">Nouveau</span>' : ''}</div>
-    </button>`;
+    return `<div class="item msg-item ${!m.read_at && mode==='inbox' ? 'msg-unread' : ''}" data-msg="${esc(m.id)}" data-mode="${mode}" role="button" tabindex="0">
+      <div style="min-width:0;text-align:left;flex:1"><strong>${esc(m.subject || '(Sans objet)')}</strong><span>${mode==='inbox'?'De':'À'} : ${esc(other)} · ${dtFR(m.sent_at)}</span><p style="margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:760px">${esc(m.body || '')}</p></div>
+      <div class="actions" style="flex-shrink:0">${m.homework_id ? '<span class="tag">📓 Devoir</span>' : ''}${!m.read_at && mode==='inbox' ? '<span class="tag red" style="margin-left:5px">Nouveau</span>' : ''}<button type="button" class="btn danger small" data-delete-message="${esc(m.id)}">🗑️</button></div>
+    </div>`;
   }).join('') || '<div class="card empty">Aucun message.</div>';
 
   qs('#app').innerHTML = head('Messagerie', 'Messagerie interne de Midori High — uniquement pour le RP.') +
@@ -379,13 +392,16 @@ async function renderMessages(p) {
     const f = new FormData(e.target);
     const files = Array.from(e.target.querySelector('[name="files"]').files || []);
     if (files.length > 3) { toast('Maximum 3 pièces jointes.', 'error'); return; }
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    if (submitBtn?.disabled) return;
     try {
+      if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Envoi…'; }
       const m = await sendInternalMessage({ recipientId:f.get('recipient_id'), subject:f.get('subject'), body:f.get('body'), files });
       await log('create','message',m.id,null);
       toast('Message envoyé.');
       closeModal('msgCompose');
       await renderMessages(p);
-    } catch (er) { toast(errMsg(er),'error'); }
+    } catch (er) { toast(errMsg(er),'error'); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Envoyer'; } }
   };
 
   qsa('[data-msg]').forEach(btn => btn.onclick = async () => {
@@ -423,6 +439,22 @@ async function renderMessages(p) {
       btn.classList.remove('msg-unread');
     } catch (er) { toast(errMsg(er),'error'); }
   });
+  qsa('[data-delete-message]').forEach(btn => btn.onclick = async e => {
+    e.stopPropagation();
+    if (!confirm('Supprimer définitivement ce message ?')) return;
+    try {
+      btn.disabled = true;
+      await deleteInternalMessage(btn.dataset.deleteMessage);
+      await log('delete', 'message', btn.dataset.deleteMessage, null);
+      toast('Message supprimé.');
+      await renderMessages(p);
+      await loadUnreadBadge();
+    } catch (er) {
+      btn.disabled = false;
+      toast(errMsg(er), 'error');
+    }
+  });
+
 }
 
 async function renderHomeworkSubmissions(p) {
@@ -608,7 +640,7 @@ async function renderProfessors() {
   const links = await rows('professor_classes', 'professor_id,class_id,classes(name)');
   const access = await rows('profiles', 'id,username,role,active', { order: 'username' });
   qs('#app').innerHTML = head('Professeurs', 'Fiches des enseignants et classes prises en charge.') + `<div class="toolbar"><input id="ps" class="search" placeholder="Rechercher un professeur…"><button id="pa" class="btn primary">+ Ajouter</button></div><div class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Pseudo</th><th>Nom</th><th>Matière</th><th>Classes</th><th>Accès</th><th>Actions</th></tr></thead><tbody id="pr">${list.map(r => { const cs = links.filter(l => l.professor_id === r.id).map(l => l.classes?.name).filter(Boolean); const profAccess = access.find(a => a.username === r.username && a.role === 'professor'); return `<tr><td>${esc(r.username)}</td><td>${esc(r.full_name)}</td><td>${esc(r.subject || '—')}</td><td>${esc(cs.join(', ') || '—')}</td><td>${profAccess ? (profAccess.active ? '<span class="tag">Actif</span>' : '<span class="tag red">Désactivé</span>') : '<span class="tag yellow">Non créé</span>'}</td><td><button class="btn secondary small" data-edit-prof="${esc(r.id)}">Modifier</button> <a class="btn secondary small" href="access.html?username=${encodeURIComponent(r.username)}">Accès</a> <button class="btn danger small" data-del-prof="${esc(r.id)}">Supprimer</button></td></tr>`; }).join('') || tableEmpty(6)}</tbody></table></div></div>` + modal('pm', 'Professeur', `<form id="pf" class="form"><input type="hidden" name="id"><div class="field"><label>Pseudo</label><input name="username" required></div><div class="field"><label>Nom complet</label><input name="full_name" required></div><div class="field"><label>Matière</label><input name="subject"></div><div class="field"><label>E-mail</label><input name="email" type="email"></div><div class="field"><label>Téléphone</label><input name="phone"></div><div class="field"><label>Actif</label><select name="active"><option value="true">Oui</option><option value="false">Non</option></select></div><div class="field full"><label>Classes</label><div class="checkgrid">${classes.map(c => `<label><input type="checkbox" name="class_ids" value="${esc(c.id)}"> ${esc(c.name)}</label>`).join('') || '<span class="muted">Créez d’abord des classes.</span>'}</div></div><div class="field full"><label>Note interne</label><textarea name="note"></textarea></div><div class="field full"><button class="btn primary">Enregistrer</button></div></form>`);
-  qs('#pa').onclick = () => { qs('#pf').reset(); qs('#pf').id.value = ''; qsa('input[name="class_ids"]').forEach(x => x.checked = false); openModal('pm'); };
+  qs('#pa').onclick = () => { qs('#pf').reset(); qs('#pf [name="id"]').value = ''; qsa('input[name="class_ids"]').forEach(x => x.checked = false); openModal('pm'); };
   closeBindings();
   qs('#ps').oninput = e => { const q = e.target.value.toLowerCase(); qsa('#pr tr').forEach(tr => tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none'); };
   qsa('[data-edit-prof]').forEach(b => b.onclick = () => { const r = list.find(x => x.id === b.dataset.editProf); qs('#pf').reset(); Object.entries({ id: r.id, username: r.username, full_name: r.full_name, subject: r.subject || '', email: r.email || '', phone: r.phone || '', active: String(r.active !== false), note: r.note || '' }).forEach(([k,v]) => { if (qs(`#pf [name="${k}"]`)) qs(`#pf [name="${k}"]`).value = v; }); const ids = links.filter(x => x.professor_id === r.id).map(x => x.class_id); qsa('input[name="class_ids"]').forEach(x => x.checked = ids.includes(x.value)); openModal('pm'); });
@@ -887,7 +919,7 @@ async function renderAccess(p) {
   qs('#app').innerHTML = head('Accès & comptes', 'Reliez un compte Supabase Auth à un espace du portail.') +
     `<div class="notice" style="margin-bottom:15px"><strong>Principe :</strong> le mot de passe reste dans Supabase Authentication. Ici, vous attribuez le rôle et, quand nécessaire, vous reliez le compte à une fiche existante.</div>` +
     `<div class="grid g2"><div class="card"><h3>Créer / lier un accès</h3><form id="accessForm" class="form" style="margin-top:12px"><div class="field full"><label>E-mail du compte Supabase</label><input name="email" type="email" placeholder="prenom@midori.fr" required></div><div class="field"><label>Rôle</label><select id="accessRole" name="role"><option value="student">Élève</option><option value="professor">Professeur</option><option value="surveillant">Surveillant</option><option value="psychologue">Psychologue</option><option value="infirmiere">Infirmière</option><option value="admin">Administration</option></select></div><div class="field"><label>Fiche à relier</label><select id="accessLink"><option value="">Aucune fiche / professionnel santé / admin</option></select></div><div class="field"><label>Identifiant portail</label><input id="accessUsername" name="username" value="${esc(queryUser)}" placeholder="pseudo.roblox" required></div><div class="field"><label>Nom affiché</label><input id="accessName" name="full_name" value="${esc(preStudent?.full_name || preTeacher?.full_name || preSupervisor?.full_name || '')}" placeholder="Nom et prénom" required></div><div class="field"><label>Actif</label><select name="active"><option value="true">Oui</option><option value="false">Non</option></select></div><div class="field full"><div id="accessHint" class="notice">Choisissez un rôle. Pour un élève, professeur ou surveillant, sélectionnez sa fiche : l’identifiant et le nom seront préremplis.</div></div><div class="field full"><button class="btn primary">Créer / mettre à jour le profil</button></div></form></div><div class="card"><h3>Procédure</h3><p class="muted" style="margin-top:8px">1. Supabase → Authentication → Users → Add user.</p><p class="muted">2. Créez son e-mail + mot de passe et confirmez le compte.</p><p class="muted">3. Ici, choisissez son rôle et sa fiche si nécessaire.</p><p class="muted">4. Pour un professeur, ajoutez ensuite ses classes dans « Professeurs ».</p><p class="muted">5. Pour un élève, sa classe doit déjà être renseignée dans « Élèves ».</p></div></div>` +
-    `<div class="card" style="margin-top:15px"><h3>Comptes portail</h3><div class="table-wrap" style="margin-top:10px"><table class="table"><thead><tr><th>E-mail</th><th>Identifiant</th><th>Nom</th><th>Rôle</th><th>État</th><th>Créé</th></tr></thead><tbody>${profs.map(x => `<tr><td>${esc(x.email)}</td><td>${esc(x.username)}</td><td>${esc(x.full_name)}</td><td>${badge(ROLE_LABEL[x.role] || x.role)}</td><td><button class="btn ${x.active ? 'secondary' : 'danger'} small" data-toggle-profile="${esc(x.id)}" data-current="${x.active ? 'true' : 'false'}">${x.active ? 'Actif' : 'Désactivé'}</button></td><td>${dtFR(x.created_at)}</td></tr>`).join('') || tableEmpty(6)}</tbody></table></div></div>`;
+    `<div class="card" style="margin-top:15px"><h3>Comptes portail</h3><div class="table-wrap" style="margin-top:10px"><table class="table"><thead><tr><th>E-mail</th><th>Identifiant</th><th>Nom</th><th>Rôle</th><th>État</th><th>Créé</th></tr></thead><tbody>${profs.map(x => `<tr><td>${esc(x.email)}</td><td>${esc(x.username)}</td><td>${esc(x.full_name)}</td><td>${badge(ROLE_LABEL[x.role] || x.role)}</td><td><button class="btn ${x.active ? 'danger' : 'secondary'} small" data-toggle-profile="${esc(x.id)}" data-current="${x.active ? 'true' : 'false'}">${x.active ? 'Révoquer l’accès' : 'Réactiver'}</button></td><td>${dtFR(x.created_at)}</td></tr>`).join('') || tableEmpty(6)}</tbody></table></div></div>`;
 
   const roleSelect = qs('#accessRole');
   const linkSelect = qs('#accessLink');
@@ -1050,8 +1082,8 @@ async function init() {
       default: qs('#app').innerHTML = `<div class="card error">Page non configurée.</div>`;
     }
   } catch (er) {
-    console.error(er);
-    qs('#app').innerHTML = `<div class="notice error"><strong>Une erreur est survenue.</strong><br>${esc(errMsg(er))}</div>`;
+    console.error('Midori High — erreur page', page, er);
+    qs('#app').innerHTML = head(TITLE[page] || 'Portail', 'Une erreur a empêché le chargement de cette page.') + `<div class="card"><div class="notice error"><strong>Erreur détectée :</strong><br>${esc(errMsg(er))}</div><p class="muted" style="margin-top:12px">Si le message mentionne une table, une colonne ou une policy Supabase, exécutez le SQL de réparation fourni avec cette version.</p><button class="btn secondary" onclick="location.reload()">Réessayer</button></div>`;
   }
 }
 
