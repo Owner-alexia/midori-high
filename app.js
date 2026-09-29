@@ -23,6 +23,7 @@ const NAV = {
   admin: [
     ['Général', [
       ['dashboard.html', '📊', 'Tableau de bord'],
+      ['messages.html', '✉️', 'Messagerie'],
       ['announcements.html', '📣', 'Annonces'],
       ['events.html', '🎪', 'Calendrier RP']
     ]],
@@ -53,6 +54,7 @@ const NAV = {
   professor: [
     ['Mon espace', [
       ['prof-space.html', '🏠', 'Accueil'],
+      ['messages.html', '✉️', 'Messagerie'],
       ['prof-attendance.html', '📝', 'Fiches d’appel'],
       ['prof-grades.html', '💯', 'Notes'],
       ['prof-homework.html', '📓', 'Devoirs'],
@@ -66,6 +68,7 @@ const NAV = {
   surveillant: [
     ['Mon espace', [
       ['supervisor-space.html', '🏠', 'Accueil'],
+      ['messages.html', '✉️', 'Messagerie'],
       ['supervisor-absences.html', '⏱️', 'Absences & retards'],
       ['supervisor-sanctions.html', '⚖️', 'Sanctions'],
       ['supervisor-reports.html', '📄', 'Rapports'],
@@ -77,6 +80,7 @@ const NAV = {
   student: [
     ['Mon espace', [
       ['student-space.html', '🏠', 'Accueil'],
+      ['messages.html', '✉️', 'Messagerie'],
       ['student-grades.html', '💯', 'Mes notes'],
       ['student-homework.html', '📓', 'Mes devoirs'],
       ['student-timetable.html', '🗓️', 'Mon emploi du temps'],
@@ -92,6 +96,7 @@ const NAV = {
   psychologue: [
     ['Mon espace', [
       ['psych-space.html', '🏠', 'Accueil'],
+      ['messages.html', '✉️', 'Messagerie'],
       ['psych-appointments.html', '🧠', 'Rendez-vous'],
       ['psych-records.html', '🔒', 'Dossiers confidentiels'],
       ['announcements.html', '📣', 'Annonces'],
@@ -102,6 +107,7 @@ const NAV = {
   infirmiere: [
     ['Mon espace', [
       ['nurse-space.html', '🏠', 'Accueil'],
+      ['messages.html', '✉️', 'Messagerie'],
       ['nurse-appointments.html', '🩺', 'Rendez-vous'],
       ['nurse-records.html', '🔒', 'Dossiers infirmerie'],
       ['announcements.html', '📣', 'Annonces'],
@@ -112,7 +118,7 @@ const NAV = {
 };
 
 const TITLE = {
-  'dashboard.html': 'Tableau de bord', 'announcements.html': 'Annonces', 'students.html': 'Élèves', 'student-profile.html': 'Dossier élève',
+  'dashboard.html': 'Tableau de bord', 'messages.html': 'Messagerie', 'homework-submissions.html': 'Remises de devoirs', 'announcements.html': 'Annonces', 'students.html': 'Élèves', 'student-profile.html': 'Dossier élève',
   'professors.html': 'Professeurs', 'supervisors.html': 'Surveillants', 'classes.html': 'Classes',
   'subjects.html': 'Matières', 'timetable.html': 'Emploi du temps', 'attendance.html': 'Fiches d’appel',
   'absences.html': 'Absences', 'grades.html': 'Notes', 'homework.html': 'Devoirs',
@@ -130,7 +136,7 @@ const TITLE = {
 };
 
 const PAGE_ROLES = {
-  'dashboard.html': ['admin'], 'access.html': ['admin'], 'students.html': ['admin'], 'professors.html': ['admin'],
+  'dashboard.html': ['admin'], 'messages.html': ['admin','professor','surveillant','student','psychologue','infirmiere'], 'homework-submissions.html': ['admin','professor'], 'access.html': ['admin'], 'students.html': ['admin'], 'professors.html': ['admin'],
   'supervisors.html': ['admin'], 'classes.html': ['admin'], 'subjects.html': ['admin'], 'timetable.html': ['admin'],
   'attendance.html': ['admin', 'professor', 'surveillant'], 'absences.html': ['admin', 'professor', 'surveillant'],
   'grades.html': ['admin', 'professor'], 'homework.html': ['admin', 'professor'], 'points.html': ['admin'],
@@ -213,7 +219,7 @@ function shell(p) {
   (NAV[p.role] || []).forEach(group => {
     nav += `<div class="nav-section">${esc(group[0])}</div>`;
     group[1].forEach(item => {
-      nav += `<a href="${item[0]}" class="${page === item[0] ? 'active' : ''}"><span>${item[1]}</span><span>${esc(item[2])}</span></a>`;
+      nav += `<a href="${item[0]}" class="${page === item[0] ? 'active' : ''}"><span>${item[1]}</span><span style="display:flex;gap:7px;align-items:center">${esc(item[2])}${item[0] === 'messages.html' ? '<span id="mailBadge" class="tag red" style="display:none;padding:2px 6px;font-size:10px"></span>' : ''}</span></a>`;
     });
   });
   document.body.className = '';
@@ -243,7 +249,9 @@ function shell(p) {
     </div>`;
   qs('#logout').onclick = logout;
   qs('#menu').onclick = () => qs('#sidebar').classList.toggle('open');
+  loadUnreadBadge();
 }
+
 
 async function rows(table, select = '*', cfg = {}) {
   let q = sb.from(table).select(select);
@@ -259,6 +267,185 @@ async function update(table, id, row) { const r = await sb.from(table).update(ro
 async function remove(table, id) { const r = await sb.from(table).delete().eq('id', id); if (r.error) throw r.error; }
 async function log(action, entity, entityId = null, details = null) {
   try { await sb.from('activity_logs').insert({ actor_profile_id: (await currentUser())?.id || null, action, entity, entity_id: entityId, details: details || null }); } catch (_) {}
+}
+
+
+const MESSAGE_BUCKET = 'midori-messages';
+
+function roleLabel(role) { return ROLE_LABEL[role] || role || 'Utilisateur'; }
+
+async function messageDirectory() {
+  const r = await sb.rpc('list_message_recipients');
+  if (r.error) throw r.error;
+  return r.data || [];
+}
+
+async function loadUnreadBadge() {
+  const badge = qs('#mailBadge');
+  if (!badge) return;
+  try {
+    const user = await currentUser();
+    if (!user) return;
+    const r = await sb.from('messages').select('id', { count:'exact', head:true }).eq('recipient_id', user.id).is('read_at', null);
+    if (r.error) throw r.error;
+    const n = r.count || 0;
+    badge.textContent = n > 99 ? '99+' : String(n);
+    badge.style.display = n ? 'inline-flex' : 'none';
+  } catch (_) {}
+}
+
+function safeFileName(name) {
+  return String(name || 'fichier').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120);
+}
+
+async function sendInternalMessage({ recipientId, subject, body, files = [], homeworkId = null }) {
+  const user = await currentUser();
+  if (!user) throw new Error('Session expirée.');
+  if (!recipientId) throw new Error('Destinataire manquant.');
+  const messageId = crypto.randomUUID();
+  let message = null;
+  const uploadedPaths = [];
+  try {
+    const r = await sb.from('messages').insert({
+      id: messageId,
+      sender_id: user.id,
+      recipient_id: recipientId,
+      subject: String(subject || '').trim() || '(Sans objet)',
+      body: String(body || '').trim(),
+      homework_id: homeworkId || null
+    }).select().single();
+    if (r.error) throw r.error;
+    message = r.data;
+
+    for (const file of Array.from(files || [])) {
+      if (!file || !file.name) continue;
+      if (file.size > 10 * 1024 * 1024) throw new Error(`Le fichier « ${file.name} » dépasse 10 Mo.`);
+      const path = `${user.id}/${messageId}/${crypto.randomUUID()}-${safeFileName(file.name)}`;
+      const up = await sb.storage.from(MESSAGE_BUCKET).upload(path, file, { upsert:false, contentType:file.type || 'application/octet-stream' });
+      if (up.error) throw up.error;
+      uploadedPaths.push(path);
+      const ar = await sb.from('message_attachments').insert({
+        message_id: messageId,
+        file_name: file.name,
+        storage_path: path,
+        mime_type: file.type || 'application/octet-stream',
+        size_bytes: file.size
+      });
+      if (ar.error) throw ar.error;
+    }
+    return message;
+  } catch (er) {
+    if (uploadedPaths.length) {
+      try { await sb.storage.from(MESSAGE_BUCKET).remove(uploadedPaths); } catch (_) {}
+    }
+    if (message) {
+      try { await sb.from('messages').delete().eq('id', messageId); } catch (_) {}
+    }
+    throw er;
+  }
+}
+
+async function renderMessages(p) {
+  const user = await currentUser();
+  const directory = await messageDirectory();
+  const people = new Map(directory.map(x => [x.id, x]));
+  const [inboxR, sentR] = await Promise.all([
+    sb.from('messages').select('id,sender_id,recipient_id,subject,body,homework_id,sent_at,read_at').eq('recipient_id', user.id).order('sent_at',{ascending:false}).limit(200),
+    sb.from('messages').select('id,sender_id,recipient_id,subject,body,homework_id,sent_at,read_at').eq('sender_id', user.id).order('sent_at',{ascending:false}).limit(200)
+  ]);
+  if (inboxR.error) throw inboxR.error;
+  if (sentR.error) throw sentR.error;
+  const inbox = inboxR.data || [];
+  const sent = sentR.data || [];
+  const personName = id => people.get(id)?.full_name || people.get(id)?.username || 'Utilisateur';
+  const displayRows = (list, mode) => list.map(m => {
+    const other = mode === 'inbox' ? personName(m.sender_id) : personName(m.recipient_id);
+    return `<button type="button" class="item msg-item ${!m.read_at && mode==='inbox' ? 'msg-unread' : ''}" data-msg="${esc(m.id)}" data-mode="${mode}">
+      <div style="min-width:0;text-align:left"><strong>${esc(m.subject || '(Sans objet)')}</strong><span>${mode==='inbox'?'De':'À'} : ${esc(other)} · ${dtFR(m.sent_at)}</span><p style="margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:760px">${esc(m.body || '')}</p></div>
+      <div>${m.homework_id ? '<span class="tag">📓 Devoir</span>' : ''}${!m.read_at && mode==='inbox' ? '<span class="tag red" style="margin-left:5px">Nouveau</span>' : ''}</div>
+    </button>`;
+  }).join('') || '<div class="card empty">Aucun message.</div>';
+
+  qs('#app').innerHTML = head('Messagerie', 'Messagerie interne de Midori High — uniquement pour le RP.') +
+    `<div class="toolbar"><div class="actions"><button id="composeMsg" class="btn primary">✉️ Nouveau message</button><span class="tag">${inbox.filter(x=>!x.read_at).length} non lu(s)</span></div></div>` +
+    `<div class="grid g2"><div class="card"><div class="toolbar"><h3>Boîte de réception</h3></div><div class="list">${displayRows(inbox,'inbox')}</div></div><div class="card"><div class="toolbar"><h3>Messages envoyés</h3></div><div class="list">${displayRows(sent,'sent')}</div></div></div>` +
+    modal('msgCompose','Nouveau message', `<form id="msgForm" class="form"><div class="field full"><label>Destinataire</label><select name="recipient_id" required>${opts(directory.filter(x=>x.id!==user.id).sort((a,b)=>String(a.full_name).localeCompare(String(b.full_name),'fr')),'id','full_name')}</select></div><div class="field full"><label>Objet</label><input name="subject" required maxlength="180"></div><div class="field full"><label>Message</label><textarea name="body" required placeholder="Écrivez votre message RP…"></textarea></div><div class="field full"><label>Pièces jointes <span class="muted">(3 fichiers max, 10 Mo chacun)</span></label><input name="files" type="file" multiple></div><div class="field full"><button class="btn primary">Envoyer</button></div></form>`) +
+    `<div id="messageModalHost"></div>`;
+
+  qs('#composeMsg').onclick=()=>openModal('msgCompose');
+  closeBindings();
+  qs('#msgForm').onsubmit = async e => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    const files = Array.from(e.target.querySelector('[name="files"]').files || []);
+    if (files.length > 3) { toast('Maximum 3 pièces jointes.', 'error'); return; }
+    try {
+      const m = await sendInternalMessage({ recipientId:f.get('recipient_id'), subject:f.get('subject'), body:f.get('body'), files });
+      await log('create','message',m.id,null);
+      toast('Message envoyé.');
+      closeModal('msgCompose');
+      await renderMessages(p);
+    } catch (er) { toast(errMsg(er),'error'); }
+  };
+
+  qsa('[data-msg]').forEach(btn => btn.onclick = async () => {
+    const id = btn.dataset.msg;
+    const mode = btn.dataset.mode;
+    try {
+      const list = mode === 'inbox' ? inbox : sent;
+      const m = list.find(x=>x.id===id);
+      if (!m) return;
+      if (mode === 'inbox' && !m.read_at) {
+        const ur = await sb.rpc('mark_message_read',{p_message_id:id});
+        if (ur.error) throw ur.error;
+        m.read_at = new Date().toISOString();
+      }
+      const ar = await sb.from('message_attachments').select('id,file_name,storage_path,mime_type,size_bytes').eq('message_id',id).order('id');
+      if (ar.error) throw ar.error;
+      const sender = people.get(m.sender_id)?.full_name || 'Utilisateur';
+      const recipient = people.get(m.recipient_id)?.full_name || 'Utilisateur';
+      const attachmentHtml = (ar.data||[]).map(a=>`<button type="button" class="btn secondary small" data-download="${esc(a.id)}" data-path="${esc(a.storage_path)}">📎 ${esc(a.file_name)}</button>`).join(' ') || '<span class="muted">Aucune pièce jointe.</span>';
+      const canReply = mode === 'inbox';
+      const host=qs('#messageModalHost');
+      host.innerHTML=modal('msgView','Message',`<div class="card" style="box-shadow:none;padding:0;border:0"><div class="muted">De : ${esc(sender)}<br>À : ${esc(recipient)}<br>${dtFR(m.sent_at)}</div><h2 style="font-size:21px;margin:15px 0 10px">${esc(m.subject)}</h2><div style="white-space:pre-wrap;line-height:1.6">${esc(m.body)}</div><div style="margin-top:16px"><strong>Pièces jointes</strong><div class="actions" style="margin-top:8px">${attachmentHtml}</div></div><div class="actions" style="margin-top:18px">${canReply?'<button id="replyMsg" class="btn primary">↩️ Répondre</button>':''}<button class="btn secondary" data-close="msgView">Fermer</button></div></div>`);
+      openModal('msgView'); closeBindings();
+      qsa('[data-download]').forEach(x=>x.onclick=async()=>{
+        try { const r=await sb.storage.from(MESSAGE_BUCKET).createSignedUrl(x.dataset.path,60); if(r.error) throw r.error; window.open(r.data.signedUrl,'_blank'); } catch(er){ toast(errMsg(er),'error'); }
+      });
+      qs('#replyMsg')?.addEventListener('click',()=>{
+        closeModal('msgView');
+        qs('#msgCompose [name="recipient_id"]').value=m.sender_id;
+        qs('#msgCompose [name="subject"]').value=`Re: ${m.subject}`;
+        qs('#msgCompose [name="body"]').value=`\n\n--- Message précédent ---\n${m.body}`;
+        openModal('msgCompose');
+      });
+      await loadUnreadBadge();
+      btn.classList.remove('msg-unread');
+    } catch (er) { toast(errMsg(er),'error'); }
+  });
+}
+
+async function renderHomeworkSubmissions(p) {
+  const id = new URLSearchParams(location.search).get('id');
+  if (!id) { qs('#app').innerHTML = head('Remises de devoirs','Sélectionnez un devoir depuis l’espace devoirs.')+'<div class="card empty">Aucun devoir sélectionné.</div>'; return; }
+  const hr = await sb.from('homework').select('id,title,description,due_date,attachment_url,classes(name),subjects(name),professors(full_name)').eq('id',id).maybeSingle();
+  if (hr.error) throw hr.error;
+  if (!hr.data) { qs('#app').innerHTML = '<div class="notice error">Devoir introuvable ou non accessible.</div>'; return; }
+  const homework=hr.data;
+  const sr=await sb.from('homework_submissions').select('id,homework_id,student_id,message_id,submitted_at,status,note,students(full_name,username,class_name)').eq('homework_id',id).order('submitted_at',{ascending:false});
+  if(sr.error) throw sr.error;
+  const list=sr.data||[];
+  qs('#app').innerHTML=head('Remises de devoirs',`${esc(homework.title)} · ${esc(homework.classes?.name||'')} · ${esc(homework.subjects?.name||'')}`)+
+    `<div class="card" style="margin-bottom:15px"><strong>Date limite :</strong> ${dateFR(homework.due_date)}<br><span class="muted">${esc(homework.description||'')}</span></div>`+
+    `<div class="card"><div class="toolbar"><h3>${list.length} remise(s)</h3></div><div class="table-wrap"><table class="table"><thead><tr><th>Élève</th><th>Date</th><th>Statut</th><th>Commentaire</th><th>Pièces jointes</th></tr></thead><tbody>${list.map(x=>`<tr><td><strong>${esc(x.students?.full_name||'')}</strong><span>${esc(x.students?.class_name||x.students?.username||'')}</span></td><td>${dtFR(x.submitted_at)}</td><td><select class="sub-status" data-sub="${esc(x.id)}"><option ${x.status==='Envoyé'?'selected':''}>Envoyé</option><option ${x.status==='En retard'?'selected':''}>En retard</option><option ${x.status==='Lu'?'selected':''}>Lu</option><option ${x.status==='Corrigé'?'selected':''}>Corrigé</option></select></td><td>${esc(x.note||'—')}</td><td><div class="actions" data-files="${esc(x.message_id)}"><span class="muted">Chargement…</span></div></td></tr>`).join('')||tableEmpty(5,'Aucune remise pour le moment.')}</tbody></table></div></div>`;
+  for(const x of list){
+    const fr=await sb.from('message_attachments').select('file_name,storage_path').eq('message_id',x.message_id);
+    const box=qs(`[data-files="${x.message_id}"]`);
+    if(fr.error){ if(box) box.innerHTML='<span class="muted">Impossible de charger les fichiers.</span>'; continue; }
+    if(box) box.innerHTML=(fr.data||[]).map(a=>`<button type="button" class="btn secondary small" data-path="${esc(a.storage_path)}">📎 ${esc(a.file_name)}</button>`).join(' ')||'<span class="muted">Aucun fichier</span>';
+  }
+  qsa('[data-path]').forEach(b=>b.onclick=async()=>{try{const r=await sb.storage.from(MESSAGE_BUCKET).createSignedUrl(b.dataset.path,60);if(r.error)throw r.error;window.open(r.data.signedUrl,'_blank')}catch(er){toast(errMsg(er),'error')}});
+  qsa('[data-sub]').forEach(sel=>sel.onchange=async()=>{try{await update('homework_submissions',sel.dataset.sub,{status:sel.value});await log('update','homework_submission',sel.dataset.sub,{status:sel.value});toast('Statut mis à jour.')}catch(er){toast(errMsg(er),'error')}});
 }
 
 function reputation(total) {
@@ -529,14 +716,58 @@ async function renderGrades(p, restricted = false) {
 }
 
 async function renderHomework(p, restricted = false) {
-  const subjects = await rows('subjects', 'id,name', { order: 'name' });
-  const classes = await rows('classes', 'id,name', { order: 'name' });
+  const subjects = await rows('subjects', 'id,name', { order:'name' });
+  const classes = await rows('classes', 'id,name', { order:'name' });
   const students = await rows('students', 'id,class_id,full_name');
-  let prof = null; if (p.role === 'professor' || restricted) prof = await professorRow(p);
-  const list = await rows('homework', 'id,class_id,professor_id,subject_id,title,description,due_date,attachment_url,published,created_at,classes(name),subjects(name),professors(full_name)', { order: 'due_date', ascending: true, limit: 300 });
-  let visible = list; if (prof) visible = list.filter(x => x.professor_id === prof.id); if (p.role === 'student') visible = list.filter(x => students.find(s => s.id === p.student_id && s.class_id === x.class_id));
+  let prof = null;
+  if (p.role === 'professor' || restricted) prof = await professorRow(p);
+  const list = await rows('homework', 'id,class_id,professor_id,subject_id,title,description,due_date,attachment_url,published,created_at,classes(name),subjects(name),professors(full_name)', { order:'due_date', ascending:true, limit:300 });
+  let visible = list;
+  if (prof) visible = list.filter(x => x.professor_id === prof.id);
+  if (p.role === 'student') visible = list.filter(x => students.find(s => s.id === p.student_id && s.class_id === x.class_id));
+
+  let submissions = [];
+  if (p.role === 'student') {
+    const sr = await sb.from('homework_submissions').select('id,homework_id,submitted_at,status,note').eq('student_id',p.student_id).order('submitted_at',{ascending:false});
+    if (sr.error) throw sr.error;
+    submissions = sr.data || [];
+  } else if (visible.length) {
+    const sr = await sb.from('homework_submissions').select('id,homework_id').in('homework_id', visible.map(x=>x.id));
+    if (sr.error) throw sr.error;
+    submissions = sr.data || [];
+  }
+  const subCounts = new Map();
+  submissions.forEach(x=>subCounts.set(x.homework_id,(subCounts.get(x.homework_id)||0)+1));
+  const latestSubmission = new Map();
+  submissions.filter(x=>x.submitted_at).forEach(x=>{ if(!latestSubmission.has(x.homework_id)) latestSubmission.set(x.homework_id,x); });
+
+  let directory = [];
+  if (p.role === 'student') directory = await messageDirectory();
+  const professorRecipientByRow = new Map(directory.filter(x=>x.professor_id).map(x=>[x.professor_id,x]));
   const canCreate = p.role === 'admin' || p.role === 'professor';
-  qs('#app').innerHTML = head(p.role === 'student' ? 'Mes devoirs' : 'Devoirs', 'Travail à effectuer et suivi des classes.') + (canCreate ? `<div class="toolbar"><button id="ha" class="btn primary">+ Nouveau devoir</button></div>` : '') + `<div class="list">${visible.map(x => `<article class="card"><div class="toolbar"><div><h3>${esc(x.title)}</h3><span class="muted">${esc(x.classes?.name || '')} · ${esc(x.subjects?.name || '')} · À rendre le ${dateFR(x.due_date)}</span></div>${x.attachment_url ? `<a class="btn secondary small" href="${esc(x.attachment_url)}" target="_blank">Ouvrir le document</a>` : ''}</div><p style="white-space:pre-wrap">${esc(x.description || '')}</p><div class="muted" style="margin-top:9px">${x.professors?.full_name ? `Professeur : ${esc(x.professors.full_name)}` : ''}</div></article>`).join('') || '<div class="card empty">Aucun devoir.</div>'}</div>` + (canCreate ? modal('hm', 'Nouveau devoir', `<form id="hf" class="form"><div class="field"><label>Titre</label><input name="title" required></div><div class="field"><label>Classe</label><select name="class_id" required>${opts(classes)}</select></div><div class="field"><label>Matière</label><select name="subject_id" required>${opts(subjects)}</select></div><div class="field"><label>Date limite</label><input name="due_date" type="date" required></div><div class="field full"><label>Lien de document</label><input name="attachment_url" type="url"></div><div class="field full"><label>Description</label><textarea name="description"></textarea></div><div class="field"><label>Publié</label><select name="published"><option value="true">Oui</option><option value="false">Non</option></select></div><div class="field full"><button class="btn primary">Enregistrer</button></div></form>`) : ''); if (canCreate) { qs('#ha').onclick = () => openModal('hm'); closeBindings(); qs('#hf').onsubmit = async e => { e.preventDefault(); const f = new FormData(e.target); try { let professor_id = null; if (p.role === 'professor') professor_id = (await professorRow(p)).id; const r = await add('homework', { class_id: f.get('class_id'), subject_id: f.get('subject_id'), professor_id, title: f.get('title'), description: f.get('description') || null, due_date: f.get('due_date'), attachment_url: f.get('attachment_url') || null, published: f.get('published') === 'true' }); await log('create', 'homework', r.id, null); toast('Devoir enregistré.'); location.reload(); } catch (er) { toast(errMsg(er), 'error'); } }; }
+  const now = new Date();
+  qs('#app').innerHTML = head(p.role === 'student' ? 'Mes devoirs' : 'Devoirs', 'Travail à effectuer et suivi des classes.') +
+    (canCreate ? `<div class="toolbar"><button id="ha" class="btn primary">+ Nouveau devoir</button></div>` : '') +
+    `<div class="list">${visible.map(x => {
+      const latest = latestSubmission.get(x.id);
+      const rec = p.role === 'student' ? professorRecipientByRow.get(x.professor_id) : null;
+      const due = x.due_date ? new Date(`${x.due_date}T23:59:59`) : null;
+      const overdue = due && now > due;
+      return `<article class="card"><div class="toolbar"><div><h3>${esc(x.title)}</h3><span class="muted">${esc(x.classes?.name || '')} · ${esc(x.subjects?.name || '')} · À rendre le ${dateFR(x.due_date)}</span></div><div class="actions">${x.attachment_url ? `<a class="btn secondary small" href="${esc(x.attachment_url)}" target="_blank">Ouvrir le document</a>` : ''}${canCreate ? `<a class="btn secondary small" href="homework-submissions.html?id=${esc(x.id)}">📥 ${subCounts.get(x.id)||0} rendu(s)</a>` : (rec ? `<button class="btn primary small" data-submit-homework="${esc(x.id)}">📤 Rendre le devoir</button>` : '')}</div></div><p style="white-space:pre-wrap">${esc(x.description || '')}</p><div class="muted" style="margin-top:9px">${x.professors?.full_name ? `Professeur : ${esc(x.professors.full_name)}` : ''}${p.role==='student' && latest ? ` · Dernier envoi : ${dtFR(latest.submitted_at)} · <strong>${esc(latest.status || (overdue ? 'En retard' : 'Envoyé'))}</strong>` : ''}</div>${p.role==='student' && !rec ? `<div class="notice" style="margin-top:12px">⚠️ Aucun professeur n’est associé à ce devoir. Contactez l’administration.</div>` : ''}</article>`;
+    }).join('') || '<div class="card empty">Aucun devoir.</div>'}</div>` +
+    (canCreate ? modal('hm', 'Nouveau devoir', `<form id="hf" class="form"><div class="field"><label>Titre</label><input name="title" required></div><div class="field"><label>Classe</label><select name="class_id" required>${opts(classes)}</select></div><div class="field"><label>Matière</label><select name="subject_id" required>${opts(subjects)}</select></div><div class="field"><label>Date limite</label><input name="due_date" type="date" required></div><div class="field full"><label>Lien de document</label><input name="attachment_url" type="url"></div><div class="field full"><label>Description</label><textarea name="description"></textarea></div><div class="field"><label>Publié</label><select name="published"><option value="true">Oui</option><option value="false">Non</option></select></div><div class="field full"><button class="btn primary">Enregistrer</button></div></form>`) : '') +
+    (p.role === 'student' ? modal('hsm','Rendre un devoir',`<form id="hsf" class="form"><input type="hidden" name="homework_id"><div class="field full"><label>Commentaire au professeur</label><textarea name="note" placeholder="Bonjour, voici mon devoir…"></textarea></div><div class="field full"><label>Fichier(s) <span class="muted">3 maximum, 10 Mo chacun</span></label><input name="files" type="file" multiple required></div><div class="field full"><button class="btn primary">📤 Envoyer mon devoir</button></div></form>`) : '');
+
+  if (canCreate) {
+    qs('#ha').onclick=()=>openModal('hm'); closeBindings();
+    qs('#hf').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);try{let professor_id=null;if(p.role==='professor')professor_id=prof.id;const r=await add('homework',{class_id:f.get('class_id'),subject_id:f.get('subject_id'),professor_id,title:f.get('title'),description:f.get('description')||null,due_date:f.get('due_date'),attachment_url:f.get('attachment_url')||null,published:f.get('published')==='true'});await log('create','homework',r.id,null);toast('Devoir enregistré.');location.reload()}catch(er){toast(errMsg(er),'error')}};
+  }
+  if(p.role==='student'){
+    qsa('[data-submit-homework]').forEach(b=>b.onclick=()=>{const hw=visible.find(x=>x.id===b.dataset.submitHomework);const rec=professorRecipientByRow.get(hw?.professor_id);if(!hw||!rec){toast('Professeur introuvable pour ce devoir.','error');return;}qs('#hsf [name="homework_id"]').value=hw.id;qs('#hsf [name="files"]').value='';qs('#hsf [name="note"]').value='';openModal('hsm');closeBindings();});
+    qs('#hsf').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);const hw=visible.find(x=>x.id===f.get('homework_id'));if(!hw)return;const rec=professorRecipientByRow.get(hw.professor_id);const files=Array.from(e.target.querySelector('[name="files"]').files||[]);if(!files.length){toast('Ajoutez au moins un fichier.','error');return;}if(files.length>3){toast('Maximum 3 fichiers.','error');return;}try{const due=hw.due_date?new Date(`${hw.due_date}T23:59:59`):null;const status=due&&new Date()>due?'En retard':'Envoyé';const subject=`Remise de devoir — ${hw.title}`;const body=(f.get('note')||`Bonjour, je vous transmets mon devoir « ${hw.title} ».`) + `
+
+Remise automatique via le portail Midori High.`;const m=await sendInternalMessage({recipientId:rec.id,subject,body,files,homeworkId:hw.id});const r=await add('homework_submissions',{homework_id:hw.id,student_id:p.student_id,message_id:m.id,status,note:f.get('note')||null});await log('create','homework_submission',r.id,{homework_id:hw.id});toast('Votre devoir a été envoyé au professeur.');closeModal('hsm');location.reload()}catch(er){toast(errMsg(er),'error')}};
+  }
 }
 
 async function renderPoints() {
@@ -771,6 +1002,8 @@ async function init() {
   try {
     switch (page) {
       case 'dashboard.html': await renderDashboard(); break;
+      case 'messages.html': await renderMessages(ctx.profile); break;
+      case 'homework-submissions.html': await renderHomeworkSubmissions(ctx.profile); break;
       case 'announcements.html': await renderAnnouncements(ctx.profile); break;
       case 'students.html': await renderStudents(); break;
       case 'student-profile.html': await renderStudentProfile(ctx.profile, ctx.profile.role === 'admin'); break;
