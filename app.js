@@ -275,6 +275,7 @@ function pointReference() {
 function loginErrorMessage(er) {
   const code = er?.code || '';
   const msg = String(er?.message || '').toLowerCase();
+  if (msg.includes('invalid api key') || msg.includes('api key')) return 'Clé Supabase invalide : vérifiez config.js et la clé Publishable de votre projet.';
   if (code === 'invalid_credentials' || msg.includes('invalid login credentials')) return 'Identifiant ou mot de passe incorrect.';
   if (code === 'email_not_confirmed' || msg.includes('email not confirmed')) return 'Ce compte n’est pas confirmé dans Supabase Authentication.';
   if (code === 'user_not_found') return 'Aucun compte Supabase ne correspond à cet identifiant.';
