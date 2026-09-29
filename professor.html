@@ -1,15 +1,17 @@
 ```html
 <!DOCTYPE html>
 <html lang="fr">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>Midori High — Professeur</title>
+    <title>Fiche professeur — Midori High</title>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <style>
+
         * {
             box-sizing: border-box;
             margin: 0;
@@ -18,74 +20,58 @@
 
         body {
             font-family: Arial, sans-serif;
-            background: #f6f8f7;
-            color: #24332d;
+            background: #f5f7fb;
+            color: #222;
         }
-
-        .layout {
-            display: flex;
-            min-height: 100vh;
-        }
-
-        /* SIDEBAR */
 
         .sidebar {
-            width: 250px;
-            background: #ffffff;
-            border-right: 1px solid #e5e9e7;
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 240px;
+            height: 100vh;
+            background: white;
+            border-right: 1px solid #e5e7eb;
             padding: 25px 15px;
+            overflow-y: auto;
         }
 
         .logo {
-            text-align: center;
-            margin-bottom: 35px;
-        }
-
-        .logo h1 {
-            font-size: 23px;
-            color: #456b59;
-        }
-
-        .logo p {
-            font-size: 12px;
-            color: #8b9992;
-            margin-top: 5px;
+            font-size: 21px;
+            font-weight: bold;
+            margin-bottom: 30px;
+            padding-left: 10px;
         }
 
         .section-title {
-            font-size: 11px;
-            text-transform: uppercase;
-            color: #9aa6a1;
+            font-size: 12px;
+            color: #999;
             margin: 20px 10px 8px;
-            font-weight: bold;
+            text-transform: uppercase;
         }
 
         .nav-item {
             display: block;
-            padding: 11px 13px;
-            margin-bottom: 4px;
+            padding: 11px 12px;
+            margin-bottom: 5px;
             border-radius: 8px;
             text-decoration: none;
-            color: #52625a;
+            color: #444;
             font-size: 14px;
-            transition: 0.2s;
         }
 
         .nav-item:hover {
-            background: #f0f5f2;
-            color: #456b59;
+            background: #f0f2f5;
         }
 
         .nav-item.active {
-            background: #e8f1ec;
-            color: #456b59;
+            background: #e9eefc;
+            color: #3157c7;
             font-weight: bold;
         }
 
-        /* MAIN */
-
         .main {
-            flex: 1;
+            margin-left: 240px;
             padding: 30px;
         }
 
@@ -93,195 +79,197 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 30px;
+            margin-bottom: 25px;
         }
 
-        .topbar h2 {
-            font-size: 25px;
-            color: #2e4037;
+        .topbar h1 {
+            font-size: 28px;
         }
 
-        .back-btn {
+        .back {
             text-decoration: none;
-            background: #ffffff;
-            border: 1px solid #dce4df;
-            color: #52625a;
-            padding: 10px 15px;
-            border-radius: 8px;
+            color: #3157c7;
             font-size: 14px;
         }
-
-        .back-btn:hover {
-            background: #f2f6f4;
-        }
-
-        /* PROFILE */
 
         .profile-card {
             background: white;
             border-radius: 14px;
             padding: 25px;
-            border: 1px solid #e4e9e6;
+            border: 1px solid #e5e7eb;
             margin-bottom: 25px;
         }
 
         .profile-header {
             display: flex;
             align-items: center;
-            gap: 20px;
+            gap: 18px;
+            margin-bottom: 25px;
         }
 
         .avatar {
-            width: 75px;
-            height: 75px;
+            width: 65px;
+            height: 65px;
             border-radius: 50%;
-            background: #e8f1ec;
+            background: #e9eefc;
             display: flex;
-            justify-content: center;
             align-items: center;
-            font-size: 30px;
+            justify-content: center;
+            font-size: 28px;
         }
 
-        .profile-name {
-            font-size: 24px;
-            font-weight: bold;
-            color: #30473b;
+        .profile-header h2 {
+            font-size: 22px;
+            margin-bottom: 5px;
         }
 
-        .profile-username {
-            color: #8a9891;
-            margin-top: 5px;
+        .profile-header p {
+            color: #777;
             font-size: 14px;
         }
 
-        /* INFO */
-
         .info-grid {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(3, 1fr);
             gap: 15px;
-            margin-top: 25px;
         }
 
         .info-box {
-            background: #f8faf9;
+            background: #f8f9fb;
             border-radius: 10px;
-            padding: 16px;
+            padding: 15px;
         }
 
         .info-label {
             font-size: 12px;
-            color: #8a9891;
+            color: #888;
             margin-bottom: 6px;
         }
 
         .info-value {
             font-size: 15px;
-            color: #34483e;
             font-weight: 600;
         }
 
-        /* SECTIONS */
-
         .section-card {
             background: white;
-            border: 1px solid #e4e9e6;
             border-radius: 14px;
-            padding: 22px;
-            margin-bottom: 20px;
+            padding: 25px;
+            border: 1px solid #e5e7eb;
+            margin-bottom: 25px;
         }
 
-        .section-card h3 {
-            color: #30473b;
-            font-size: 18px;
-            margin-bottom: 8px;
-        }
-
-        .section-description {
-            font-size: 13px;
-            color: #8a9891;
+        .section-card h2 {
+            font-size: 19px;
             margin-bottom: 18px;
         }
 
-        .empty-box {
-            border: 1px dashed #d4ddd8;
-            border-radius: 10px;
-            padding: 25px;
-            text-align: center;
-            color: #929e98;
-            background: #fafcfb;
+        .class-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .class-badge {
+            background: #eef2ff;
+            color: #3157c7;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-weight: bold;
             font-size: 14px;
         }
 
-        .future {
+        .empty {
+            color: #888;
+            font-size: 14px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            text-align: left;
+            padding: 13px;
+            background: #f8f9fb;
+            font-size: 13px;
+            color: #666;
+        }
+
+        td {
+            padding: 13px;
+            border-top: 1px solid #eee;
+            font-size: 14px;
+        }
+
+        .day {
+            font-weight: bold;
+        }
+
+        .course-badge {
             display: inline-block;
-            margin-top: 8px;
-            font-size: 11px;
-            background: #eef3f0;
-            color: #718078;
             padding: 5px 9px;
-            border-radius: 20px;
+            background: #f0f2f5;
+            border-radius: 6px;
+            font-size: 12px;
         }
 
-        .error {
-            background: #fff0f0;
-            border: 1px solid #f0cccc;
-            color: #a04d4d;
-            padding: 15px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            display: none;
+        .loading {
+            color: #888;
+            font-size: 14px;
         }
 
-        /* RESPONSIVE */
-
-        @media (max-width: 800px) {
+        @media (max-width: 900px) {
 
             .sidebar {
-                width: 210px;
+                width: 200px;
+            }
+
+            .main {
+                margin-left: 200px;
             }
 
             .info-grid {
-                grid-template-columns: 1fr;
+                grid-template-columns: 1fr 1fr;
             }
         }
 
         @media (max-width: 650px) {
 
-            .layout {
-                flex-direction: column;
-            }
-
             .sidebar {
+                position: relative;
                 width: 100%;
-                border-right: none;
-                border-bottom: 1px solid #e5e9e7;
+                height: auto;
             }
 
             .main {
+                margin-left: 0;
                 padding: 20px;
+            }
+
+            .info-grid {
+                grid-template-columns: 1fr;
             }
 
             .topbar {
                 flex-direction: column;
                 align-items: flex-start;
-                gap: 15px;
+                gap: 10px;
             }
         }
+
     </style>
 </head>
 
 <body>
-
-<div class="layout">
 
     <!-- SIDEBAR -->
 
     <aside class="sidebar">
 
         <div class="logo">
-            <h1>Midori High</h1>
-            <p>Administration</p>
+            🌸 Midori High
         </div>
 
         <div class="section-title">
@@ -289,7 +277,7 @@
         </div>
 
         <a href="dashboard.html" class="nav-item">
-            📊 Tableau de bord
+            🏠 Dashboard
         </a>
 
         <a href="students.html" class="nav-item">
@@ -300,32 +288,37 @@
             👨‍🏫 Professeurs
         </a>
 
-        <a href="#" class="nav-item">
+        <a href="surveillants.html" class="nav-item">
             👮 Surveillants
         </a>
 
-    <a href="classes.html" class="nav-item">
-    🏫 Classes
-</a>
+        <a href="classes.html" class="nav-item">
+            🏫 Classes
+        </a>
+
 
         <div class="section-title">
             Scolarité
         </div>
 
-        <a href="#" class="nav-item">
+        <a href="subjects.html" class="nav-item">
             📚 Matières
         </a>
 
-        <a href="#" class="nav-item">
-            🕐 Emplois du temps
+        <a href="timetable.html" class="nav-item">
+            🕐 Emploi du temps
         </a>
 
-        <a href="#" class="nav-item">
+        <a href="attendance.html" class="nav-item">
+            📋 Fiches d'appel
+        </a>
+
+        <a href="notes.html" class="nav-item">
             📝 Notes
         </a>
 
         <a href="absences.html" class="nav-item">
-            📋 Absences
+            ❌ Absences
         </a>
 
 
@@ -333,39 +326,36 @@
             Système
         </div>
 
-        <a href="#" class="nav-item">
+        <a href="announcements.html" class="nav-item">
             📢 Annonces
         </a>
 
-        <a href="#" class="nav-item">
-            📜 Journal d'activité
+        <a href="activity.html" class="nav-item">
+            📊 Journal d'activité
         </a>
 
-        <a href="#" class="nav-item">
+        <a href="settings.html" class="nav-item">
             ⚙️ Paramètres
         </a>
 
     </aside>
 
 
-    <!-- MAIN -->
+    <!-- CONTENU -->
 
     <main class="main">
 
         <div class="topbar">
 
             <div>
-                <h2>Fiche du professeur</h2>
+                <h1>Fiche professeur</h1>
             </div>
 
-            <a href="professors.html" class="back-btn">
+            <a href="professors.html" class="back">
                 ← Retour aux professeurs
             </a>
 
         </div>
-
-
-        <div id="errorBox" class="error"></div>
 
 
         <!-- PROFIL -->
@@ -380,19 +370,13 @@
 
                 <div>
 
-                    <div
-                        class="profile-name"
-                        id="professorName"
-                    >
+                    <h2 id="professorName">
                         Chargement...
-                    </div>
+                    </h2>
 
-                    <div
-                        class="profile-username"
-                        id="professorUsername"
-                    >
+                    <p id="professorSubject">
                         Chargement...
-                    </div>
+                    </p>
 
                 </div>
 
@@ -404,44 +388,12 @@
                 <div class="info-box">
 
                     <div class="info-label">
-                        Matière enseignée
+                        Nom complet
                     </div>
 
                     <div
                         class="info-value"
-                        id="professorSubject"
-                    >
-                        —
-                    </div>
-
-                </div>
-
-
-                <div class="info-box">
-
-                    <div class="info-label">
-                        Adresse e-mail
-                    </div>
-
-                    <div
-                        class="info-value"
-                        id="professorEmail"
-                    >
-                        —
-                    </div>
-
-                </div>
-
-
-                <div class="info-box">
-
-                    <div class="info-label">
-                        Téléphone
-                    </div>
-
-                    <div
-                        class="info-value"
-                        id="professorPhone"
+                        id="fullName"
                     >
                         —
                     </div>
@@ -457,7 +409,71 @@
 
                     <div
                         class="info-value"
-                        id="professorId"
+                        id="username"
+                    >
+                        —
+                    </div>
+
+                </div>
+
+
+                <div class="info-box">
+
+                    <div class="info-label">
+                        Matière
+                    </div>
+
+                    <div
+                        class="info-value"
+                        id="subject"
+                    >
+                        —
+                    </div>
+
+                </div>
+
+
+                <div class="info-box">
+
+                    <div class="info-label">
+                        Email
+                    </div>
+
+                    <div
+                        class="info-value"
+                        id="email"
+                    >
+                        —
+                    </div>
+
+                </div>
+
+
+                <div class="info-box">
+
+                    <div class="info-label">
+                        Téléphone
+                    </div>
+
+                    <div
+                        class="info-value"
+                        id="phone"
+                    >
+                        —
+                    </div>
+
+                </div>
+
+
+                <div class="info-box">
+
+                    <div class="info-label">
+                        ID professeur
+                    </div>
+
+                    <div
+                        class="info-value"
+                        id="professorIdDisplay"
                     >
                         —
                     </div>
@@ -473,20 +489,17 @@
 
         <div class="section-card">
 
-            <h3>🏫 Classes attribuées</h3>
+            <h2>
+                🏫 Classes attribuées
+            </h2>
 
-            <div class="section-description">
-                Classes dans lesquelles ce professeur intervient.
-            </div>
-
-            <div class="empty-box">
-
-                Aucune classe attribuée pour le moment.
-
-                <div class="future">
-                    Fonctionnalité à venir
-                </div>
-
+            <div
+                id="classesContainer"
+                class="class-list"
+            >
+                <span class="loading">
+                    Chargement...
+                </span>
             </div>
 
         </div>
@@ -496,20 +509,15 @@
 
         <div class="section-card">
 
-            <h3>🕐 Emploi du temps</h3>
+            <h2>
+                🕐 Emploi du temps
+            </h2>
 
-            <div class="section-description">
-                Planning des cours du professeur.
-            </div>
+            <div id="timetableContainer">
 
-            <div class="empty-box">
-
-                L'emploi du temps sera affiché ici une fois les
-                classes et les créneaux configurés.
-
-                <div class="future">
-                    Fonctionnalité à venir
-                </div>
+                <p class="loading">
+                    Chargement...
+                </p>
 
             </div>
 
@@ -520,22 +528,14 @@
 
         <div class="section-card">
 
-            <h3>📋 Fiches d'appel</h3>
+            <h2>
+                📋 Fiches d'appel
+            </h2>
 
-            <div class="section-description">
-                Historique des appels effectués par ce professeur.
-            </div>
-
-            <div class="empty-box">
-
-                Les fiches d'appel apparaîtront ici lorsque le
-                système de présence sera configuré.
-
-                <div class="future">
-                    Fonctionnalité à venir
-                </div>
-
-            </div>
+            <p class="empty">
+                Les fiches d'appel liées aux cours de ce professeur
+                pourront être accessibles ici.
+            </p>
 
         </div>
 
@@ -544,232 +544,486 @@
 
         <div class="section-card">
 
-            <h3>📝 Notes</h3>
+            <h2>
+                📝 Notes
+            </h2>
 
-            <div class="section-description">
-                Notes saisies par ce professeur.
-            </div>
-
-            <div class="empty-box">
-
-                Les notes seront disponibles ici lorsque le
-                module de notation sera créé.
-
-                <div class="future">
-                    Fonctionnalité à venir
-                </div>
-
-            </div>
+            <p class="empty">
+                La gestion des notes sera ajoutée prochainement.
+            </p>
 
         </div>
 
     </main>
 
-</div>
+
+    <script>
+
+        const SUPABASE_URL =
+            "https://esiwwkphbqkqqcfelktn.supabase.co";
+
+        const SUPABASE_KEY =
+            "sb_publishable_Gn6HhpZXdeoaWhWJ7wRWLw_D3dXLTnX";
+
+        const supabaseClient =
+            window.supabase.createClient(
+                SUPABASE_URL,
+                SUPABASE_KEY
+            );
 
 
-<script>
+        /*
+         * AUTHENTIFICATION
+         */
 
-    /* ================================
-       SUPABASE
-    ================================= */
+        async function checkUser() {
 
-    const SUPABASE_URL =
-        "https://esiwwkphbqkqqcfelktn.supabase.co";
+            const { data } =
+                await supabaseClient.auth.getUser();
 
-    const SUPABASE_KEY =
-        "sb_publishable_Gn6HhpZXdeoaWhWJ7wRWLw_D3dXLTnX";
+            if (!data.user) {
 
-    const supabaseClient =
-        window.supabase.createClient(
-            SUPABASE_URL,
-            SUPABASE_KEY
-        );
+                window.location.href =
+                    "index.html";
 
+                return false;
+            }
 
-    /* ================================
-       AUTHENTIFICATION
-    ================================= */
-
-    async function checkUser() {
-
-        const { data } =
-            await supabaseClient.auth.getUser();
-
-        if (!data.user) {
-
-            window.location.href =
-                "index.html";
-
-            return false;
+            return true;
         }
 
-        return true;
-    }
 
-
-    /* ================================
-       RÉCUPÉRER L'ID
-    ================================= */
-
-    function getProfessorId() {
+        /*
+         * RÉCUPÉRATION DE L'ID
+         */
 
         const params =
             new URLSearchParams(
                 window.location.search
             );
 
-        return params.get("id");
-    }
-
-
-    /* ================================
-       AFFICHER ERREUR
-    ================================= */
-
-    function showError(message) {
-
-        const errorBox =
-            document.getElementById(
-                "errorBox"
-            );
-
-        errorBox.textContent =
-            message;
-
-        errorBox.style.display =
-            "block";
-    }
-
-
-    /* ================================
-       CHARGER LE PROFESSEUR
-    ================================= */
-
-    async function loadProfessor() {
-
         const professorId =
-            getProfessorId();
+            params.get("id");
 
-        if (!professorId) {
 
-            showError(
-                "Aucun professeur n'a été sélectionné."
-            );
+        /*
+         * CHARGER LE PROFESSEUR
+         */
+
+        async function loadProfessor() {
+
+            if (!professorId) {
+
+                document.getElementById(
+                    "professorName"
+                ).textContent =
+                    "Professeur introuvable";
+
+                return;
+            }
+
+
+            const { data, error } =
+                await supabaseClient
+                    .from("professors")
+                    .select("*")
+                    .eq("id", professorId)
+                    .single();
+
+
+            if (error || !data) {
+
+                console.error(
+                    "Erreur professeur :",
+                    error
+                );
+
+                document.getElementById(
+                    "professorName"
+                ).textContent =
+                    "Professeur introuvable";
+
+                return;
+            }
+
 
             document.getElementById(
                 "professorName"
             ).textContent =
-                "Professeur introuvable";
+                data.full_name;
 
-            return;
-        }
-
-
-        const { data, error } =
-            await supabaseClient
-                .from("professors")
-                .select("*")
-                .eq("id", professorId)
-                .single();
-
-
-        if (error) {
-
-            console.error(
-                "Erreur récupération professeur :",
-                error
-            );
-
-            showError(
-                "Impossible de récupérer les informations du professeur."
-            );
 
             document.getElementById(
-                "professorName"
+                "professorSubject"
             ).textContent =
-                "Erreur de chargement";
+                data.subject ||
+                "Aucune matière renseignée";
 
-            return;
+
+            document.getElementById(
+                "fullName"
+            ).textContent =
+                data.full_name || "—";
+
+
+            document.getElementById(
+                "username"
+            ).textContent =
+                data.username || "—";
+
+
+            document.getElementById(
+                "subject"
+            ).textContent =
+                data.subject || "—";
+
+
+            document.getElementById(
+                "email"
+            ).textContent =
+                data.email || "—";
+
+
+            document.getElementById(
+                "phone"
+            ).textContent =
+                data.phone || "—";
+
+
+            document.getElementById(
+                "professorIdDisplay"
+            ).textContent =
+                data.id || "—";
+
+
+            await loadProfessorClasses();
+
+            await loadProfessorTimetable();
+
         }
 
 
-        if (!data) {
+        /*
+         * CHARGER LES CLASSES DU PROFESSEUR
+         */
 
-            showError(
-                "Ce professeur n'existe pas."
-            );
+        async function loadProfessorClasses() {
 
-            return;
+            const container =
+                document.getElementById(
+                    "classesContainer"
+                );
+
+
+            const { data, error } =
+                await supabaseClient
+                    .from("professor_classes")
+                    .select(`
+                        class_id,
+                        classes (
+                            id,
+                            name,
+                            level,
+                            section
+                        )
+                    `)
+                    .eq(
+                        "professor_id",
+                        professorId
+                    );
+
+
+            if (error) {
+
+                console.error(
+                    "Erreur classes professeur :",
+                    error
+                );
+
+                container.innerHTML =
+                    '<span class="empty">Impossible de charger les classes.</span>';
+
+                return;
+            }
+
+
+            if (!data || data.length === 0) {
+
+                container.innerHTML =
+                    '<span class="empty">Aucune classe attribuée.</span>';
+
+                return;
+            }
+
+
+            container.innerHTML = "";
+
+
+            data.forEach(item => {
+
+                if (!item.classes) {
+                    return;
+                }
+
+
+                const badge =
+                    document.createElement(
+                        "div"
+                    );
+
+                badge.className =
+                    "class-badge";
+
+                badge.textContent =
+                    item.classes.name;
+
+
+                container.appendChild(
+                    badge
+                );
+
+            });
+
         }
 
 
-        /* ================================
-           INFORMATIONS
-        ================================= */
+        /*
+         * CHARGER L'EMPLOI DU TEMPS
+         */
 
-        document.getElementById(
-            "professorName"
-        ).textContent =
-            data.full_name || "—";
+        async function loadProfessorTimetable() {
 
-
-        document.getElementById(
-            "professorUsername"
-        ).textContent =
-            data.username
-                ? "@" + data.username.replace(/^@/, "")
-                : "—";
+            const container =
+                document.getElementById(
+                    "timetableContainer"
+                );
 
 
-        document.getElementById(
-            "professorSubject"
-        ).textContent =
-            data.subject || "Non renseignée";
+            const { data, error } =
+                await supabaseClient
+                    .from("timetable")
+                    .select(`
+                        id,
+                        day_of_week,
+                        start_time,
+                        end_time,
+                        room,
+
+                        classes (
+                            name
+                        ),
+
+                        professors (
+                            id,
+                            full_name
+                        ),
+
+                        subjects (
+                            name
+                        )
+                    `)
+                    .eq(
+                        "professor_id",
+                        professorId
+                    )
+                    .order(
+                        "day_of_week",
+                        {
+                            ascending: true
+                        }
+                    )
+                    .order(
+                        "start_time",
+                        {
+                            ascending: true
+                        }
+                    );
 
 
-        document.getElementById(
-            "professorEmail"
-        ).textContent =
-            data.email || "Non renseigné";
+            if (error) {
+
+                console.error(
+                    "Erreur emploi du temps :",
+                    error
+                );
+
+                container.innerHTML =
+                    '<p class="empty">Impossible de charger l\'emploi du temps.</p>';
+
+                return;
+            }
 
 
-        document.getElementById(
-            "professorPhone"
-        ).textContent =
-            data.phone || "Non renseigné";
+            if (!data || data.length === 0) {
+
+                container.innerHTML =
+                    '<p class="empty">Aucun cours programmé pour ce professeur.</p>';
+
+                return;
+            }
 
 
-        document.getElementById(
-            "professorId"
-        ).textContent =
-            data.id;
+            const days = {
 
-    }
+                1: "Lundi",
+                2: "Mardi",
+                3: "Mercredi",
+                4: "Jeudi",
+                5: "Vendredi",
+                6: "Samedi",
+                7: "Dimanche"
+
+            };
 
 
-    /* ================================
-       INITIALISATION
-    ================================= */
+            let html = `
 
-    async function init() {
+                <table>
 
-        const authenticated =
-            await checkUser();
+                    <thead>
 
-        if (!authenticated) {
-            return;
+                        <tr>
+
+                            <th>
+                                Jour
+                            </th>
+
+                            <th>
+                                Horaire
+                            </th>
+
+                            <th>
+                                Matière
+                            </th>
+
+                            <th>
+                                Classe
+                            </th>
+
+                            <th>
+                                Salle
+                            </th>
+
+                        </tr>
+
+                    </thead>
+
+                    <tbody>
+            `;
+
+
+            data.forEach(course => {
+
+                const day =
+                    days[
+                        course.day_of_week
+                    ] || "—";
+
+
+                const start =
+                    course.start_time
+                        ? course.start_time.slice(
+                            0,
+                            5
+                        )
+                        : "—";
+
+
+                const end =
+                    course.end_time
+                        ? course.end_time.slice(
+                            0,
+                            5
+                        )
+                        : "—";
+
+
+                const subject =
+                    course.subjects?.name ||
+                    "—";
+
+
+                const className =
+                    course.classes?.name ||
+                    "—";
+
+
+                const room =
+                    course.room ||
+                    "—";
+
+
+                html += `
+
+                    <tr>
+
+                        <td class="day">
+                            ${day}
+                        </td>
+
+                        <td>
+                            ${start} – ${end}
+                        </td>
+
+                        <td>
+                            <span class="course-badge">
+                                ${subject}
+                            </span>
+                        </td>
+
+                        <td>
+                            ${className}
+                        </td>
+
+                        <td>
+                            ${room}
+                        </td>
+
+                    </tr>
+
+                `;
+
+            });
+
+
+            html += `
+
+                    </tbody>
+
+                </table>
+
+            `;
+
+
+            container.innerHTML =
+                html;
+
         }
 
-        await loadProfessor();
 
-    }
+        /*
+         * INITIALISATION
+         */
+
+        async function init() {
+
+            const connected =
+                await checkUser();
+
+            if (!connected) {
+                return;
+            }
+
+            await loadProfessor();
+
+        }
 
 
-    init();
+        init();
 
-</script>
+    </script>
 
 </body>
+
 </html>
 ```
