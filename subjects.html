@@ -1,0 +1,1421 @@
+```html
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Matières — Midori High</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f7f6;
+            color: #263238;
+        }
+
+        /* SIDEBAR */
+
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 250px;
+            height: 100vh;
+
+            background: white;
+
+            border-right: 1px solid #e2e8e5;
+
+            padding: 25px 15px;
+
+            overflow-y: auto;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+
+            gap: 12px;
+
+            margin-bottom: 35px;
+
+            padding: 0 10px;
+        }
+
+        .logo-box {
+            width: 42px;
+            height: 42px;
+
+            border-radius: 10px;
+
+            background: #2f7d67;
+
+            color: white;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            font-weight: bold;
+        }
+
+        .logo-text {
+            font-size: 17px;
+            font-weight: bold;
+        }
+
+        .logo-subtitle {
+            font-size: 11px;
+            color: #7c8b86;
+
+            margin-top: 3px;
+        }
+
+        .section-title {
+            font-size: 11px;
+
+            color: #91a09b;
+
+            text-transform: uppercase;
+
+            margin: 20px 10px 8px;
+
+            font-weight: bold;
+        }
+
+        .nav-item {
+            display: block;
+
+            text-decoration: none;
+
+            color: #53635d;
+
+            padding: 11px 12px;
+
+            border-radius: 8px;
+
+            margin-bottom: 4px;
+
+            font-size: 14px;
+        }
+
+        .nav-item:hover {
+            background: #eef6f2;
+
+            color: #2f7d67;
+        }
+
+        .nav-item.active {
+            background: #e2f1eb;
+
+            color: #2f7d67;
+
+            font-weight: bold;
+        }
+
+        /* MAIN */
+
+        .main {
+            margin-left: 250px;
+
+            min-height: 100vh;
+        }
+
+        .topbar {
+            height: 70px;
+
+            background: white;
+
+            border-bottom: 1px solid #e2e8e5;
+
+            display: flex;
+
+            align-items: center;
+
+            justify-content: space-between;
+
+            padding: 0 30px;
+        }
+
+        .topbar-title {
+            font-size: 18px;
+
+            font-weight: bold;
+        }
+
+        .topbar-user {
+            font-size: 13px;
+
+            color: #697873;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        /* HEADER */
+
+        .page-header {
+            display: flex;
+
+            justify-content: space-between;
+
+            align-items: center;
+
+            margin-bottom: 25px;
+        }
+
+        .page-title {
+            font-size: 28px;
+
+            font-weight: bold;
+        }
+
+        .page-description {
+            margin-top: 5px;
+
+            color: #7b8984;
+
+            font-size: 14px;
+        }
+
+        /* BUTTONS */
+
+        .btn {
+            border: none;
+
+            border-radius: 8px;
+
+            padding: 11px 16px;
+
+            cursor: pointer;
+
+            font-size: 14px;
+
+            font-weight: bold;
+        }
+
+        .btn-primary {
+            background: #2f7d67;
+
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #256653;
+        }
+
+        .btn-secondary {
+            background: #edf2f0;
+
+            color: #45554f;
+        }
+
+        /* SEARCH */
+
+        .search-box {
+            background: white;
+
+            padding: 18px;
+
+            border: 1px solid #e1e8e5;
+
+            border-radius: 12px;
+
+            margin-bottom: 20px;
+        }
+
+        .search-input {
+            width: 100%;
+
+            border: 1px solid #d8e1dd;
+
+            border-radius: 8px;
+
+            padding: 12px 14px;
+
+            font-size: 14px;
+
+            outline: none;
+        }
+
+        .search-input:focus {
+            border-color: #2f7d67;
+        }
+
+        /* CARD */
+
+        .card {
+            background: white;
+
+            border: 1px solid #e1e8e5;
+
+            border-radius: 12px;
+
+            overflow: hidden;
+        }
+
+        .card-header {
+            padding: 18px 20px;
+
+            border-bottom: 1px solid #e8eeeb;
+
+            display: flex;
+
+            justify-content: space-between;
+
+            align-items: center;
+        }
+
+        .card-title {
+            font-weight: bold;
+        }
+
+        .count {
+            font-size: 13px;
+
+            color: #7c8984;
+        }
+
+        /* TABLE */
+
+        table {
+            width: 100%;
+
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 15px 18px;
+
+            text-align: left;
+
+            border-bottom: 1px solid #edf1ef;
+
+            font-size: 14px;
+        }
+
+        th {
+            color: #71807b;
+
+            font-size: 12px;
+
+            text-transform: uppercase;
+        }
+
+        tr:hover td {
+            background: #fafcfb;
+        }
+
+        .badge {
+            display: inline-block;
+
+            background: #e5f2ed;
+
+            color: #2f7d67;
+
+            border-radius: 20px;
+
+            padding: 5px 9px;
+
+            font-size: 12px;
+        }
+
+        /* ACTIONS */
+
+        .actions {
+            display: flex;
+
+            gap: 7px;
+        }
+
+        .small-btn {
+            border: none;
+
+            border-radius: 6px;
+
+            padding: 7px 10px;
+
+            cursor: pointer;
+
+            font-size: 12px;
+        }
+
+        .edit-btn {
+            background: #edf4ff;
+
+            color: #3265a8;
+        }
+
+        .delete-btn {
+            background: #fbe9e9;
+
+            color: #b23e3e;
+        }
+
+        /* MODAL */
+
+        .modal-overlay {
+            position: fixed;
+
+            inset: 0;
+
+            background: rgba(0, 0, 0, 0.45);
+
+            display: none;
+
+            align-items: center;
+
+            justify-content: center;
+
+            z-index: 1000;
+
+            padding: 20px;
+        }
+
+        .modal {
+            width: 100%;
+
+            max-width: 500px;
+
+            background: white;
+
+            border-radius: 14px;
+
+            padding: 25px;
+        }
+
+        .modal-title {
+            font-size: 21px;
+
+            font-weight: bold;
+
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        label {
+            display: block;
+
+            margin-bottom: 7px;
+
+            font-size: 13px;
+
+            font-weight: bold;
+
+            color: #52615c;
+        }
+
+        input,
+        textarea {
+            width: 100%;
+
+            border: 1px solid #d7e0dc;
+
+            border-radius: 8px;
+
+            padding: 11px 12px;
+
+            font-size: 14px;
+
+            outline: none;
+
+            font-family: Arial, sans-serif;
+        }
+
+        textarea {
+            min-height: 100px;
+
+            resize: vertical;
+        }
+
+        input:focus,
+        textarea:focus {
+            border-color: #2f7d67;
+        }
+
+        .modal-actions {
+            display: flex;
+
+            justify-content: flex-end;
+
+            gap: 10px;
+
+            margin-top: 25px;
+        }
+
+        .loading {
+            padding: 35px;
+
+            text-align: center;
+
+            color: #82908b;
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+
+<!-- SIDEBAR -->
+
+<aside class="sidebar">
+
+    <div class="logo">
+
+        <div class="logo-box">
+            MH
+        </div>
+
+        <div>
+
+            <div class="logo-text">
+                Midori High
+            </div>
+
+            <div class="logo-subtitle">
+                Portail Administratif
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <div class="section-title">
+        Administration
+    </div>
+
+
+    <a href="dashboard.html" class="nav-item">
+        📊 Tableau de bord
+    </a>
+
+    <a href="students.html" class="nav-item">
+        👨‍🎓 Élèves
+    </a>
+
+    <a href="professors.html" class="nav-item">
+        👨‍🏫 Professeurs
+    </a>
+
+    <a href="#" class="nav-item">
+        👮 Surveillants
+    </a>
+
+    <a href="classes.html" class="nav-item">
+        🏫 Classes
+    </a>
+
+
+    <div class="section-title">
+        Scolarité
+    </div>
+
+
+    <a href="subjects.html" class="nav-item active">
+        📚 Matières
+    </a>
+
+    <a href="#" class="nav-item">
+        🕐 Emplois du temps
+    </a>
+
+    <a href="#" class="nav-item">
+        📝 Notes
+    </a>
+
+    <a href="absences.html" class="nav-item">
+        📋 Absences
+    </a>
+
+
+    <div class="section-title">
+        Système
+    </div>
+
+
+    <a href="#" class="nav-item">
+        📢 Annonces
+    </a>
+
+    <a href="#" class="nav-item">
+        📜 Journal d'activité
+    </a>
+
+    <a href="#" class="nav-item">
+        ⚙️ Paramètres
+    </a>
+
+</aside>
+
+
+<!-- MAIN -->
+
+<main class="main">
+
+
+    <header class="topbar">
+
+        <div class="topbar-title">
+            Matières
+        </div>
+
+        <div class="topbar-user">
+            Administration · Administrateur
+        </div>
+
+    </header>
+
+
+    <section class="content">
+
+
+        <div class="page-header">
+
+            <div>
+
+                <div class="page-title">
+                    Matières
+                </div>
+
+                <div class="page-description">
+                    Gestion des matières enseignées à Midori High.
+                </div>
+
+            </div>
+
+
+            <button
+                class="btn btn-primary"
+                onclick="openAddModal()"
+            >
+                + Ajouter une matière
+            </button>
+
+        </div>
+
+
+        <!-- RECHERCHE -->
+
+        <div class="search-box">
+
+            <input
+                type="text"
+                id="searchInput"
+                class="search-input"
+                placeholder="🔎 Rechercher une matière..."
+                oninput="renderSubjects()"
+            >
+
+        </div>
+
+
+        <!-- TABLE -->
+
+        <div class="card">
+
+
+            <div class="card-header">
+
+                <div class="card-title">
+                    Liste des matières
+                </div>
+
+                <div
+                    class="count"
+                    id="subjectCount"
+                >
+                    Chargement...
+                </div>
+
+            </div>
+
+
+            <div id="tableContainer">
+
+                <div class="loading">
+                    Chargement des matières...
+                </div>
+
+            </div>
+
+
+        </div>
+
+
+    </section>
+
+
+</main>
+
+
+<!-- MODAL -->
+
+<div
+    class="modal-overlay"
+    id="modalOverlay"
+>
+
+
+    <div class="modal">
+
+
+        <div
+            class="modal-title"
+            id="modalTitle"
+        >
+            Ajouter une matière
+        </div>
+
+
+        <form onsubmit="saveSubject(event)">
+
+
+            <input
+                type="hidden"
+                id="subjectId"
+            >
+
+
+            <div class="form-group">
+
+                <label for="subjectName">
+                    Nom de la matière
+                </label>
+
+                <input
+                    type="text"
+                    id="subjectName"
+                    placeholder="Ex : Mathématiques"
+                    required
+                >
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label for="subjectDescription">
+                    Description
+                </label>
+
+                <textarea
+                    id="subjectDescription"
+                    placeholder="Description de la matière..."
+                ></textarea>
+
+            </div>
+
+
+            <div class="modal-actions">
+
+
+                <button
+                    type="button"
+                    class="btn btn-secondary"
+                    onclick="closeModal()"
+                >
+                    Annuler
+                </button>
+
+
+                <button
+                    type="submit"
+                    class="btn btn-primary"
+                >
+                    Enregistrer
+                </button>
+
+
+            </div>
+
+
+        </form>
+
+
+    </div>
+
+
+</div>
+
+
+<script>
+
+
+/* =========================
+   SUPABASE
+========================= */
+
+
+const SUPABASE_URL =
+    "https://esiwwkphbqkqqcfelktn.supabase.co";
+
+
+const SUPABASE_KEY =
+    "sb_publishable_Gn6HhpZXdeoaWhWJ7wRWLw_D3dXLTnX";
+
+
+const supabaseClient =
+    window.supabase.createClient(
+        SUPABASE_URL,
+        SUPABASE_KEY
+    );
+
+
+let subjects = [];
+
+
+/* =========================
+   AUTHENTIFICATION
+========================= */
+
+
+async function checkUser() {
+
+    const { data } =
+        await supabaseClient.auth.getUser();
+
+
+    if (!data.user) {
+
+        window.location.href =
+            "index.html";
+
+        return false;
+    }
+
+
+    return true;
+}
+
+
+/* =========================
+   CHARGER MATIÈRES
+========================= */
+
+
+async function loadSubjects() {
+
+
+    const { data, error } =
+        await supabaseClient
+            .from("subjects")
+            .select("*")
+            .order("name", {
+                ascending: true
+            });
+
+
+    if (error) {
+
+        console.error(
+            "Erreur matières :",
+            error
+        );
+
+
+        document.getElementById(
+            "tableContainer"
+        ).innerHTML = `
+
+            <div class="loading">
+                Erreur lors du chargement des matières.
+            </div>
+
+        `;
+
+
+        return;
+    }
+
+
+    subjects = data || [];
+
+
+    renderSubjects();
+
+}
+
+
+/* =========================
+   AFFICHAGE
+========================= */
+
+
+function renderSubjects() {
+
+
+    const search =
+        document
+            .getElementById(
+                "searchInput"
+            )
+            .value
+            .toLowerCase()
+            .trim();
+
+
+    const filtered =
+        subjects.filter(subject => {
+
+
+            const text = [
+
+                subject.name,
+
+                subject.description
+
+            ]
+                .filter(Boolean)
+                .join(" ")
+                .toLowerCase();
+
+
+            return text.includes(search);
+
+        });
+
+
+    document.getElementById(
+        "subjectCount"
+    ).textContent =
+
+        `${filtered.length} matière${filtered.length > 1 ? "s" : ""}`;
+
+
+    if (!filtered.length) {
+
+
+        document.getElementById(
+            "tableContainer"
+        ).innerHTML = `
+
+            <div class="loading">
+                Aucune matière trouvée.
+            </div>
+
+        `;
+
+
+        return;
+
+    }
+
+
+    const rows =
+
+        filtered.map(subject => {
+
+
+            return `
+
+                <tr>
+
+                    <td>
+
+                        <span class="badge">
+
+                            ${escapeHtml(
+                                subject.name
+                            )}
+
+                        </span>
+
+                    </td>
+
+
+                    <td>
+
+                        ${escapeHtml(
+                            subject.description ||
+                            "—"
+                        )}
+
+                    </td>
+
+
+                    <td>
+
+                        <div class="actions">
+
+
+                            <button
+                                class="small-btn edit-btn"
+                                onclick="openEditModal('${subject.id}')"
+                            >
+                                Modifier
+                            </button>
+
+
+                            <button
+                                class="small-btn delete-btn"
+                                onclick="deleteSubject('${subject.id}')"
+                            >
+                                Supprimer
+                            </button>
+
+
+                        </div>
+
+                    </td>
+
+                </tr>
+
+            `;
+
+        }).join("");
+
+
+    document.getElementById(
+        "tableContainer"
+    ).innerHTML = `
+
+        <table>
+
+            <thead>
+
+                <tr>
+
+                    <th>
+                        Matière
+                    </th>
+
+                    <th>
+                        Description
+                    </th>
+
+                    <th>
+                        Actions
+                    </th>
+
+                </tr>
+
+            </thead>
+
+
+            <tbody>
+
+                ${rows}
+
+            </tbody>
+
+        </table>
+
+    `;
+
+}
+
+
+/* =========================
+   AJOUT
+========================= */
+
+
+function openAddModal() {
+
+
+    document.getElementById(
+        "modalTitle"
+    ).textContent =
+
+        "Ajouter une matière";
+
+
+    document.getElementById(
+        "subjectId"
+    ).value = "";
+
+
+    document.getElementById(
+        "subjectName"
+    ).value = "";
+
+
+    document.getElementById(
+        "subjectDescription"
+    ).value = "";
+
+
+    document.getElementById(
+        "modalOverlay"
+    ).style.display = "flex";
+
+}
+
+
+/* =========================
+   MODIFICATION
+========================= */
+
+
+function openEditModal(id) {
+
+
+    const subject =
+        subjects.find(
+            item => item.id === id
+        );
+
+
+    if (!subject) {
+        return;
+    }
+
+
+    document.getElementById(
+        "modalTitle"
+    ).textContent =
+
+        "Modifier la matière";
+
+
+    document.getElementById(
+        "subjectId"
+    ).value =
+        subject.id;
+
+
+    document.getElementById(
+        "subjectName"
+    ).value =
+        subject.name || "";
+
+
+    document.getElementById(
+        "subjectDescription"
+    ).value =
+        subject.description || "";
+
+
+    document.getElementById(
+        "modalOverlay"
+    ).style.display = "flex";
+
+}
+
+
+/* =========================
+   SAUVEGARDE
+========================= */
+
+
+async function saveSubject(event) {
+
+
+    event.preventDefault();
+
+
+    const id =
+        document.getElementById(
+            "subjectId"
+        ).value;
+
+
+    const name =
+        document.getElementById(
+            "subjectName"
+        ).value
+        .trim();
+
+
+    const description =
+        document.getElementById(
+            "subjectDescription"
+        ).value
+        .trim();
+
+
+    if (!name) {
+
+        alert(
+            "Veuillez saisir un nom de matière."
+        );
+
+        return;
+    }
+
+
+    const subjectData = {
+
+        name,
+
+        description:
+            description || null
+
+    };
+
+
+    let error;
+
+
+    if (id) {
+
+
+        const result =
+            await supabaseClient
+                .from("subjects")
+                .update(
+                    subjectData
+                )
+                .eq(
+                    "id",
+                    id
+                );
+
+
+        error =
+            result.error;
+
+
+    } else {
+
+
+        const result =
+            await supabaseClient
+                .from("subjects")
+                .insert([
+                    subjectData
+                ]);
+
+
+        error =
+            result.error;
+
+    }
+
+
+    if (error) {
+
+
+        console.error(
+            "Erreur sauvegarde matière :",
+            error
+        );
+
+
+        if (
+            error.code === "23505"
+        ) {
+
+            alert(
+                "Cette matière existe déjà."
+            );
+
+        } else {
+
+            alert(
+                "Erreur lors de l'enregistrement de la matière."
+            );
+
+        }
+
+
+        return;
+
+    }
+
+
+    closeModal();
+
+    await loadSubjects();
+
+}
+
+
+/* =========================
+   SUPPRESSION
+========================= */
+
+
+async function deleteSubject(id) {
+
+
+    const subject =
+        subjects.find(
+            item => item.id === id
+        );
+
+
+    if (!subject) {
+        return;
+    }
+
+
+    const confirmation =
+        confirm(
+            `Supprimer la matière "${subject.name}" ?`
+        );
+
+
+    if (!confirmation) {
+        return;
+    }
+
+
+    const { error } =
+        await supabaseClient
+            .from("subjects")
+            .delete()
+            .eq(
+                "id",
+                id
+            );
+
+
+    if (error) {
+
+
+        console.error(
+            "Erreur suppression :",
+            error
+        );
+
+
+        alert(
+            "Erreur lors de la suppression de la matière."
+        );
+
+
+        return;
+
+    }
+
+
+    await loadSubjects();
+
+}
+
+
+/* =========================
+   FERMER MODAL
+========================= */
+
+
+function closeModal() {
+
+
+    document.getElementById(
+        "modalOverlay"
+    ).style.display =
+        "none";
+
+}
+
+
+document.getElementById(
+    "modalOverlay"
+).addEventListener(
+    "click",
+    function(event) {
+
+
+        if (
+            event.target === this
+        ) {
+
+            closeModal();
+
+        }
+
+    }
+);
+
+
+/* =========================
+   PROTECTION HTML
+========================= */
+
+
+function escapeHtml(value) {
+
+
+    if (
+        value === null ||
+        value === undefined
+    ) {
+
+        return "";
+
+    }
+
+
+    return String(value)
+
+        .replace(
+            /&/g,
+            "&amp;"
+        )
+
+        .replace(
+            /</g,
+            "&lt;"
+        )
+
+        .replace(
+            />/g,
+            "&gt;"
+        )
+
+        .replace(
+            /"/g,
+            "&quot;"
+        )
+
+        .replace(
+            /'/g,
+            "&#039;"
+        );
+
+}
+
+
+/* =========================
+   INITIALISATION
+========================= */
+
+
+async function init() {
+
+
+    const connected =
+        await checkUser();
+
+
+    if (!connected) {
+        return;
+    }
+
+
+    await loadSubjects();
+
+}
+
+
+init();
+
+
+</script>
+
+
+</body>
+</html>
+```
