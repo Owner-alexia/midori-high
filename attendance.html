@@ -753,5 +753,878 @@
     }
 
 
-    // DISPLAY COU
+    // DISPLAY COURSE
+
+    async function selectCourse() {
+
+        const courseId =
+            document.getElementById(
+                "courseSelect"
+            ).value;
+
+        const date =
+            document.getElementById(
+                "attendanceDate"
+            ).value;
+
+
+        const course =
+            courses.find(
+                item =>
+                    item.id === courseId
+            );
+
+
+        if (!course) {
+
+            document.getElementById(
+                "courseInfo"
+            ).classList.remove(
+                "visible"
+            );
+
+            document.getElementById(
+                "attendancePanel"
+            ).style.display =
+                "none";
+
+            return;
+        }
+
+
+        document.getElementById(
+            "courseInfo"
+        ).classList.add(
+            "visible"
+        );
+
+
+        document.getElementById(
+            "courseTitle"
+        ).textContent =
+            `📚 ${course.subjects?.name || "Matière"}`;
+
+
+        document.getElementById(
+            "courseClass"
+        ).textContent =
+            `🏫 Classe : ${course.classes?.name || "—"}`;
+
+
+        document.getElementById(
+            "courseProfessor"
+        ).textContent =
+            `👩‍🏫 Professeur : ${course.professors?.full_name || "—"}`;
+
+
+        document.getElementById(
+            "courseSubject"
+        ).textContent =
+            `📚 Matière : ${course.subjects?.name || "—"}`;
+
+
+        document.getElementById(
+            "courseTime"
+        ).textContent =
+            `🕐 Horaire : ${course.start_time?.slice(0, 5)} — ${course.end_time?.slice(0, 5)}`;
+
+
+        document.getElementById(
+            "courseRoom"
+        ).textContent =
+            `🚪 Salle : ${course.room || "Non renseignée"}`;
+
+
+        await loadStudents(course);
+
+        await loadExistingAttendance(
+            courseId,
+            date
+        );
+
+
+        renderStudents();
+
+
+        document.getElementById(
+            "attendancePanel"
+        ).style.display =
+            "block";
+
+    }
+
+
+    // RENDER STUDENTS
+
+    function renderStudents() {
+
+        const container =
+            document.getElementById(
+                "studentsList"
+            );
+
+
+        if (students.length === 0) {
+
+            container.innerHTML = `
+                <div class="empty">
+                    Aucun élève n'est associé à cette classe.
+                </div>
+            `;
+
+            return;
+        }
+
+
+        container.innerHTML =
+            students.map(student => {
+
+                const previous =
+                    existingAttendance.find(
+                        item =>
+                            item.student_id ===
+                            student.id
+                    );
+
+
+                const status =
+                    previous?.status ||
+                    "present";
+
+                const arrival =
+                    previous?.arrival_time
+                        ?.slice(0, 5) ||
+                    "";
+
+                const reason =
+                    previous?.reason ||
+                    "";
+
+
+                return `
+
+                    <div
+                        class="student-row"
+                        data-student-id="${student.id}"
+                    >
+
+                        <div>
+
+                            <div class="student-name">
+                                ${escapeHtml(student.full_name)}
+                            </div>
+
+                            <div class="student-username">
+                                @${escapeHtml(student.username || "")}
+                            </div>
+
+                        </div>
+
+
+                        <select
+                            class="status-select ${status}"
+                            onchange="changeStatus(this)"
+                        >
+
+                            <option
+                                value="present"
+                                ${status === "present" ? "selected" : ""}
+                            >
+                                ✅ Présent
+                            </option>
+
+                            <option
+                                value="absent"
+                                ${status === "absent" ? "selected" : ""}
+                            >
+                                ❌ Absent
+                            </option>
+
+                            <option
+                                value="retard"
+                                ${status === "retard" ? "selected" : ""}
+                            >
+                                ⏰ Retard
+                            </option>
+
+                        </select>
+
+
+                        <div>
+
+                            <input
+                                type="time"
+                                class="arrival-input ${status === "retard" ? "visible" : ""}"
+                                value="${arrival}"
+                            >
+
+                            <input
+                                type="hidden"
+                                class="reason-input"
+                                value="${escapeHtml(reason)}"
+                            >
+
+                        </div>
+
+                    </div>
+
+                `;
+
+            }).join("");
+
+    }
+
+
+    // STATUS CHANGE
+
+    function changeStatus(select) {
+
+        select.className =
+            "status-select " +
+            select.value;
+
+
+        const row =
+            select.closest(
+                ".student-row"
+            );
+
+
+        const arrival =
+            row.querySelector(
+                ".arrival-input"
+            );
+
+
+        if (select.value === "retard") {
+
+            arrival.classList.add(
+                "visible"
+            );
+
+        } else {
+
+            arrival.classList.remove(
+                "visible"
+            );
+
+            arrival.value = "";
+
+        }
+
+    }
+
+
+    // SAVE ATTENDANCE + POINTS
+
+    async function saveAttendance() {
+
+        const courseId =
+            document.getElementById(
+                "courseSelect"
+            ).value;
+
+        const date =
+            document.getElementById(
+                "attendanceDate"
+            ).value;
+
+
+        if (!courseId || !date) {
+
+            showMessage(
+                "Veuillez sélectionner un cours et une date.",
+                "error"
+            );
+
+            return;
+        }
+
+
+        const rows =
+            document.querySelectorAll(
+                ".student-row"
+            );
+
+
+        if (!rows.length) {
+
+            showMessage(
+                "Aucun élève à enregistrer.",
+                "error"
+            );
+
+            return;
+        }
+
+
+        const saveButton =
+            document.querySelector(
+                ".save-btn"
+            );
+
+        saveButton.disabled = true;
+        saveButton.textContent =
+            "⏳ Enregistrement...";
+
+
+        try {
+
+            for (const row of rows) {
+
+                const studentId =
+                    row.dataset.studentId;
+
+
+                const statusInput =
+                    row.querySelector(
+                        ".status-select"
+                    );
+
+
+                const arrivalInput =
+                    row.querySelector(
+                        ".arrival-input"
+                    );
+
+
+                const reasonInput =
+                    row.querySelector(
+                        ".reason-input"
+                    );
+
+
+                const status =
+                    statusInput.value;
+
+
+                const arrivalTime =
+                    arrivalInput?.value ||
+                    null;
+
+
+                const reason =
+                    reasonInput?.value ||
+                    null;
+
+
+                /*
+                 * 1. Vérifier si l'appel existe déjà
+                 */
+
+                const {
+                    data: existing,
+                    error: existingError
+                } =
+                    await supabaseClient
+                        .from("attendance")
+                        .select("id")
+                        .eq(
+                            "timetable_id",
+                            courseId
+                        )
+                        .eq(
+                            "student_id",
+                            studentId
+                        )
+                        .eq(
+                            "date",
+                            date
+                        )
+                        .maybeSingle();
+
+
+                if (existingError) {
+
+                    throw existingError;
+
+                }
+
+
+                let attendanceId;
+
+
+                /*
+                 * 2. Créer ou modifier l'appel
+                 */
+
+                const attendanceData = {
+
+                    timetable_id:
+                        courseId,
+
+                    student_id:
+                        studentId,
+
+                    date:
+                        date,
+
+                    status:
+                        status,
+
+                    arrival_time:
+                        status === "retard"
+                            ? arrivalTime
+                            : null,
+
+                    reason:
+                        status === "absent"
+                            ? reason
+                            : null,
+
+                    justified:
+                        false,
+
+                    comment:
+                        null
+
+                };
+
+
+                if (existing) {
+
+                    const {
+                        error
+                    } =
+                        await supabaseClient
+                            .from("attendance")
+                            .update(
+                                attendanceData
+                            )
+                            .eq(
+                                "id",
+                                existing.id
+                            );
+
+
+                    if (error) {
+
+                        throw error;
+
+                    }
+
+
+                    attendanceId =
+                        existing.id;
+
+                } else {
+
+                    const {
+                        data,
+                        error
+                    } =
+                        await supabaseClient
+                            .from("attendance")
+                            .insert(
+                                attendanceData
+                            )
+                            .select("id")
+                            .single();
+
+
+                    if (error) {
+
+                        throw error;
+
+                    }
+
+
+                    attendanceId =
+                        data.id;
+
+                }
+
+
+                /*
+                 * 3. Synchronisation absences
+                 */
+
+                const {
+                    error: deleteAbsenceError
+                } =
+                    await supabaseClient
+                        .from("absences")
+                        .delete()
+                        .eq(
+                            "student_id",
+                            studentId
+                        )
+                        .eq(
+                            "date",
+                            date
+                        );
+
+
+                if (deleteAbsenceError) {
+
+                    console.error(
+                        "Erreur suppression absence :",
+                        deleteAbsenceError
+                    );
+
+                }
+
+
+                if (
+                    status === "absent" ||
+                    status === "retard"
+                ) {
+
+                    const {
+                        error: absenceError
+                    } =
+                        await supabaseClient
+                            .from("absences")
+                            .insert({
+
+                                student_id:
+                                    studentId,
+
+                                date:
+                                    date,
+
+                                type:
+                                    status === "retard"
+                                        ? "retard"
+                                        : "absence",
+
+                                heure_arrivee:
+                                    status === "retard"
+                                        ? arrivalTime
+                                        : null,
+
+                                motif:
+                                    reason,
+
+                                justifie:
+                                    false
+
+                            });
+
+
+                    if (absenceError) {
+
+                        console.error(
+                            "Erreur synchronisation absences :",
+                            absenceError
+                        );
+
+                    }
+
+                }
+
+
+                /*
+                 * 4. Supprimer l'ancien point
+                 *    automatique lié à cet appel
+                 */
+
+                const {
+                    error: deletePointError
+                } =
+                    await supabaseClient
+                        .from("student_points")
+                        .delete()
+                        .eq(
+                            "attendance_id",
+                            attendanceId
+                        );
+
+
+                if (deletePointError) {
+
+                    throw deletePointError;
+
+                }
+
+
+                /*
+                 * 5. Déterminer le nouveau point
+                 */
+
+                let automaticPoints = 0;
+                let pointReason = "";
+                let category = "";
+
+
+                if (status === "present") {
+
+                    automaticPoints = 5;
+
+                    pointReason =
+                        "Présence en cours";
+
+                    category =
+                        "bonus";
+
+                }
+
+
+                if (status === "absent") {
+
+                    automaticPoints = -7;
+
+                    pointReason =
+                        "Absence";
+
+                    category =
+                        "malus";
+
+                }
+
+
+                /*
+                 * 6. Ajouter le point automatique
+                 */
+
+                if (automaticPoints !== 0) {
+
+                    const {
+                        data: userData
+                    } =
+                        await supabaseClient
+                            .auth
+                            .getUser();
+
+
+                    const createdBy =
+                        userData?.user?.email ||
+                        "Système — Fiche d'appel";
+
+
+                    const {
+                        error: pointError
+                    } =
+                        await supabaseClient
+                            .from("student_points")
+                            .insert({
+
+                                student_id:
+                                    studentId,
+
+                                points:
+                                    automaticPoints,
+
+                                reason:
+                                    pointReason,
+
+                                category:
+                                    category,
+
+                                created_by:
+                                    createdBy,
+
+                                attendance_id:
+                                    attendanceId,
+
+                                comment:
+                                    null
+
+                            });
+
+
+                    if (pointError) {
+
+                        throw pointError;
+
+                    }
+
+                }
+
+            }
+
+
+            await loadCourses();
+
+
+            await loadExistingAttendance(
+                courseId,
+                date
+            );
+
+
+            const currentCourse =
+                courses.find(
+                    course =>
+                        course.id === courseId
+                );
+
+
+            if (currentCourse) {
+
+                await loadStudents(
+                    currentCourse
+                );
+
+                renderStudents();
+
+            }
+
+
+            showMessage(
+                "Fiche d'appel enregistrée avec succès !",
+                "success"
+            );
+
+
+        } catch (error) {
+
+            console.error(
+                "Erreur enregistrement appel :",
+                error
+            );
+
+
+            showMessage(
+                "Impossible d'enregistrer l'appel : " +
+                (error.message || "Erreur inconnue."),
+                "error"
+            );
+
+
+        } finally {
+
+            saveButton.disabled =
+                false;
+
+            saveButton.textContent =
+                "💾 Enregistrer l'appel";
+
+        }
+
+    }
+
+
+    // MESSAGE
+
+    function showMessage(
+        text,
+        type
+    ) {
+
+        const message =
+            document.getElementById(
+                "message"
+            );
+
+
+        message.textContent =
+            text;
+
+
+        message.className =
+            "message " +
+            type;
+
+
+        setTimeout(() => {
+
+            message.className =
+                "message";
+
+        }, 5000);
+
+    }
+
+
+    // DATE CHANGE
+
+    document
+        .getElementById(
+            "attendanceDate"
+        )
+        .addEventListener(
+            "change",
+            async function() {
+
+                await loadCourses();
+
+
+                document.getElementById(
+                    "courseInfo"
+                ).classList.remove(
+                    "visible"
+                );
+
+
+                document.getElementById(
+                    "attendancePanel"
+                ).style.display =
+                    "none";
+
+            }
+        );
+
+
+    // COURSE CHANGE
+
+    document
+        .getElementById(
+            "courseSelect"
+        )
+        .addEventListener(
+            "change",
+            selectCourse
+        );
+
+
+    // ESCAPE HTML
+
+    function escapeHtml(value) {
+
+        return String(value)
+            .replaceAll(
+                "&",
+                "&amp;"
+            )
+            .replaceAll(
+                "<",
+                "&lt;"
+            )
+            .replaceAll(
+                ">",
+                "&gt;"
+            )
+            .replaceAll(
+                '"',
+                "&quot;"
+            )
+            .replaceAll(
+                "'",
+                "&#039;"
+            );
+
+    }
+
+
+    // INITIALISATION
+
+    async function init() {
+
+        const authenticated =
+            await checkUser();
+
+
+        if (!authenticated) {
+            return;
+        }
+
+
+        document.getElementById(
+            "attendanceDate"
+        ).value =
+            getToday();
+
+
+        await loadCourses();
+
+    }
+
+
+    init();
+
+</script>
 ```
+
+</body>
+</html>
