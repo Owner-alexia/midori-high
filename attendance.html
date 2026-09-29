@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 
 <html lang="fr">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Midori High — Fiches d'appel</title>
 
 ```
-<title>Midori High — Fiches d'appel</title>
-
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
@@ -32,6 +32,7 @@
         background: #ffffff;
         border-right: 1px solid #e5ebe8;
         padding: 25px 15px;
+        overflow-y: auto;
     }
 
     .logo {
@@ -166,10 +167,6 @@
         flex-wrap: wrap;
     }
 
-    .date-input {
-        width: auto;
-    }
-
     .student-row {
         display: grid;
         grid-template-columns: 1fr 160px 150px;
@@ -281,7 +278,6 @@
             grid-template-columns: 1fr;
             gap: 8px;
         }
-
     }
 </style>
 ```
@@ -345,6 +341,10 @@
         📋 Absences
     </a>
 
+    <a href="points.html" class="nav-item">
+        ⭐ Points
+    </a>
+
     <div class="section-title">
         Système
     </div>
@@ -376,8 +376,6 @@
 
     </div>
 
-
-    <!-- SELECTION DU COURS -->
 
     <div class="panel">
 
@@ -451,8 +449,6 @@
     </div>
 
 
-    <!-- APPEL -->
-
     <div
         class="panel"
         id="attendancePanel"
@@ -494,810 +490,268 @@
     </div>
 
 </main>
-```
+
 
 <script>
 
-const SUPABASE_URL =
-    "https://esiwwkphbqkqqcfelktn.supabase.co";
+    const SUPABASE_URL =
+        "https://esiwwkphbqkqqcfelktn.supabase.co";
 
-const SUPABASE_KEY =
-    "sb_publishable_Gn6HhpZXdeoaWhWJ7wRWLw_D3dXLTnX";
+    const SUPABASE_KEY =
+        "sb_publishable_Gn6H6hpZXdeoaWhW7jRWLw_D3dXLTnX";
 
-const supabaseClient =
-    window.supabase.createClient(
-        SUPABASE_URL,
-        SUPABASE_KEY
-    );
-
-
-let courses = [];
-let students = [];
-let existingAttendance = [];
-
-
-// AUTH
-
-async function checkUser() {
-
-    const { data } =
-        await supabaseClient.auth.getUser();
-
-    if (!data.user) {
-
-        window.location.href =
-            "index.html";
-
-        return false;
-    }
-
-    return true;
-}
-
-
-// DATE DU JOUR
-
-function getToday() {
-
-    const now = new Date();
-
-    const year =
-        now.getFullYear();
-
-    const month =
-        String(
-            now.getMonth() + 1
-        ).padStart(2, "0");
-
-    const day =
-        String(
-            now.getDate()
-        ).padStart(2, "0");
-
-    return `${year}-${month}-${day}`;
-}
-
-
-// JOUR DE LA SEMAINE
-
-function getDayOfWeek(dateString) {
-
-    const date =
-        new Date(
-            dateString + "T00:00:00"
+    const supabaseClient =
+        window.supabase.createClient(
+            SUPABASE_URL,
+            SUPABASE_KEY
         );
 
-    const day =
-        date.getDay();
 
-    return day === 0 ? 7 : day;
-}
-
-
-// LOAD COURSES
-
-async function loadCourses() {
-
-    const date =
-        document.getElementById(
-            "attendanceDate"
-        ).value;
-
-    if (!date) return;
-
-    const day =
-        getDayOfWeek(date);
+    let courses = [];
+    let students = [];
+    let existingAttendance = [];
 
 
-    const { data, error } =
-        await supabaseClient
-            .from("timetable")
-            .select(`
-                id,
-                class_id,
-                professor_id,
-                subject_id,
-                day_of_week,
-                start_time,
-                end_time,
-                room,
-                classes (
-                    name
-                ),
-                professors (
-                    full_name
-                ),
-                subjects (
-                    name
-                )
-            `)
-            .eq("day_of_week", day)
-            .order("start_time");
+    // AUTH
 
+    async function checkUser() {
 
-    if (error) {
+        const { data, error } =
+            await supabaseClient.auth.getUser();
 
-        console.error(
-            "Erreur cours :",
-            error
-        );
+        if (error) {
 
-        return;
-    }
-
-
-    courses = data || [];
-
-
-    const select =
-        document.getElementById(
-            "courseSelect"
-        );
-
-    select.innerHTML = `
-        <option value="">
-            Sélectionner un cours
-        </option>
-    `;
-
-
-    courses.forEach(course => {
-
-        const option =
-            document.createElement(
-                "option"
+            console.error(
+                "Erreur authentification :",
+                error
             );
 
-        option.value =
-            course.id;
+            window.location.href = "index.html";
 
-        const className =
-            course.classes?.name
-            || "Classe inconnue";
+            return false;
+        }
 
-        const subjectName =
-            course.subjects?.name
-            || "Matière inconnue";
+        if (!data.user) {
 
-        const start =
-            course.start_time
-                ?.slice(0, 5)
-                || "";
+            window.location.href = "index.html";
 
-        const end =
-            course.end_time
-                ?.slice(0, 5)
-                || "";
+            return false;
+        }
 
-        option.textContent =
-            `${start} - ${end} | ${className} | ${subjectName}`;
-
-        select.appendChild(option);
-
-    });
-
-}
-
-
-// LOAD STUDENTS
-
-async function loadStudents(course) {
-
-    const classId =
-        course.class_id;
-
-
-    const { data, error } =
-        await supabaseClient
-            .from("students")
-            .select("*")
-            .eq("class_id", classId)
-            .order("full_name");
-
-
-    if (error) {
-
-        console.error(
-            "Erreur élèves :",
-            error
-        );
-
-        return;
+        return true;
     }
 
 
-    students = data || [];
+    // DATE DU JOUR
 
-}
+    function getToday() {
 
+        const now = new Date();
 
-// LOAD EXISTING ATTENDANCE
+        const year =
+            now.getFullYear();
 
-async function loadExistingAttendance(
-    courseId,
-    date
-) {
+        const month =
+            String(
+                now.getMonth() + 1
+            ).padStart(2, "0");
 
-    const { data, error } =
-        await supabaseClient
-            .from("attendance")
-            .select("*")
-            .eq("timetable_id", courseId)
-            .eq("date", date);
+        const day =
+            String(
+                now.getDate()
+            ).padStart(2, "0");
 
-
-    if (error) {
-
-        console.error(
-            "Erreur appel existant :",
-            error
-        );
-
-        existingAttendance = [];
-
-        return;
+        return `${year}-${month}-${day}`;
     }
 
 
-    existingAttendance =
-        data || [];
+    // JOUR DE LA SEMAINE
 
-}
+    function getDayOfWeek(dateString) {
 
+        const date =
+            new Date(
+                dateString + "T00:00:00"
+            );
 
-// DISPLAY COURSE
+        const day =
+            date.getDay();
 
-async function selectCourse() {
-
-    const courseId =
-        document.getElementById(
-            "courseSelect"
-        ).value;
-
-    const date =
-        document.getElementById(
-            "attendanceDate"
-        ).value;
-
-
-    const course =
-        courses.find(
-            item => item.id === courseId
-        );
-
-
-    if (!course) {
-
-        document.getElementById(
-            "courseInfo"
-        ).classList.remove(
-            "visible"
-        );
-
-        document.getElementById(
-            "attendancePanel"
-        ).style.display =
-            "none";
-
-        return;
+        return day === 0 ? 7 : day;
     }
 
 
-    document.getElementById(
-        "courseInfo"
-    ).classList.add(
-        "visible"
-    );
+    // LOAD COURSES
+
+    async function loadCourses() {
+
+        const date =
+            document.getElementById(
+                "attendanceDate"
+            ).value;
+
+        if (!date) return;
+
+        const day =
+            getDayOfWeek(date);
 
 
-    document.getElementById(
-        "courseTitle"
-    ).textContent =
-        `📚 ${course.subjects?.name || "Matière"}`;
+        const { data, error } =
+            await supabaseClient
+                .from("timetable")
+                .select(`
+                    id,
+                    class_id,
+                    professor_id,
+                    subject_id,
+                    day_of_week,
+                    start_time,
+                    end_time,
+                    room,
+                    classes (
+                        name
+                    ),
+                    professors (
+                        full_name
+                    ),
+                    subjects (
+                        name
+                    )
+                `)
+                .eq("day_of_week", day)
+                .order("start_time");
 
 
-    document.getElementById(
-        "courseClass"
-    ).textContent =
-        `🏫 Classe : ${course.classes?.name || "—"}`;
+        if (error) {
+
+            console.error(
+                "Erreur cours :",
+                error
+            );
+
+            return;
+        }
 
 
-    document.getElementById(
-        "courseProfessor"
-    ).textContent =
-        `👩‍🏫 Professeur : ${course.professors?.full_name || "—"}`;
+        courses = data || [];
 
 
-    document.getElementById(
-        "courseSubject"
-    ).textContent =
-        `📚 Matière : ${course.subjects?.name || "—"}`;
+        const select =
+            document.getElementById(
+                "courseSelect"
+            );
 
-
-    document.getElementById(
-        "courseTime"
-    ).textContent =
-        `🕐 Horaire : ${course.start_time?.slice(0, 5)} — ${course.end_time?.slice(0, 5)}`;
-
-
-    document.getElementById(
-        "courseRoom"
-    ).textContent =
-        `🚪 Salle : ${course.room || "Non renseignée"}`;
-
-
-    await loadStudents(course);
-
-    await loadExistingAttendance(
-        courseId,
-        date
-    );
-
-
-    renderStudents();
-
-
-    document.getElementById(
-        "attendancePanel"
-    ).style.display =
-        "block";
-
-}
-
-
-// RENDER STUDENTS
-
-function renderStudents() {
-
-    const container =
-        document.getElementById(
-            "studentsList"
-        );
-
-
-    if (students.length === 0) {
-
-        container.innerHTML = `
-            <div class="empty">
-                Aucun élève n'est associé à cette classe.
-            </div>
+        select.innerHTML = `
+            <option value="">
+                Sélectionner un cours
+            </option>
         `;
 
-        return;
-    }
 
+        courses.forEach(course => {
 
-    container.innerHTML =
-        students.map(student => {
-
-            const previous =
-                existingAttendance.find(
-                    item =>
-                        item.student_id ===
-                        student.id
+            const option =
+                document.createElement(
+                    "option"
                 );
 
+            option.value =
+                course.id;
 
-            const status =
-                previous?.status
-                || "present";
+            const className =
+                course.classes?.name ||
+                "Classe inconnue";
 
-            const arrival =
-                previous?.arrival_time
-                ?.slice(0, 5)
-                || "";
+            const subjectName =
+                course.subjects?.name ||
+                "Matière inconnue";
 
-            const reason =
-                previous?.reason
-                || "";
+            const start =
+                course.start_time
+                    ?.slice(0, 5) ||
+                "";
 
+            const end =
+                course.end_time
+                    ?.slice(0, 5) ||
+                "";
 
-            return `
+            option.textContent =
+                `${start} - ${end} | ${className} | ${subjectName}`;
 
-                <div
-                    class="student-row"
-                    data-student-id="${student.id}"
-                >
+            select.appendChild(option);
 
-                    <div>
+        });
 
-                        <div class="student-name">
-                            ${student.full_name}
-                        </div>
-
-                        <div class="student-username">
-                            @${student.username}
-                        </div>
-
-                    </div>
+    }
 
 
-                    <select
-                        class="status-select ${status}"
-                        onchange="changeStatus(this)"
-                    >
+    // LOAD STUDENTS
 
-                        <option
-                            value="present"
-                            ${status === "present" ? "selected" : ""}
-                        >
-                            ✅ Présent
-                        </option>
+    async function loadStudents(course) {
 
-                        <option
-                            value="absent"
-                            ${status === "absent" ? "selected" : ""}
-                        >
-                            ❌ Absent
-                        </option>
-
-                        <option
-                            value="retard"
-                            ${status === "retard" ? "selected" : ""}
-                        >
-                            ⏰ Retard
-                        </option>
-
-                    </select>
+        const classId =
+            course.class_id;
 
 
-                    <div>
-
-                        <input
-                            type="time"
-                            class="arrival-input ${status === "retard" ? "visible" : ""}"
-                            value="${arrival}"
-                            placeholder="Heure arrivée"
-                        >
-
-                        <input
-                            type="hidden"
-                            class="reason-input"
-                            value="${reason}"
-                        >
-
-                    </div>
-
-                </div>
-
-            `;
-
-        }).join("");
-
-}
+        const { data, error } =
+            await supabaseClient
+                .from("students")
+                .select("*")
+                .eq("class_id", classId)
+                .order("full_name");
 
 
-// STATUS CHANGE
+        if (error) {
 
-function changeStatus(select) {
+            console.error(
+                "Erreur élèves :",
+                error
+            );
 
-    select.className =
-        "status-select " +
-        select.value;
-
-
-    const row =
-        select.closest(
-            ".student-row"
-        );
-
-    const arrival =
-        row.querySelector(
-            ".arrival-input"
-        );
+            return;
+        }
 
 
-    if (
-        select.value === "retard"
+        students =
+            data || [];
+
+    }
+
+
+    // LOAD EXISTING ATTENDANCE
+
+    async function loadExistingAttendance(
+        courseId,
+        date
     ) {
 
-        arrival.classList.add(
-            "visible"
-        );
+        const { data, error } =
+            await supabaseClient
+                .from("attendance")
+                .select("*")
+                .eq("timetable_id", courseId)
+                .eq("date", date);
 
-    } else {
-
-        arrival.classList.remove(
-            "visible"
-        );
-
-        arrival.value = "";
-
-    }
-
-}
-
-
-// SAVE ATTENDANCE
-    
-async function saveAttendance() {
-const courseId = document.getElementById("courseSelect").value;
-const date = document.getElementById("attendanceDate").value;
-
-```
-if (!courseId || !date) {
-    alert("Veuillez sélectionner un cours et une date.");
-    return;
-}
-
-const rows = document.querySelectorAll(".student-row");
-
-if (!rows.length) {
-    alert("Aucun élève à enregistrer.");
-    return;
-}
-
-for (const row of rows) {
-    const studentId = row.dataset.studentId;
-    const statusInput = row.querySelector(".status-select");
-    const arrivalInput = row.querySelector(".arrival-time");
-    const reasonInput = row.querySelector(".reason-input");
-
-    const status = statusInput.value;
-    const arrivalTime = arrivalInput ? arrivalInput.value || null : null;
-    const reason = reasonInput ? reasonInput.value || null : null;
-
-    /*
-     * 1. Vérifier si une fiche d'appel existe déjà
-     */
-    const { data: existingAttendance, error: existingError } =
-        await supabaseClient
-            .from("attendance")
-            .select("id")
-            .eq("timetable_id", courseId)
-            .eq("student_id", studentId)
-            .eq("date", date)
-            .maybeSingle();
-
-    if (existingError) {
-        console.error(existingError);
-        alert("Erreur lors de la vérification de la présence.");
-        return;
-    }
-
-    let attendanceId;
-
-    /*
-     * 2. Enregistrer ou modifier la présence
-     */
-    const attendanceData = {
-        timetable_id: courseId,
-        student_id: studentId,
-        date: date,
-        status: status,
-        arrival_time: status === "retard" ? arrivalTime : null,
-        reason: status === "absent" ? reason : null
-    };
-
-    if (existingAttendance) {
-        const { error } = await supabaseClient
-            .from("attendance")
-            .update(attendanceData)
-            .eq("id", existingAttendance.id);
 
         if (error) {
-            console.error(error);
-            alert("Erreur lors de la modification de la présence.");
-            return;
-        }
 
-        attendanceId = existingAttendance.id;
-    } else {
-        const { data, error } = await supabaseClient
-            .from("attendance")
-            .insert(attendanceData)
-            .select("id")
-            .single();
-
-        if (error) {
-            console.error(error);
-            alert("Erreur lors de l'enregistrement de la présence.");
-            return;
-        }
-
-        attendanceId = data.id;
-    }
-
-    /*
-     * 3. Synchronisation avec la table absences
-     */
-    await supabaseClient
-        .from("absences")
-        .delete()
-        .eq("student_id", studentId)
-        .eq("date", date);
-
-    if (status === "absent" || status === "retard") {
-        const { error: absenceError } =
-            await supabaseClient
-                .from("absences")
-                .insert({
-                    student_id: studentId,
-                    date: date,
-                    type: status === "retard" ? "retard" : "absence",
-                    heure_arrivee:
-                        status === "retard"
-                            ? arrivalTime
-                            : null,
-                    motif: reason,
-                    justifie: false
-                });
-
-        if (absenceError) {
             console.error(
-                "Erreur synchronisation absences :",
-                absenceError
+                "Erreur appel existant :",
+                error
             );
-        }
-    }
 
-    /*
-     * 4. Supprimer l'ancien point automatique
-     *    lié à cette fiche d'appel
-     */
-    const { error: deletePointsError } =
-        await supabaseClient
-            .from("student_points")
-            .delete()
-            .eq("attendance_id", attendanceId);
+            existingAttendance = [];
 
-    if (deletePointsError) {
-        console.error(
-            "Erreur suppression ancien point :",
-            deletePointsError
-        );
-        alert("Erreur lors de la mise à jour des points.");
-        return;
-    }
-
-    /*
-     * 5. Ajouter le nouveau point automatique
-     */
-    let automaticPoints = 0;
-    let pointReason = "";
-    let category = "";
-
-    if (status === "present") {
-        automaticPoints = 5;
-        pointReason = "Présence en cours";
-        category = "bonus";
-    }
-
-    if (status === "absent") {
-        automaticPoints = -7;
-        pointReason = "Absence";
-        category = "malus";
-    }
-
-    /*
-     * 6. Enregistrer le point uniquement
-     *    si le statut donne lieu à un barème
-     */
-    if (automaticPoints !== 0) {
-        const { error: pointError } =
-            await supabaseClient
-                .from("student_points")
-                .insert({
-                    student_id: studentId,
-                    points: automaticPoints,
-                    reason: pointReason,
-                    category: category,
-                    created_by: "Système — Fiche d'appel",
-                    attendance_id: attendanceId,
-                    comment: null
-                });
-
-        if (pointError) {
-            console.error(
-                "Erreur ajout points :",
-                pointError
-            );
-            alert("La présence a été enregistrée, mais les points n'ont pas pu être ajoutés.");
             return;
         }
+
+
+        existingAttendance =
+            data || [];
+
     }
-}
 
-await loadCourses();
-await loadStudents();
 
-alert("Fiche d'appel enregistrée avec succès !");
+    // DISPLAY COU
 ```
-
-}
-
-
-// MESSAGE
-
-function showMessage(
-    text,
-    type
-) {
-
-    const message =
-        document.getElementById(
-            "message"
-        );
-
-    message.textContent =
-        text;
-
-    message.className =
-        "message " + type;
-
-
-    setTimeout(() => {
-
-        message.className =
-            "message";
-
-    }, 4000);
-
-}
-
-
-// DATE CHANGE
-
-document
-    .getElementById(
-        "attendanceDate"
-    )
-    .addEventListener(
-        "change",
-        async function() {
-
-            await loadCourses();
-
-            document.getElementById(
-                "courseInfo"
-            ).classList.remove(
-                "visible"
-            );
-
-            document.getElementById(
-                "attendancePanel"
-            ).style.display =
-                "none";
-
-        }
-    );
-
-
-// COURSE CHANGE
-
-document
-    .getElementById(
-        "courseSelect"
-    )
-    .addEventListener(
-        "change",
-        selectCourse
-    );
-
-
-// INITIALISATION
-
-async function init() {
-
-    const authenticated =
-        await checkUser();
-
-    if (!authenticated) return;
-
-
-    document.getElementById(
-        "attendanceDate"
-    ).value =
-        getToday();
-
-
-    await loadCourses();
-
-}
-
-init();
-
-</script>
-
-</body>
-</html>
