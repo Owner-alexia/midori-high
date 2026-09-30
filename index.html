@@ -9,7 +9,13 @@
 <body>
 <div class="login"><div class="login-card"><div class="login-head"><img class="school-logo" src="assets/midori-high-logo.jpeg" alt="Midori High" style="width:76px;height:76px;border-radius:18px"><h1>Midori High</h1><p>Portail administratif</p></div><form id="loginForm" class="form"><div class="field full"><label>E-mail Midori</label><input name="email" type="email" autocomplete="username" required placeholder="votre.adresse@midori.fr"></div><div class="field full"><label>Mot de passe</label><input name="password" type="password" autocomplete="current-password" required placeholder="Votre mot de passe"></div><div id="loginError" class="notice error full" style="display:none;min-height:0"></div><div class="field full"><button type="submit" class="btn primary" style="width:100%">Se connecter</button></div><div class="field full" style="text-align:center"><small class="muted">Mot de passe oublié ? Contactez l’administration pour une réinitialisation.</small></div></form><div class="foot">Midori High · École d’excellence · Portail RP</div></div></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="config.js"></script>
-<script src="app.js"></script>
+<script src="./config.js"></script>
+<script src="./app.js"></script>
+
+<script>
+window.addEventListener('error', function (event) {
+  console.error('Erreur JavaScript Midori High:', event.error || event.message);
+});
+</script>
 </body>
 </html>
