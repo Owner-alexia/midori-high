@@ -227,7 +227,7 @@ function shell(p) {
     <div class="page-shell">
       <aside class="sidebar" id="sidebar">
         <div class="brand">
-          <img class="school-logo" src="assets/midori-high-logo.jpeg" alt="Midori High">
+          <img class="school-logo" src="./assets/midori-high-logo.jpeg" alt="Midori High">
           <div><strong>Midori High</strong><small>Portail administratif</small></div>
         </div>
         <nav class="nav">${nav}</nav>
@@ -539,6 +539,8 @@ function showLoginError(message) {
 }
 
 async function initLogin() {
+  // La page index.html gère désormais la connexion elle-même.
+  if (location.pathname.split('/').pop() === 'index.html' || location.pathname.endsWith('/')) return;
   const form = qs('#loginForm');
   if (!form) return;
 
