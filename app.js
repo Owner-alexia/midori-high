@@ -1,4 +1,3 @@
-window.MIDORI_APP_BUILD = 'acces-universel-v2-2026-10-01';
 const { createClient } = window.supabase;
 const sb = createClient(MIDORI_CONFIG.SUPABASE_URL, MIDORI_CONFIG.SUPABASE_KEY);
 
@@ -715,7 +714,7 @@ async function renderProfessors() {
   const classes = await rows('classes', 'id,name', { order: 'name' });
   const list = await rows('professors', 'id,username,full_name,subject,email,phone,active,note,created_at', { order: 'created_at', ascending: false });
   const links = await rows('professor_classes', 'professor_id,class_id,classes(name)');
-  const access = await rows('profiles', 'id,username,role,active', { order: 'username' });
+  const access = await rows('profiles', 'id,username,role,active,student_id,professor_id,supervisor_id', { order: 'username' });
   qs('#app').innerHTML = head('Professeurs', 'Fiches des enseignants et classes prises en charge.') + `<div class="toolbar"><input id="ps" class="search" placeholder="Rechercher un professeur…"><button id="pa" class="btn primary">+ Ajouter</button></div><div class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Pseudo</th><th>Nom</th><th>Matière</th><th>Classes</th><th>Accès</th><th>Actions</th></tr></thead><tbody id="pr">${list.map(r => { const cs = links.filter(l => l.professor_id === r.id).map(l => l.classes?.name).filter(Boolean); const profAccess = access.find(a => a.professor_id === r.id && a.role === 'professor'); return `<tr><td>${esc(r.username)}</td><td>${esc(r.full_name)}</td><td>${esc(r.subject || '—')}</td><td>${esc(cs.join(', ') || '—')}</td><td>${profAccess ? (profAccess.active ? '<span class="tag">Actif</span>' : '<span class="tag red">Désactivé</span>') : '<span class="tag yellow">Non créé</span>'}</td><td><button class="btn secondary small" data-edit-prof="${esc(r.id)}">Modifier</button> <a class="btn secondary small" href="access.html?role=professor&fiche_id=${encodeURIComponent(r.id)}">Accès</a> <button class="btn danger small" data-del-prof="${esc(r.id)}">Supprimer</button></td></tr>`; }).join('') || tableEmpty(6)}</tbody></table></div></div>` + modal('pm', 'Professeur', `<form id="pf" class="form"><input type="hidden" name="id"><div class="field"><label>Pseudo</label><input name="username" required></div><div class="field"><label>Nom complet</label><input name="full_name" required></div><div class="field"><label>Matière</label><input name="subject"></div><div class="field"><label>E-mail</label><input name="email" type="email"></div><div class="field"><label>Téléphone</label><input name="phone"></div><div class="field"><label>Actif</label><select name="active"><option value="true">Oui</option><option value="false">Non</option></select></div><div class="field full"><label>Classes</label><div class="checkgrid">${classes.map(c => `<label><input type="checkbox" name="class_ids" value="${esc(c.id)}"> ${esc(c.name)}</label>`).join('') || '<span class="muted">Créez d’abord des classes.</span>'}</div></div><div class="field full"><label>Note interne</label><textarea name="note"></textarea></div><div class="field full"><button class="btn primary">Enregistrer</button></div></form>`);
   qs('#pa').onclick = () => { qs('#pf').reset(); qs('#pf [name="id"]').value = ''; qsa('input[name="class_ids"]').forEach(x => x.checked = false); openModal('pm'); };
   closeBindings();
@@ -1027,33 +1026,13 @@ async function renderAccess(p) {
     rows('supervisors', 'id,username,full_name', { order: 'full_name' })
   ]);
 
-  const params = new URLSearchParams(location.search);
-  const queryUser = params.get('username') || '';
-  const queryRole = params.get('role') || '';
-  const queryFicheId = params.get('fiche_id') || '';
-
-  // Priorité absolue à l'ID de la fiche : le pseudo n'est jamais utilisé
-  // pour déterminer quelle fiche doit être reliée au compte.
-  const preStudent = queryRole === 'student' && queryFicheId
-    ? students.find(x => String(x.id) === String(queryFicheId))
-    : null;
-  const preTeacher = queryRole === 'professor' && queryFicheId
-    ? teachers.find(x => String(x.id) === String(queryFicheId))
-    : null;
-  const preSupervisor = queryRole === 'surveillant' && queryFicheId
-    ? supervisors.find(x => String(x.id) === String(queryFicheId))
-    : null;
-
-  // Compatibilité avec les anciens liens access.html?username=...
-  const legacyStudent = !preStudent && !preTeacher && !preSupervisor
-    ? students.find(x => x.username === queryUser)
-    : null;
-  const legacyTeacher = !preStudent && !preTeacher && !preSupervisor
-    ? teachers.find(x => x.username === queryUser)
-    : null;
-  const legacySupervisor = !preStudent && !preTeacher && !preSupervisor
-    ? supervisors.find(x => x.username === queryUser)
-    : null;
+  const accessParams = new URLSearchParams(location.search);
+  const queryUser = accessParams.get('username') || '';
+  const queryRole = accessParams.get('role') || '';
+  const queryFicheId = accessParams.get('fiche_id') || '';
+  const preStudent = queryFicheId ? students.find(x => String(x.id) === String(queryFicheId)) : students.find(x => x.username === queryUser);
+  const preTeacher = queryFicheId ? teachers.find(x => String(x.id) === String(queryFicheId)) : teachers.find(x => x.username === queryUser);
+  const preSupervisor = queryFicheId ? supervisors.find(x => String(x.id) === String(queryFicheId)) : supervisors.find(x => x.username === queryUser);
 
   qs('#app').innerHTML = head('Accès & comptes', 'Gérez les rôles, les fiches liées et l’accès au portail.') +
     `<div class="grid g2">
@@ -1065,7 +1044,7 @@ async function renderAccess(p) {
           <div class="field"><label>Rôle</label><select id="accessRole" name="role"><option value="student">Élève</option><option value="professor">Professeur</option><option value="surveillant">Surveillant</option><option value="psychologue">Psychologue</option><option value="infirmiere">Infirmière</option><option value="admin">Administration</option></select></div>
           <div class="field"><label>Fiche à relier</label><select id="accessLink"><option value="">Aucune fiche / personnel santé / admin</option></select></div>
           <div class="field"><label>Identifiant portail</label><input id="accessUsername" name="username" value="${esc(queryUser)}" placeholder="pseudo.roblox" required></div>
-          <div class="field"><label>Nom affiché</label><input id="accessName" name="full_name" value="${esc(preStudent?.full_name || preTeacher?.full_name || preSupervisor?.full_name || legacyStudent?.full_name || legacyTeacher?.full_name || legacySupervisor?.full_name || '')}" placeholder="Nom et prénom" required></div>
+          <div class="field"><label>Nom affiché</label><input id="accessName" name="full_name" value="${esc(preStudent?.full_name || preTeacher?.full_name || preSupervisor?.full_name || '')}" placeholder="Nom et prénom" required></div>
           <div class="field"><label>Accès</label><select name="active"><option value="true">Actif</option><option value="false">Révoqué</option></select></div>
           <div class="field full"><div id="accessHint" class="notice">Choisissez un rôle puis, pour un élève, professeur ou surveillant, la fiche correspondante.</div></div>
           <div class="field full actions"><button id="accessSubmit" class="btn primary" type="submit">Créer / mettre à jour le profil</button><button id="accessCancel" class="btn secondary" type="button" style="display:none">Annuler la modification</button></div>
@@ -1111,16 +1090,13 @@ async function renderAccess(p) {
     formTitle.textContent = 'Créer / lier un accès';
     submitBtn.textContent = 'Créer / mettre à jour le profil';
     cancelBtn.style.display = 'none';
-    const pre = preStudent || preTeacher || preSupervisor || legacyStudent || legacyTeacher || legacySupervisor;
-    if (preStudent || legacyStudent) roleSelect.value = 'student';
-    else if (preTeacher || legacyTeacher) roleSelect.value = 'professor';
-    else if (preSupervisor || legacySupervisor) roleSelect.value = 'surveillant';
+    const pre = preStudent || preTeacher || preSupervisor;
+    if (queryRole) roleSelect.value = queryRole;
+    else if (preStudent) roleSelect.value = 'student';
+    else if (preTeacher) roleSelect.value = 'professor';
+    else if (preSupervisor) roleSelect.value = 'surveillant';
     rebuildLinkOptions(pre?.id || '');
-    if (pre) {
-      linkSelect.value = pre.id;
-      usernameInput.value = pre.username || '';
-      nameInput.value = pre.full_name || '';
-    }
+    if (pre) { linkSelect.value = pre.id; usernameInput.value = pre.username; nameInput.value = pre.full_name; }
   };
 
   const startEdit = profile => {
@@ -1165,16 +1141,6 @@ async function renderAccess(p) {
         supervisor_id: role === 'surveillant' ? linkId : null
       };
 
-      if (['student', 'professor', 'surveillant'].includes(role) && !linkId) {
-        throw new Error(
-          role === 'professor'
-            ? 'Sélectionnez obligatoirement la fiche professeur à relier avant de créer l’accès.'
-            : role === 'surveillant'
-              ? 'Sélectionnez obligatoirement la fiche surveillant à relier avant de créer l’accès.'
-              : 'Sélectionnez obligatoirement la fiche élève à relier avant de créer l’accès.'
-        );
-      }
-
       if (editingId) {
         if (editingId === String(p.id) && (fd.get('active') === 'false' || role !== 'admin')) throw new Error('Vous ne pouvez pas désactiver ou retirer votre propre rôle administrateur ici.');
 
@@ -1212,25 +1178,31 @@ async function renderAccess(p) {
         await log('update', 'profile', r.id, { username: r.username, role: r.role, active: r.active });
         toast('Accès modifié.');
       } else {
-        const r = await sb.rpc('admin_create_profile', {
+        const r = await sb.rpc('admin_create_profile_linked', {
           p_email: fd.get('email'),
           p_username: fd.get('username'),
           p_full_name: fd.get('full_name'),
           p_role: role,
-          p_active: fd.get('active') === 'true'
+          p_active: fd.get('active') === 'true',
+          p_student_id: role === 'student' ? linkId : null,
+          p_professor_id: role === 'professor' ? linkId : null,
+          p_supervisor_id: role === 'surveillant' ? linkId : null
         });
         if (r.error) throw r.error;
         let profileId = r.data?.id || (Array.isArray(r.data) ? r.data[0]?.id : null);
         if (!profileId) {
-          const fr = await sb.from('profiles').select('id').eq('email', String(fd.get('email') || '').trim().toLowerCase()).maybeSingle();
+          const fr = await sb.from('profiles').select('id').eq('email', fd.get('email')).maybeSingle();
           if (fr.error) throw fr.error;
           profileId = fr.data?.id || null;
         }
-        if (!profileId) {
-          throw new Error('Le compte Supabase existe peut-être, mais aucun profil portail n’a été créé. Vérifiez l’e-mail du compte Authentication puis réessayez.');
-        }
-        await update('profiles', profileId, linkPayload);
-        await log('create', 'profile', profileId, { username: fd.get('username'), role, ...linkPayload });
+        if (!profileId) throw new Error('Le profil portail n’a pas été créé.');
+        const createdProfile = await sb.from('profiles').select('id,role,student_id,professor_id,supervisor_id').eq('id', profileId).maybeSingle();
+        if (createdProfile.error) throw createdProfile.error;
+        if (!createdProfile.data) throw new Error('Le profil portail créé est introuvable.');
+        const expectedLink = role === 'student' ? linkId : role === 'professor' ? linkId : role === 'surveillant' ? linkId : null;
+        const actualLink = role === 'student' ? createdProfile.data.student_id : role === 'professor' ? createdProfile.data.professor_id : role === 'surveillant' ? createdProfile.data.supervisor_id : null;
+        if (expectedLink && String(actualLink) !== String(expectedLink)) throw new Error('Le compte a été créé mais la fiche n’a pas été reliée correctement.');
+        await log('create', 'profile', profileId, { username: fd.get('username'), role, fiche_id: linkId });
         toast('Accès créé / mis à jour.');
       }
       location.reload();
