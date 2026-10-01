@@ -260,13 +260,31 @@ function shell(p) {
 
 
 async function rows(table, select = '*', cfg = {}) {
-  let q = sb.from(table).select(select);
-  if (cfg.order) q = q.order(cfg.order, { ascending: cfg.ascending ?? true });
-  if (cfg.limit) q = q.limit(cfg.limit);
-  if (cfg.filters) cfg.filters.forEach(f => { q = q[f.op || 'eq'](f.column, f.value); });
-  const r = await q;
-  if (r.error) throw r.error;
-  return r.data || [];
+  // Récupération paginée pour ne jamais perdre les fiches au-delà de 1 000 lignes.
+  // Les appels avec cfg.limit restent limités à la quantité demandée.
+  const PAGE_SIZE = 1000;
+  const requestedLimit = Number.isFinite(Number(cfg.limit)) && Number(cfg.limit) > 0 ? Number(cfg.limit) : null;
+  const target = requestedLimit || Infinity;
+  const out = [];
+  let from = 0;
+
+  while (out.length < target) {
+    const size = Math.min(PAGE_SIZE, target - out.length);
+    let q = sb.from(table).select(select);
+    if (cfg.order) q = q.order(cfg.order, { ascending: cfg.ascending ?? true });
+    if (cfg.filters) cfg.filters.forEach(f => { q = q[f.op || 'eq'](f.column, f.value); });
+    q = q.range(from, from + size - 1);
+
+    const r = await q;
+    if (r.error) throw r.error;
+    const page = r.data || [];
+    out.push(...page);
+
+    if (page.length < size || page.length === 0) break;
+    from += page.length;
+  }
+
+  return requestedLimit ? out.slice(0, requestedLimit) : out;
 }
 async function add(table, row) { const r = await sb.from(table).insert(row).select().single(); if (r.error) throw r.error; return r.data; }
 async function update(table, id, row) { const r = await sb.from(table).update(row).eq('id', id).select().single(); if (r.error) throw r.error; return r.data; }
@@ -714,8 +732,8 @@ async function renderProfessors() {
   const classes = await rows('classes', 'id,name', { order: 'name' });
   const list = await rows('professors', 'id,username,full_name,subject,email,phone,active,note,created_at', { order: 'created_at', ascending: false });
   const links = await rows('professor_classes', 'professor_id,class_id,classes(name)');
-  const access = await rows('profiles', 'id,username,role,active,student_id,professor_id,supervisor_id', { order: 'username' });
-  qs('#app').innerHTML = head('Professeurs', 'Fiches des enseignants et classes prises en charge.') + `<div class="toolbar"><input id="ps" class="search" placeholder="Rechercher un professeur…"><button id="pa" class="btn primary">+ Ajouter</button></div><div class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Pseudo</th><th>Nom</th><th>Matière</th><th>Classes</th><th>Accès</th><th>Actions</th></tr></thead><tbody id="pr">${list.map(r => { const cs = links.filter(l => l.professor_id === r.id).map(l => l.classes?.name).filter(Boolean); const profAccess = access.find(a => a.professor_id === r.id && a.role === 'professor'); return `<tr><td>${esc(r.username)}</td><td>${esc(r.full_name)}</td><td>${esc(r.subject || '—')}</td><td>${esc(cs.join(', ') || '—')}</td><td>${profAccess ? (profAccess.active ? '<span class="tag">Actif</span>' : '<span class="tag red">Désactivé</span>') : '<span class="tag yellow">Non créé</span>'}</td><td><button class="btn secondary small" data-edit-prof="${esc(r.id)}">Modifier</button> <a class="btn secondary small" href="access.html?role=professor&fiche_id=${encodeURIComponent(r.id)}">Accès</a> <button class="btn danger small" data-del-prof="${esc(r.id)}">Supprimer</button></td></tr>`; }).join('') || tableEmpty(6)}</tbody></table></div></div>` + modal('pm', 'Professeur', `<form id="pf" class="form"><input type="hidden" name="id"><div class="field"><label>Pseudo</label><input name="username" required></div><div class="field"><label>Nom complet</label><input name="full_name" required></div><div class="field"><label>Matière</label><input name="subject"></div><div class="field"><label>E-mail</label><input name="email" type="email"></div><div class="field"><label>Téléphone</label><input name="phone"></div><div class="field"><label>Actif</label><select name="active"><option value="true">Oui</option><option value="false">Non</option></select></div><div class="field full"><label>Classes</label><div class="checkgrid">${classes.map(c => `<label><input type="checkbox" name="class_ids" value="${esc(c.id)}"> ${esc(c.name)}</label>`).join('') || '<span class="muted">Créez d’abord des classes.</span>'}</div></div><div class="field full"><label>Note interne</label><textarea name="note"></textarea></div><div class="field full"><button class="btn primary">Enregistrer</button></div></form>`);
+  const access = await rows('profiles', 'id,username,role,active', { order: 'username' });
+  qs('#app').innerHTML = head('Professeurs', 'Fiches des enseignants et classes prises en charge.') + `<div class="toolbar"><input id="ps" class="search" placeholder="Rechercher un professeur…"><button id="pa" class="btn primary">+ Ajouter</button></div><div class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Pseudo</th><th>Nom</th><th>Matière</th><th>Classes</th><th>Accès</th><th>Actions</th></tr></thead><tbody id="pr">${list.map(r => { const cs = links.filter(l => l.professor_id === r.id).map(l => l.classes?.name).filter(Boolean); const profAccess = access.find(a => a.username === r.username && a.role === 'professor'); return `<tr><td>${esc(r.username)}</td><td>${esc(r.full_name)}</td><td>${esc(r.subject || '—')}</td><td>${esc(cs.join(', ') || '—')}</td><td>${profAccess ? (profAccess.active ? '<span class="tag">Actif</span>' : '<span class="tag red">Désactivé</span>') : '<span class="tag yellow">Non créé</span>'}</td><td><button class="btn secondary small" data-edit-prof="${esc(r.id)}">Modifier</button> <a class="btn secondary small" href="access.html?role=professor&fiche_id=${encodeURIComponent(r.id)}">Accès</a> <button class="btn danger small" data-del-prof="${esc(r.id)}">Supprimer</button></td></tr>`; }).join('') || tableEmpty(6)}</tbody></table></div></div>` + modal('pm', 'Professeur', `<form id="pf" class="form"><input type="hidden" name="id"><div class="field"><label>Pseudo</label><input name="username" required></div><div class="field"><label>Nom complet</label><input name="full_name" required></div><div class="field"><label>Matière</label><input name="subject"></div><div class="field"><label>E-mail</label><input name="email" type="email"></div><div class="field"><label>Téléphone</label><input name="phone"></div><div class="field"><label>Actif</label><select name="active"><option value="true">Oui</option><option value="false">Non</option></select></div><div class="field full"><label>Classes</label><div class="checkgrid">${classes.map(c => `<label><input type="checkbox" name="class_ids" value="${esc(c.id)}"> ${esc(c.name)}</label>`).join('') || '<span class="muted">Créez d’abord des classes.</span>'}</div></div><div class="field full"><label>Note interne</label><textarea name="note"></textarea></div><div class="field full"><button class="btn primary">Enregistrer</button></div></form>`);
   qs('#pa').onclick = () => { qs('#pf').reset(); qs('#pf [name="id"]').value = ''; qsa('input[name="class_ids"]').forEach(x => x.checked = false); openModal('pm'); };
   closeBindings();
   qs('#ps').oninput = e => { const q = e.target.value.toLowerCase(); qsa('#pr tr').forEach(tr => tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none'); };
@@ -1026,13 +1044,10 @@ async function renderAccess(p) {
     rows('supervisors', 'id,username,full_name', { order: 'full_name' })
   ]);
 
-  const accessParams = new URLSearchParams(location.search);
-  const queryUser = accessParams.get('username') || '';
-  const queryRole = accessParams.get('role') || '';
-  const queryFicheId = accessParams.get('fiche_id') || '';
-  const preStudent = queryFicheId ? students.find(x => String(x.id) === String(queryFicheId)) : students.find(x => x.username === queryUser);
-  const preTeacher = queryFicheId ? teachers.find(x => String(x.id) === String(queryFicheId)) : teachers.find(x => x.username === queryUser);
-  const preSupervisor = queryFicheId ? supervisors.find(x => String(x.id) === String(queryFicheId)) : supervisors.find(x => x.username === queryUser);
+  const queryUser = new URLSearchParams(location.search).get('username') || '';
+  const preStudent = students.find(x => x.username === queryUser);
+  const preTeacher = teachers.find(x => x.username === queryUser);
+  const preSupervisor = supervisors.find(x => x.username === queryUser);
 
   qs('#app').innerHTML = head('Accès & comptes', 'Gérez les rôles, les fiches liées et l’accès au portail.') +
     `<div class="grid g2">
@@ -1091,8 +1106,7 @@ async function renderAccess(p) {
     submitBtn.textContent = 'Créer / mettre à jour le profil';
     cancelBtn.style.display = 'none';
     const pre = preStudent || preTeacher || preSupervisor;
-    if (queryRole) roleSelect.value = queryRole;
-    else if (preStudent) roleSelect.value = 'student';
+    if (preStudent) roleSelect.value = 'student';
     else if (preTeacher) roleSelect.value = 'professor';
     else if (preSupervisor) roleSelect.value = 'surveillant';
     rebuildLinkOptions(pre?.id || '');
@@ -1195,14 +1209,8 @@ async function renderAccess(p) {
           if (fr.error) throw fr.error;
           profileId = fr.data?.id || null;
         }
-        if (!profileId) throw new Error('Le profil portail n’a pas été créé.');
-        const createdProfile = await sb.from('profiles').select('id,role,student_id,professor_id,supervisor_id').eq('id', profileId).maybeSingle();
-        if (createdProfile.error) throw createdProfile.error;
-        if (!createdProfile.data) throw new Error('Le profil portail créé est introuvable.');
-        const expectedLink = role === 'student' ? linkId : role === 'professor' ? linkId : role === 'surveillant' ? linkId : null;
-        const actualLink = role === 'student' ? createdProfile.data.student_id : role === 'professor' ? createdProfile.data.professor_id : role === 'surveillant' ? createdProfile.data.supervisor_id : null;
-        if (expectedLink && String(actualLink) !== String(expectedLink)) throw new Error('Le compte a été créé mais la fiche n’a pas été reliée correctement.');
-        await log('create', 'profile', profileId, { username: fd.get('username'), role, fiche_id: linkId });
+        if (profileId) await update('profiles', profileId, linkPayload);
+        await log('create', 'profile', profileId, { username: fd.get('username'), role });
         toast('Accès créé / mis à jour.');
       }
       location.reload();
