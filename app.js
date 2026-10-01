@@ -227,13 +227,7 @@ function shell(p) {
     <div class="page-shell">
       <aside class="sidebar" id="sidebar">
         <div class="brand">
-          <svg class="school-logo" viewBox="0 0 64 64" role="img" aria-label="Midori High" xmlns="http://www.w3.org/2000/svg">
-            <defs><linearGradient id="midoriLogoGradient" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#bfe9f1"/><stop offset="100%" stop-color="#f6c6dc"/></linearGradient></defs>
-            <path d="M32 3 57 13v18c0 15-10 25-25 30C17 56 7 46 7 31V13L32 3Z" fill="url(#midoriLogoGradient)" stroke="#6b8790" stroke-width="2"/>
-            <path d="M18 22h28M18 29h28M18 36h28" stroke="#fff" stroke-width="2" stroke-linecap="round" opacity=".9"/>
-            <text x="32" y="34" text-anchor="middle" font-family="Georgia,serif" font-size="18" font-weight="700" fill="#345b63">MI</text>
-            <text x="32" y="49" text-anchor="middle" font-family="Arial,sans-serif" font-size="7" font-weight="700" fill="#345b63">1990</text>
-          </svg>
+          <img class="school-logo" src="assets/midori-high-logo.jpg" alt="Midori High">
           <div><strong>Midori High</strong><small>Portail administratif</small></div>
         </div>
         <nav class="nav">${nav}</nav>
@@ -260,31 +254,13 @@ function shell(p) {
 
 
 async function rows(table, select = '*', cfg = {}) {
-  // Récupération paginée pour ne jamais perdre les fiches au-delà de 1 000 lignes.
-  // Les appels avec cfg.limit restent limités à la quantité demandée.
-  const PAGE_SIZE = 1000;
-  const requestedLimit = Number.isFinite(Number(cfg.limit)) && Number(cfg.limit) > 0 ? Number(cfg.limit) : null;
-  const target = requestedLimit || Infinity;
-  const out = [];
-  let from = 0;
-
-  while (out.length < target) {
-    const size = Math.min(PAGE_SIZE, target - out.length);
-    let q = sb.from(table).select(select);
-    if (cfg.order) q = q.order(cfg.order, { ascending: cfg.ascending ?? true });
-    if (cfg.filters) cfg.filters.forEach(f => { q = q[f.op || 'eq'](f.column, f.value); });
-    q = q.range(from, from + size - 1);
-
-    const r = await q;
-    if (r.error) throw r.error;
-    const page = r.data || [];
-    out.push(...page);
-
-    if (page.length < size || page.length === 0) break;
-    from += page.length;
-  }
-
-  return requestedLimit ? out.slice(0, requestedLimit) : out;
+  let q = sb.from(table).select(select);
+  if (cfg.order) q = q.order(cfg.order, { ascending: cfg.ascending ?? true });
+  if (cfg.limit) q = q.limit(cfg.limit);
+  if (cfg.filters) cfg.filters.forEach(f => { q = q[f.op || 'eq'](f.column, f.value); });
+  const r = await q;
+  if (r.error) throw r.error;
+  return r.data || [];
 }
 async function add(table, row) { const r = await sb.from(table).insert(row).select().single(); if (r.error) throw r.error; return r.data; }
 async function update(table, id, row) { const r = await sb.from(table).update(row).eq('id', id).select().single(); if (r.error) throw r.error; return r.data; }
@@ -691,7 +667,7 @@ async function adminCrudPage({ title, sub, table, fields, select = '*', order = 
 async function renderStudents() {
   const classes = await rows('classes', 'id,name', { order: 'name' });
   const list = await rows('students', 'id,username,full_name,class_name,birth_date,class_id,created_at', { order: 'created_at', ascending: false });
-  qs('#app').innerHTML = head('Élèves', 'Gestion des élèves, classes et accès.') + `<div class="toolbar"><input id="ss" class="search" placeholder="Rechercher un élève…"><button id="addStudent" class="btn primary">+ Ajouter</button></div><div class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Pseudo</th><th>Nom</th><th>Classe</th><th>Date de naissance</th><th>Accès</th><th>Actions</th></tr></thead><tbody id="studentRows">${list.map(s => `<tr><td>${esc(s.username)}</td><td>${esc(s.full_name)}</td><td>${esc(s.class_name || classes.find(c => c.id === s.class_id)?.name || '—')}</td><td>${dateFR(s.birth_date)}</td><td><a class="btn secondary small" href="access.html?role=student&fiche_id=${encodeURIComponent(s.id)}">Gérer</a></td><td><a class="btn secondary small" href="student-profile.html?id=${esc(s.id)}">Dossier</a> <button class="btn danger small" data-del-student="${esc(s.id)}">Supprimer</button></td></tr>`).join('') || tableEmpty(6)}</tbody></table></div></div>` + modal('sm', 'Nouvel élève', `<form id="sf" class="form"><div class="field"><label>Pseudo Roblox</label><input name="username" required></div><div class="field"><label>Nom complet</label><input name="full_name" required></div><div class="field"><label>Classe</label><select name="class_id">${opts(classes)}</select></div><div class="field"><label>Date de naissance</label><input name="birth_date" type="date"></div><div class="field full"><button class="btn primary">Créer l’élève</button></div></form>`);
+  qs('#app').innerHTML = head('Élèves', 'Gestion des élèves, classes et accès.') + `<div class="toolbar"><input id="ss" class="search" placeholder="Rechercher un élève…"><button id="addStudent" class="btn primary">+ Ajouter</button></div><div class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Pseudo</th><th>Nom</th><th>Classe</th><th>Date de naissance</th><th>Accès</th><th>Actions</th></tr></thead><tbody id="studentRows">${list.map(s => `<tr><td>${esc(s.username)}</td><td>${esc(s.full_name)}</td><td>${esc(s.class_name || classes.find(c => c.id === s.class_id)?.name || '—')}</td><td>${dateFR(s.birth_date)}</td><td><a class="btn secondary small" href="access.html?username=${encodeURIComponent(s.username)}">Gérer</a></td><td><a class="btn secondary small" href="student-profile.html?id=${esc(s.id)}">Dossier</a> <button class="btn danger small" data-del-student="${esc(s.id)}">Supprimer</button></td></tr>`).join('') || tableEmpty(6)}</tbody></table></div></div>` + modal('sm', 'Nouvel élève', `<form id="sf" class="form"><div class="field"><label>Pseudo Roblox</label><input name="username" required></div><div class="field"><label>Nom complet</label><input name="full_name" required></div><div class="field"><label>Classe</label><select name="class_id">${opts(classes)}</select></div><div class="field"><label>Date de naissance</label><input name="birth_date" type="date"></div><div class="field full"><button class="btn primary">Créer l’élève</button></div></form>`);
   qs('#addStudent').onclick = () => openModal('sm'); closeBindings();
   qs('#ss').oninput = e => { const q = e.target.value.toLowerCase(); qsa('#studentRows tr').forEach(tr => tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none'); };
   qs('#sf').onsubmit = async e => { e.preventDefault(); const f = new FormData(e.target); try { const c = classes.find(x => x.id === f.get('class_id')); const r = await add('students', { username: f.get('username'), full_name: f.get('full_name'), class_id: f.get('class_id') || null, class_name: c?.name || null, birth_date: f.get('birth_date') || null }); await log('create', 'student', r.id, { username: r.username }); toast('Élève créé.'); location.reload(); } catch (er) { toast(errMsg(er), 'error'); } };
@@ -733,7 +709,7 @@ async function renderProfessors() {
   const list = await rows('professors', 'id,username,full_name,subject,email,phone,active,note,created_at', { order: 'created_at', ascending: false });
   const links = await rows('professor_classes', 'professor_id,class_id,classes(name)');
   const access = await rows('profiles', 'id,username,role,active', { order: 'username' });
-  qs('#app').innerHTML = head('Professeurs', 'Fiches des enseignants et classes prises en charge.') + `<div class="toolbar"><input id="ps" class="search" placeholder="Rechercher un professeur…"><button id="pa" class="btn primary">+ Ajouter</button></div><div class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Pseudo</th><th>Nom</th><th>Matière</th><th>Classes</th><th>Accès</th><th>Actions</th></tr></thead><tbody id="pr">${list.map(r => { const cs = links.filter(l => l.professor_id === r.id).map(l => l.classes?.name).filter(Boolean); const profAccess = access.find(a => a.username === r.username && a.role === 'professor'); return `<tr><td>${esc(r.username)}</td><td>${esc(r.full_name)}</td><td>${esc(r.subject || '—')}</td><td>${esc(cs.join(', ') || '—')}</td><td>${profAccess ? (profAccess.active ? '<span class="tag">Actif</span>' : '<span class="tag red">Désactivé</span>') : '<span class="tag yellow">Non créé</span>'}</td><td><button class="btn secondary small" data-edit-prof="${esc(r.id)}">Modifier</button> <a class="btn secondary small" href="access.html?role=professor&fiche_id=${encodeURIComponent(r.id)}">Accès</a> <button class="btn danger small" data-del-prof="${esc(r.id)}">Supprimer</button></td></tr>`; }).join('') || tableEmpty(6)}</tbody></table></div></div>` + modal('pm', 'Professeur', `<form id="pf" class="form"><input type="hidden" name="id"><div class="field"><label>Pseudo</label><input name="username" required></div><div class="field"><label>Nom complet</label><input name="full_name" required></div><div class="field"><label>Matière</label><input name="subject"></div><div class="field"><label>E-mail</label><input name="email" type="email"></div><div class="field"><label>Téléphone</label><input name="phone"></div><div class="field"><label>Actif</label><select name="active"><option value="true">Oui</option><option value="false">Non</option></select></div><div class="field full"><label>Classes</label><div class="checkgrid">${classes.map(c => `<label><input type="checkbox" name="class_ids" value="${esc(c.id)}"> ${esc(c.name)}</label>`).join('') || '<span class="muted">Créez d’abord des classes.</span>'}</div></div><div class="field full"><label>Note interne</label><textarea name="note"></textarea></div><div class="field full"><button class="btn primary">Enregistrer</button></div></form>`);
+  qs('#app').innerHTML = head('Professeurs', 'Fiches des enseignants et classes prises en charge.') + `<div class="toolbar"><input id="ps" class="search" placeholder="Rechercher un professeur…"><button id="pa" class="btn primary">+ Ajouter</button></div><div class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Pseudo</th><th>Nom</th><th>Matière</th><th>Classes</th><th>Accès</th><th>Actions</th></tr></thead><tbody id="pr">${list.map(r => { const cs = links.filter(l => l.professor_id === r.id).map(l => l.classes?.name).filter(Boolean); const profAccess = access.find(a => a.username === r.username && a.role === 'professor'); return `<tr><td>${esc(r.username)}</td><td>${esc(r.full_name)}</td><td>${esc(r.subject || '—')}</td><td>${esc(cs.join(', ') || '—')}</td><td>${profAccess ? (profAccess.active ? '<span class="tag">Actif</span>' : '<span class="tag red">Désactivé</span>') : '<span class="tag yellow">Non créé</span>'}</td><td><button class="btn secondary small" data-edit-prof="${esc(r.id)}">Modifier</button> <a class="btn secondary small" href="access.html?username=${encodeURIComponent(r.username)}">Accès</a> <button class="btn danger small" data-del-prof="${esc(r.id)}">Supprimer</button></td></tr>`; }).join('') || tableEmpty(6)}</tbody></table></div></div>` + modal('pm', 'Professeur', `<form id="pf" class="form"><input type="hidden" name="id"><div class="field"><label>Pseudo</label><input name="username" required></div><div class="field"><label>Nom complet</label><input name="full_name" required></div><div class="field"><label>Matière</label><input name="subject"></div><div class="field"><label>E-mail</label><input name="email" type="email"></div><div class="field"><label>Téléphone</label><input name="phone"></div><div class="field"><label>Actif</label><select name="active"><option value="true">Oui</option><option value="false">Non</option></select></div><div class="field full"><label>Classes</label><div class="checkgrid">${classes.map(c => `<label><input type="checkbox" name="class_ids" value="${esc(c.id)}"> ${esc(c.name)}</label>`).join('') || '<span class="muted">Créez d’abord des classes.</span>'}</div></div><div class="field full"><label>Note interne</label><textarea name="note"></textarea></div><div class="field full"><button class="btn primary">Enregistrer</button></div></form>`);
   qs('#pa').onclick = () => { qs('#pf').reset(); qs('#pf [name="id"]').value = ''; qsa('input[name="class_ids"]').forEach(x => x.checked = false); openModal('pm'); };
   closeBindings();
   qs('#ps').oninput = e => { const q = e.target.value.toLowerCase(); qsa('#pr tr').forEach(tr => tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none'); };
@@ -768,49 +744,12 @@ async function renderTimetable() {
   qs('#tf').onsubmit = async e => { e.preventDefault(); const f = new FormData(e.target); try { const r = await add('timetable', { class_id: f.get('class_id'), professor_id: f.get('professor_id'), subject_id: f.get('subject_id'), day_of_week: Number(f.get('day_of_week')), start_time: f.get('start_time'), end_time: f.get('end_time'), room: f.get('room') || null }); await log('create', 'timetable', r.id, null); toast('Cours ajouté.'); location.reload(); } catch (er) { toast(errMsg(er), 'error'); } };
 }
 
-async function findLinkedRow(table, p, linkField, label) {
-  // 1) Liaison officielle par ID stocké dans profiles.
-  if (p?.[linkField]) {
-    const linked = await sb.from(table).select('*').eq('id', p[linkField]).maybeSingle();
-    if (linked.error) throw linked.error;
-    if (linked.data) return linked.data;
-  }
-
-  // 2) Secours : identifiant portail / pseudo, sans tenir compte des majuscules.
-  const username = String(p?.username || '').trim();
-  if (username) {
-    const byUsername = await sb.from(table).select('*').ilike('username', username).maybeSingle();
-    if (byUsername.error) throw byUsername.error;
-    if (byUsername.data) return byUsername.data;
-  }
-
-  // 3) Secours : e-mail si la fiche du personnel en possède un.
-  const email = String(p?.email || '').trim().toLowerCase();
-  if (email && ['professors'].includes(table)) {
-    const byEmail = await sb.from(table).select('*').ilike('email', email).maybeSingle();
-    if (byEmail.error) throw byEmail.error;
-    if (byEmail.data) return byEmail.data;
-  }
-
-  // 4) Dernier secours : nom complet exact, utile pour les anciens comptes.
-  const fullName = String(p?.full_name || '').trim();
-  if (fullName) {
-    const byName = await sb.from(table).select('*').ilike('full_name', fullName).maybeSingle();
-    if (byName.error) throw byName.error;
-    if (byName.data) return byName.data;
-  }
-
-  throw new Error(`Aucune fiche ${label} ne correspond à cet accès. Vérifiez que le compte portail est bien relié à une fiche ${label}.`);
-}
-
 async function professorRow(p) {
-  return findLinkedRow('professors', p, 'professor_id', 'professeur');
+  const r = await sb.from('professors').select('*').eq('username', p.username).maybeSingle();
+  if (r.error) throw r.error;
+  if (!r.data) throw new Error('Votre fiche professeur n’existe pas encore. Demandez à l’administration de la créer avec le même pseudo.');
+  return r.data;
 }
-
-async function supervisorRow(p) {
-  return findLinkedRow('supervisors', p, 'supervisor_id', 'surveillant');
-}
-
 async function professorClasses(profId) {
   return rows('professor_classes', 'class_id,classes(id,name)', { order: 'created_at' }).then(x => x.filter(a => a.class_id).filter(a => a.classes));
 }
@@ -1071,7 +1010,7 @@ async function renderAccess(p) {
         <p class="muted">« Supprimer définitivement » supprime le compte Supabase Authentication via une fonction serveur sécurisée. Cette action est irréversible.</p>
       </div>
     </div>` +
-    `<div class="card" style="margin-top:15px"><h3>Comptes portail</h3><div class="table-wrap" style="margin-top:10px"><table class="table"><thead><tr><th>E-mail</th><th>Identifiant</th><th>Nom</th><th>Rôle</th><th>État</th><th>Créé</th><th>Actions</th></tr></thead><tbody>${profs.map(x => `<tr><td>${esc(x.email)}</td><td>${esc(x.username)}</td><td>${esc(x.full_name)}</td><td>${badge(ROLE_LABEL[x.role] || x.role)}</td><td>${x.active ? '<span class="tag">Actif</span>' : '<span class="tag red">Révoqué</span>'}</td><td>${dtFR(x.created_at)}</td><td><div class="actions"><button class="btn secondary small" data-edit-profile="${esc(x.id)}">Modifier</button><button type="button" class="btn secondary small" data-change-email="${esc(x.id)}" data-current-email="${esc(x.email || '')}">✉️ E-mail</button><button type="button" class="btn secondary small" data-relink-auth="${esc(x.id)}">🔗 Relier Auth</button>${String(x.id) === String(p.id) ? '' : `<button class="btn ${x.active ? 'danger' : 'secondary'} small" data-toggle-profile="${esc(x.id)}" data-current="${x.active ? 'true' : 'false'}">${x.active ? 'Révoquer l’accès' : 'Réactiver'}</button><button class="btn danger small" data-delete-profile="${esc(x.id)}" data-profile-email="${esc(x.email || '')}">🗑️ Supprimer définitivement</button>`}</div></td></tr>`).join('') || tableEmpty(7)}</tbody></table></div></div>`;
+    `<div class="card" style="margin-top:15px"><h3>Comptes portail</h3><div class="table-wrap" style="margin-top:10px"><table class="table"><thead><tr><th>E-mail</th><th>Identifiant</th><th>Nom</th><th>Rôle</th><th>État</th><th>Créé</th><th>Actions</th></tr></thead><tbody>${profs.map(x => `<tr><td>${esc(x.email)}</td><td>${esc(x.username)}</td><td>${esc(x.full_name)}</td><td>${badge(ROLE_LABEL[x.role] || x.role)}</td><td>${x.active ? '<span class="tag">Actif</span>' : '<span class="tag red">Révoqué</span>'}</td><td>${dtFR(x.created_at)}</td><td><div class="actions"><button class="btn secondary small" data-edit-profile="${esc(x.id)}">Modifier</button>${String(x.id) === String(p.id) ? '' : `<button class="btn ${x.active ? 'danger' : 'secondary'} small" data-toggle-profile="${esc(x.id)}" data-current="${x.active ? 'true' : 'false'}">${x.active ? 'Révoquer l’accès' : 'Réactiver'}</button><button class="btn danger small" data-delete-profile="${esc(x.id)}" data-profile-email="${esc(x.email || '')}">🗑️ Supprimer définitivement</button>`}</div></td></tr>`).join('') || tableEmpty(7)}</tbody></table></div></div>`;
 
   const form = qs('#accessForm');
   const formTitle = qs('#accessFormTitle');
@@ -1116,8 +1055,8 @@ async function renderAccess(p) {
   const startEdit = profile => {
     idInput.value = profile.id;
     emailInput.value = profile.email || '';
-    emailInput.readOnly = false;
-    emailInput.style.opacity = '';
+    emailInput.readOnly = true;
+    emailInput.style.opacity = '.7';
     roleSelect.value = profile.role || 'student';
     rebuildLinkOptions(profile.student_id || profile.professor_id || profile.supervisor_id || '');
     usernameInput.value = profile.username || '';
@@ -1157,32 +1096,7 @@ async function renderAccess(p) {
 
       if (editingId) {
         if (editingId === String(p.id) && (fd.get('active') === 'false' || role !== 'admin')) throw new Error('Vous ne pouvez pas désactiver ou retirer votre propre rôle administrateur ici.');
-
-        const newEmail = String(fd.get('email') || '').trim().toLowerCase();
-        if (!newEmail.endsWith('@midori.fr')) {
-          throw new Error('L’e-mail d’accès doit obligatoirement être une adresse @midori.fr.');
-        }
-
-        const oldProfile = profs.find(x => String(x.id) === editingId);
-        const oldEmail = String(oldProfile?.email || '').trim().toLowerCase();
-
-        if (newEmail !== oldEmail) {
-          const { data: emailResult, error: emailError } = await sb.functions.invoke('admin-update-user-email', {
-            body: { user_id: editingId, new_email: newEmail }
-          });
-          if (emailError) {
-            let message = errMsg(emailError);
-            try {
-              const ctx = await emailError.context?.json?.();
-              if (ctx?.error) message = ctx.error;
-            } catch (_) {}
-            throw new Error(message);
-          }
-          if (emailResult?.error) throw new Error(emailResult.error);
-        }
-
         const r = await update('profiles', editingId, {
-          email: newEmail,
           username: String(fd.get('username') || '').trim(),
           full_name: String(fd.get('full_name') || '').trim(),
           role,
@@ -1192,15 +1106,12 @@ async function renderAccess(p) {
         await log('update', 'profile', r.id, { username: r.username, role: r.role, active: r.active });
         toast('Accès modifié.');
       } else {
-        const r = await sb.rpc('admin_create_profile_linked', {
+        const r = await sb.rpc('admin_create_profile', {
           p_email: fd.get('email'),
           p_username: fd.get('username'),
           p_full_name: fd.get('full_name'),
           p_role: role,
-          p_active: fd.get('active') === 'true',
-          p_student_id: role === 'student' ? linkId : null,
-          p_professor_id: role === 'professor' ? linkId : null,
-          p_supervisor_id: role === 'surveillant' ? linkId : null
+          p_active: fd.get('active') === 'true'
         });
         if (r.error) throw r.error;
         let profileId = r.data?.id || (Array.isArray(r.data) ? r.data[0]?.id : null);
@@ -1222,128 +1133,6 @@ async function renderAccess(p) {
   qsa('[data-edit-profile]').forEach(b => b.onclick = () => {
     const profile = profs.find(x => String(x.id) === String(b.dataset.editProfile));
     if (profile) startEdit(profile);
-  });
-
-  qsa('[data-change-email]').forEach(b => b.onclick = async () => {
-    const id = b.dataset.changeEmail;
-    const currentEmail = b.dataset.currentEmail || '';
-    const profile = profs.find(x => String(x.id) === String(id));
-    const name = profile?.full_name || profile?.username || 'cet utilisateur';
-    const newEmail = prompt(`Nouvel e-mail Midori pour ${name}\n\nAdresse actuelle : ${currentEmail}\n\nEntrez une adresse @midori.fr :`, currentEmail);
-    if (newEmail === null) return;
-    const normalized = newEmail.trim().toLowerCase();
-    if (!normalized) return;
-    if (!normalized.endsWith('@midori.fr')) {
-      toast('L’e-mail doit se terminer par @midori.fr.', 'error');
-      return;
-    }
-    if (normalized === currentEmail.toLowerCase()) {
-      toast('Aucun changement.');
-      return;
-    }
-    try {
-      b.disabled = true;
-      b.textContent = 'Modification…';
-      const { data: sessionData, error: sessionError } = await sb.auth.getSession();
-      if (sessionError) throw sessionError;
-      const accessToken = sessionData?.session?.access_token;
-      if (!accessToken) throw new Error('Votre session administrateur a expiré. Déconnectez-vous puis reconnectez-vous.');
-
-      const { data, error } = await sb.functions.invoke('admin-update-user-email', {
-        body: { user_id: id, new_email: normalized },
-        headers: { Authorization: `Bearer ${accessToken}` }
-      });
-      if (error) {
-        let message = errMsg(error);
-        try {
-          const ctx = await error.context?.json?.();
-          if (ctx?.error) message = ctx.error;
-        } catch (_) {}
-        throw new Error(message);
-      }
-      if (data?.error) throw new Error(data.error);
-      toast(`E-mail modifié : ${normalized}`);
-      const row = b.closest('tr');
-      const emailCell = row?.querySelector('td');
-      if (emailCell) emailCell.textContent = normalized;
-      b.dataset.currentEmail = normalized;
-      b.disabled = false;
-      b.textContent = '✉️ E-mail';
-    } catch (er) {
-      console.error('Modification e-mail :', er);
-      b.disabled = false;
-      b.textContent = '✉️ E-mail';
-      toast(errMsg(er), 'error');
-    }
-  });
-
-  qsa('[data-relink-auth]').forEach(b => b.onclick = async () => {
-    const profileId = b.dataset.relinkAuth;
-    const profile = profs.find(x => String(x.id) === String(profileId));
-    const name = profile?.full_name || profile?.username || 'cet utilisateur';
-
-    const authEmail = prompt(
-      `Adresse du NOUVEAU compte Supabase Authentication pour ${name}\n\n` +
-      `Le compte doit déjà avoir été créé dans Authentication → Users.\n` +
-      `Utilisez son adresse @midori.fr :`,
-      ''
-    );
-
-    if (authEmail === null) return;
-
-    const normalized = authEmail.trim().toLowerCase();
-    if (!normalized) return;
-
-    if (!normalized.endsWith('@midori.fr')) {
-      toast('Le compte Auth doit utiliser une adresse @midori.fr.', 'error');
-      return;
-    }
-
-    if (!confirm(`Relier le profil « ${name} » au compte Auth ${normalized} ?\n\nLes données du profil Midori seront conservées.`)) {
-      return;
-    }
-
-    try {
-      b.disabled = true;
-      b.textContent = 'Liaison…';
-
-      const { data: sessionData, error: sessionError } = await sb.auth.getSession();
-      if (sessionError) throw sessionError;
-
-      const accessToken = sessionData?.session?.access_token;
-      if (!accessToken) {
-        throw new Error('Votre session administrateur a expiré. Déconnectez-vous puis reconnectez-vous.');
-      }
-
-      const { data, error } = await sb.functions.invoke('admin-relink-profile', {
-        body: {
-          profile_id: profileId,
-          auth_email: normalized
-        },
-        headers: {
-          Authorization: `Bearer ${accessToken}`
-        }
-      });
-
-      if (error) {
-        let message = errMsg(error);
-        try {
-          const ctx = await error.context?.json?.();
-          if (ctx?.error) message = ctx.error;
-        } catch (_) {}
-        throw new Error(message);
-      }
-
-      if (data?.error) throw new Error(data.error);
-
-      toast(`Compte Auth relié : ${normalized}`);
-      setTimeout(() => location.reload(), 700);
-    } catch (er) {
-      console.error('Liaison profil / Auth :', er);
-      b.disabled = false;
-      b.textContent = '🔗 Relier Auth';
-      toast(errMsg(er), 'error');
-    }
   });
 
   qsa('[data-toggle-profile]').forEach(b => b.onclick = async () => {
@@ -1374,8 +1163,21 @@ async function renderAccess(p) {
     try {
       b.disabled = true;
       b.textContent = 'Suppression…';
+      // On envoie explicitement la session de l'administrateur à l'Edge Function.
+      // Cela évite que Supabase considère l'appel comme anonyme sur certains hébergements.
+      const sessionResult = await sb.auth.getSession();
+      if (sessionResult.error) throw sessionResult.error;
+
+      const activeSession = sessionResult.data?.session;
+      if (!activeSession?.access_token) {
+        throw new Error('Votre session administrateur a expiré. Reconnectez-vous au portail puis réessayez.');
+      }
+
       const { data, error } = await sb.functions.invoke('admin-delete-user', {
-        body: { user_id: id }
+        body: { user_id: id },
+        headers: {
+          Authorization: `Bearer ${activeSession.access_token}`
+        }
       });
       if (error) {
         let message = errMsg(error);
@@ -1465,8 +1267,7 @@ async function renderAppointments(p, role) {
   qs('#apa').onclick=()=>openModal('apm'); closeBindings(); qs('#apf').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);try{const r=await add('appointments',{student_id:f.get('student_id'),practitioner_id:p.id,practitioner_role:role,type:f.get('type'),appointment_date:f.get('appointment_date'),appointment_time:f.get('appointment_time'),duration:Number(f.get('duration')||20),status:f.get('status'),reason:f.get('reason')||null});await log('create','appointment',r.id,null);toast('Rendez-vous créé.');location.reload()}catch(er){toast(errMsg(er),'error')}};
 }
 async function renderHealthRecords(p, role) {
-  const students=await rows('students','id,full_name,class_name',{order:'full_name'}); const table=role==='psychologue'?'psych_records':'medical_records'; const selectFields = role === 'psychologue' ? 'id,student_id,record_date,subject,notes,confidential_note,psychologue_id,created_at,students(full_name,class_name)' : 'id,student_id,record_date,record_type,summary,confidential_note,nurse_id,created_at,students(full_name,class_name)';
-  const list=await rows(table,selectFields,{order:'record_date',ascending:false,limit:500}); const own=list.filter(x=>(role==='psychologue'?x.psychologue_id:x.nurse_id)===p.id);
+  const students=await rows('students','id,full_name,class_name',{order:'full_name'}); const table=role==='psychologue'?'psych_records':'medical_records'; const list=await rows(table,'id,student_id,record_date,record_type,summary,confidential_note,subject,notes,psychologue_id,nurse_id,created_at,students(full_name,class_name)',{order:'record_date',ascending:false,limit:500}); const own=list.filter(x=>(role==='psychologue'?x.psychologue_id:x.nurse_id)===p.id);
   qs('#app').innerHTML=head(role==='psychologue'?'Dossiers confidentiels':'Dossiers infirmerie','Accès réservé au professionnel concerné.')+`<div class="notice" style="margin-bottom:15px">🔒 Les autres rôles du portail ne peuvent pas lire vos notes confidentielles.</div><div class="toolbar"><button id="hra" class="btn primary">+ Ajouter une note</button></div><div class="list">${own.map(x=>`<div class="card"><h3>${esc(x.students?.full_name||'Élève')}</h3><span class="muted">${dateFR(x.record_date)} · ${esc(role==='psychologue'?x.subject||'Suivi':x.record_type||'Visite')}</span><p style="margin-top:8px;white-space:pre-wrap">${esc(role==='psychologue'?x.notes||'':x.summary||'')}</p></div>`).join('')||'<div class="card empty">Aucun dossier.</div>'}</div>`+modal('hrm', 'Nouvelle note confidentielle', `<form id="hrf" class="form"><div class="field full"><label>Élève</label><select name="student_id" required>${opts(students,'id','full_name')}</select></div><div class="field"><label>Date</label><input name="record_date" type="date" value="${today()}" required></div><div class="field"><label>${role==='psychologue'?'Objet':'Type'}</label><input name="kind" required></div><div class="field full"><label>${role==='psychologue'?'Notes confidentielles':'Résumé de visite'}</label><textarea name="note" required></textarea></div><div class="field full"><label>Note confidentielle complémentaire</label><textarea name="confidential_note"></textarea></div><div class="field full"><button class="btn primary">Enregistrer</button></div></form>`);
   qs('#hra').onclick=()=>openModal('hrm');closeBindings();qs('#hrf').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);try{let r;if(role==='psychologue')r=await add('psych_records',{student_id:f.get('student_id'),psychologue_id:p.id,record_date:f.get('record_date'),subject:f.get('kind'),notes:f.get('note'),confidential_note:f.get('confidential_note')||null});else r=await add('medical_records',{student_id:f.get('student_id'),nurse_id:p.id,record_date:f.get('record_date'),record_type:f.get('kind'),summary:f.get('note'),confidential_note:f.get('confidential_note')||null});await log('create',table,r.id,null);toast('Note enregistrée.');location.reload()}catch(er){toast(errMsg(er),'error')}};
 }
