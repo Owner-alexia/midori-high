@@ -227,7 +227,13 @@ function shell(p) {
     <div class="page-shell">
       <aside class="sidebar" id="sidebar">
         <div class="brand">
-          <img class="school-logo" src="assets/midori-high-logo.jpeg" alt="Midori High">
+          <svg class="school-logo" viewBox="0 0 64 64" role="img" aria-label="Midori High" xmlns="http://www.w3.org/2000/svg">
+            <defs><linearGradient id="midoriLogoGradient" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#bfe9f1"/><stop offset="100%" stop-color="#f6c6dc"/></linearGradient></defs>
+            <path d="M32 3 57 13v18c0 15-10 25-25 30C17 56 7 46 7 31V13L32 3Z" fill="url(#midoriLogoGradient)" stroke="#6b8790" stroke-width="2"/>
+            <path d="M18 22h28M18 29h28M18 36h28" stroke="#fff" stroke-width="2" stroke-linecap="round" opacity=".9"/>
+            <text x="32" y="34" text-anchor="middle" font-family="Georgia,serif" font-size="18" font-weight="700" fill="#345b63">MI</text>
+            <text x="32" y="49" text-anchor="middle" font-family="Arial,sans-serif" font-size="7" font-weight="700" fill="#345b63">1990</text>
+          </svg>
           <div><strong>Midori High</strong><small>Portail administratif</small></div>
         </div>
         <nav class="nav">${nav}</nav>
@@ -745,10 +751,22 @@ async function renderTimetable() {
 }
 
 async function professorRow(p) {
-  const r = await sb.from('professors').select('*').eq('username', p.username).maybeSingle();
-  if (r.error) throw r.error;
-  if (!r.data) throw new Error('Votre fiche professeur n’existe pas encore. Demandez à l’administration de la créer avec le même pseudo.');
-  return r.data;
+  if (p?.professor_id) {
+    const linked = await sb.from('professors').select('*').eq('id', p.professor_id).maybeSingle();
+    if (linked.error) throw linked.error;
+    if (linked.data) return linked.data;
+  }
+
+  const username = String(p?.username || '').trim();
+  if (username) {
+    const fallback = await sb.from('professors').select('*').eq('username', username).maybeSingle();
+    if (fallback.error) throw fallback.error;
+    if (fallback.data) return fallback.data;
+  }
+
+  throw new Error(
+    'Aucune fiche professeur ne correspond à cet accès. Vérifiez que le compte portail est bien relié à une fiche professeur.'
+  );
 }
 async function professorClasses(profId) {
   return rows('professor_classes', 'class_id,classes(id,name)', { order: 'created_at' }).then(x => x.filter(a => a.class_id).filter(a => a.classes));
