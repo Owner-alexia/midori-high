@@ -4,59 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Connexion — Midori High</title>
-<link rel="stylesheet" href="./styles.css">
+<link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<div class="login"><div class="login-card"><div class="login-head"><img class="school-logo" src="./assets/midori-high-logo.jpeg" alt="Midori High" style="width:76px;height:76px;border-radius:18px"><h1>Midori High</h1><p>Portail administratif</p></div>
-<form id="loginForm" class="form" novalidate>
-<div class="field full"><label for="loginEmail">E-mail Midori</label><input id="loginEmail" name="email" type="email" autocomplete="username" required placeholder="votre.adresse@midori.fr"></div>
-<div class="field full"><label for="loginPassword">Mot de passe</label><input id="loginPassword" name="password" type="password" autocomplete="current-password" required placeholder="Votre mot de passe"></div>
-<div id="loginError" class="notice error full" style="display:none;min-height:0"></div>
-<div class="field full"><button id="loginButton" type="submit" class="btn primary" style="width:100%">Se connecter</button></div>
-<div class="field full" style="text-align:center"><small class="muted">Mot de passe oublié ? Contactez l’administration pour une réinitialisation.</small></div>
-</form><div class="foot">Midori High · École d’excellence · Portail RP</div></div></div>
+<div class="login"><div class="login-card"><div class="login-head"><img class="school-logo" src="assets/midori-high-logo.jpeg" alt="Midori High" style="width:76px;height:76px;border-radius:18px"><h1>Midori High</h1><p>Portail administratif</p></div><form id="loginForm" class="form"><div class="field full"><label>E-mail Midori</label><input name="email" type="email" autocomplete="username" required placeholder="votre.adresse@midori.fr"></div><div class="field full"><label>Mot de passe</label><input name="password" type="password" autocomplete="current-password" required placeholder="Votre mot de passe"></div><div id="loginError" class="notice error full" style="display:none;min-height:0"></div><div class="field full"><button type="submit" class="btn primary" style="width:100%">Se connecter</button></div><div class="field full" style="text-align:center"><small class="muted">Mot de passe oublié ? Contactez l’administration pour une réinitialisation.</small></div></form><div class="foot">Midori High · École d’excellence · Portail RP</div></div></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="./config.js"></script>
-<script>
-(function(){
-  const errorEl=document.getElementById('loginError');
-  const btn=document.getElementById('loginButton');
-  const form=document.getElementById('loginForm');
-  function show(msg){ errorEl.textContent=msg||''; errorEl.style.display=msg?'block':'none'; }
-  function msg(e){ const c=e&&e.code||'', m=String(e&&e.message||'').toLowerCase();
-    if(m.includes('invalid api key')||m.includes('api key')) return 'Clé Supabase invalide : vérifiez config.js et la clé Publishable de votre projet.';
-    if(c==='invalid_credentials'||m.includes('invalid login credentials')) return 'E-mail ou mot de passe incorrect.';
-    if(c==='email_not_confirmed'||m.includes('email not confirmed')) return 'Ce compte n’est pas confirmé dans Supabase Authentication.';
-    if(c==='user_not_found') return 'Aucun compte Supabase ne correspond à cette adresse e-mail.';
-    return (e&&e.message)||'Une erreur est survenue pendant la connexion.';
-  }
-  if(!window.supabase){ show('La bibliothèque Supabase ne s’est pas chargée. Rechargez la page.'); return; }
-  if(!window.MIDORI_CONFIG){ show('La configuration Midori High est introuvable.'); return; }
-  let sb;
-  try { sb=window.supabase.createClient(MIDORI_CONFIG.SUPABASE_URL,MIDORI_CONFIG.SUPABASE_KEY); }
-  catch(e){ show(msg(e)); return; }
-  form.addEventListener('submit', async function(e){
-    e.preventDefault(); e.stopPropagation();
-    show(''); btn.disabled=true; btn.textContent='Connexion…';
-    const email=String(form.elements.email.value||'').trim().toLowerCase();
-    const password=String(form.elements.password.value||'');
-    if(!email){show('Veuillez saisir votre e-mail Midori.');btn.disabled=false;btn.textContent='Se connecter';return;}
-    if(!password){show('Veuillez saisir votre mot de passe.');btn.disabled=false;btn.textContent='Se connecter';return;}
-    try{
-      const r=await sb.auth.signInWithPassword({email,password});
-      if(r.error) throw r.error;
-      const user=r.data.user;
-      if(!user) throw new Error('Connexion réussie mais utilisateur introuvable.');
-      const p=await sb.from('profiles').select('*').eq('id',user.id).maybeSingle();
-      if(p.error) throw p.error;
-      if(!p.data){await sb.auth.signOut();throw new Error('Connexion réussie, mais aucun profil Midori High n’est lié à ce compte.');}
-      if(p.data.active===false){await sb.auth.signOut();throw new Error('Votre accès au portail est désactivé. Contactez l’administration.');}
-      const home={admin:'dashboard.html',professor:'prof-space.html',surveillant:'supervisor-space.html',student:'student-space.html',psychologue:'psych-space.html',infirmiere:'nurse-space.html'};
-      location.replace('./'+(home[p.data.role]||'dashboard.html'));
-    }catch(e){console.error('Midori High login:',e);show(msg(e));}
-    finally{btn.disabled=false;btn.textContent='Se connecter';}
-  });
-})();
-</script>
+<script src="config.js"></script>
+<script src="app.js"></script>
 </body>
 </html>

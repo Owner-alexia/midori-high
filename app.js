@@ -227,7 +227,7 @@ function shell(p) {
     <div class="page-shell">
       <aside class="sidebar" id="sidebar">
         <div class="brand">
-          <img class="school-logo" src="./assets/midori-high-logo.jpeg" alt="Midori High">
+          <img class="school-logo" src="assets/midori-high-logo.jpeg" alt="Midori High">
           <div><strong>Midori High</strong><small>Portail administratif</small></div>
         </div>
         <nav class="nav">${nav}</nav>
@@ -539,8 +539,6 @@ function showLoginError(message) {
 }
 
 async function initLogin() {
-  // La page index.html gère désormais la connexion elle-même.
-  if (location.pathname.split('/').pop() === 'index.html' || location.pathname.endsWith('/')) return;
   const form = qs('#loginForm');
   if (!form) return;
 
@@ -1165,8 +1163,21 @@ async function renderAccess(p) {
     try {
       b.disabled = true;
       b.textContent = 'Suppression…';
+      // On envoie explicitement la session de l'administrateur à l'Edge Function.
+      // Cela évite que Supabase considère l'appel comme anonyme sur certains hébergements.
+      const sessionResult = await sb.auth.getSession();
+      if (sessionResult.error) throw sessionResult.error;
+
+      const activeSession = sessionResult.data?.session;
+      if (!activeSession?.access_token) {
+        throw new Error('Votre session administrateur a expiré. Reconnectez-vous au portail puis réessayez.');
+      }
+
       const { data, error } = await sb.functions.invoke('admin-delete-user', {
-        body: { user_id: id }
+        body: { user_id: id },
+        headers: {
+          Authorization: `Bearer ${activeSession.access_token}`
+        }
       });
       if (error) {
         let message = errMsg(error);
