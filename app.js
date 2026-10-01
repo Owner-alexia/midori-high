@@ -1010,7 +1010,7 @@ async function renderAccess(p) {
         <p class="muted">« Supprimer définitivement » supprime le compte Supabase Authentication via une fonction serveur sécurisée. Cette action est irréversible.</p>
       </div>
     </div>` +
-    `<div class="card" style="margin-top:15px"><h3>Comptes portail</h3><div class="table-wrap" style="margin-top:10px"><table class="table"><thead><tr><th>E-mail</th><th>Identifiant</th><th>Nom</th><th>Rôle</th><th>État</th><th>Créé</th><th>Actions</th></tr></thead><tbody>${profs.map(x => `<tr><td>${esc(x.email)}</td><td>${esc(x.username)}</td><td>${esc(x.full_name)}</td><td>${badge(ROLE_LABEL[x.role] || x.role)}</td><td>${x.active ? '<span class="tag">Actif</span>' : '<span class="tag red">Révoqué</span>'}</td><td>${dtFR(x.created_at)}</td><td><div class="actions"><button class="btn secondary small" data-edit-profile="${esc(x.id)}">Modifier</button><button class="btn secondary small" data-change-email="${esc(x.id)}" data-current-email="${esc(x.email || '')}">✉️ E-mail</button>${String(x.id) === String(p.id) ? '' : `<button class="btn ${x.active ? 'danger' : 'secondary'} small" data-toggle-profile="${esc(x.id)}" data-current="${x.active ? 'true' : 'false'}">${x.active ? 'Révoquer l’accès' : 'Réactiver'}</button><button class="btn danger small" data-delete-profile="${esc(x.id)}" data-profile-email="${esc(x.email || '')}">🗑️ Supprimer définitivement</button>`}</div></td></tr>`).join('') || tableEmpty(7)}</tbody></table></div></div>`;
+    `<div class="card" style="margin-top:15px"><h3>Comptes portail</h3><div class="table-wrap" style="margin-top:10px"><table class="table"><thead><tr><th>E-mail</th><th>Identifiant</th><th>Nom</th><th>Rôle</th><th>État</th><th>Créé</th><th>Actions</th></tr></thead><tbody>${profs.map(x => `<tr><td>${esc(x.email)}</td><td>${esc(x.username)}</td><td>${esc(x.full_name)}</td><td>${badge(ROLE_LABEL[x.role] || x.role)}</td><td>${x.active ? '<span class="tag">Actif</span>' : '<span class="tag red">Révoqué</span>'}</td><td>${dtFR(x.created_at)}</td><td><div class="actions"><button class="btn secondary small" data-edit-profile="${esc(x.id)}">Modifier</button><button type="button" class="btn secondary small" data-change-email="${esc(x.id)}" data-current-email="${esc(x.email || '')}">✉️ E-mail</button>${String(x.id) === String(p.id) ? '' : `<button class="btn ${x.active ? 'danger' : 'secondary'} small" data-toggle-profile="${esc(x.id)}" data-current="${x.active ? 'true' : 'false'}">${x.active ? 'Révoquer l’accès' : 'Réactiver'}</button><button class="btn danger small" data-delete-profile="${esc(x.id)}" data-profile-email="${esc(x.email || '')}">🗑️ Supprimer définitivement</button>`}</div></td></tr>`).join('') || tableEmpty(7)}</tbody></table></div></div>`;
 
   const form = qs('#accessForm');
   const formTitle = qs('#accessFormTitle');
@@ -1180,8 +1180,14 @@ async function renderAccess(p) {
     try {
       b.disabled = true;
       b.textContent = 'Modification…';
+      const { data: sessionData, error: sessionError } = await sb.auth.getSession();
+      if (sessionError) throw sessionError;
+      const accessToken = sessionData?.session?.access_token;
+      if (!accessToken) throw new Error('Votre session administrateur a expiré. Déconnectez-vous puis reconnectez-vous.');
+
       const { data, error } = await sb.functions.invoke('admin-update-user-email', {
-        body: { user_id: id, new_email: normalized }
+        body: { user_id: id, new_email: normalized },
+        headers: { Authorization: `Bearer ${accessToken}` }
       });
       if (error) {
         let message = errMsg(error);
@@ -1193,7 +1199,12 @@ async function renderAccess(p) {
       }
       if (data?.error) throw new Error(data.error);
       toast(`E-mail modifié : ${normalized}`);
-      location.reload();
+      const row = b.closest('tr');
+      const emailCell = row?.querySelector('td');
+      if (emailCell) emailCell.textContent = normalized;
+      b.dataset.currentEmail = normalized;
+      b.disabled = false;
+      b.textContent = '✉️ E-mail';
     } catch (er) {
       console.error('Modification e-mail :', er);
       b.disabled = false;
