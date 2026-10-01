@@ -227,7 +227,13 @@ function shell(p) {
     <div class="page-shell">
       <aside class="sidebar" id="sidebar">
         <div class="brand">
-          <div class="school-logo sidebar-school-logo" role="img" aria-label="Midori High"></div>
+          <svg class="school-logo" viewBox="0 0 64 64" role="img" aria-label="Midori High" xmlns="http://www.w3.org/2000/svg">
+            <defs><linearGradient id="midoriLogoGradient" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#bfe9f1"/><stop offset="100%" stop-color="#f6c6dc"/></linearGradient></defs>
+            <path d="M32 3 57 13v18c0 15-10 25-25 30C17 56 7 46 7 31V13L32 3Z" fill="url(#midoriLogoGradient)" stroke="#6b8790" stroke-width="2"/>
+            <path d="M18 22h28M18 29h28M18 36h28" stroke="#fff" stroke-width="2" stroke-linecap="round" opacity=".9"/>
+            <text x="32" y="34" text-anchor="middle" font-family="Georgia,serif" font-size="18" font-weight="700" fill="#345b63">MI</text>
+            <text x="32" y="49" text-anchor="middle" font-family="Arial,sans-serif" font-size="7" font-weight="700" fill="#345b63">1990</text>
+          </svg>
           <div><strong>Midori High</strong><small>Portail administratif</small></div>
         </div>
         <nav class="nav">${nav}</nav>
@@ -745,13 +751,43 @@ async function renderTimetable() {
 }
 
 async function professorRow(p) {
-  const r = await sb.from('professors').select('*').eq('username', p.username).maybeSingle();
-  if (r.error) throw r.error;
-  if (!r.data) throw new Error('Votre fiche professeur n’existe pas encore. Demandez à l’administration de la créer avec le même pseudo.');
-  return r.data;
+  if (p?.professor_id) {
+    const linked = await sb.from('professors').select('*').eq('id', p.professor_id).maybeSingle();
+    if (linked.error) throw linked.error;
+    if (linked.data) return linked.data;
+  }
+
+  const username = String(p?.username || '').trim();
+  if (username) {
+    const fallback = await sb.from('professors').select('*').eq('username', username).maybeSingle();
+    if (fallback.error) throw fallback.error;
+    if (fallback.data) return fallback.data;
+  }
+
+  throw new Error(
+    'Aucune fiche professeur ne correspond à cet accès. Vérifiez que le compte portail est bien relié à une fiche professeur.'
+  );
 }
 async function professorClasses(profId) {
   return rows('professor_classes', 'class_id,classes(id,name)', { order: 'created_at' }).then(x => x.filter(a => a.class_id).filter(a => a.classes));
+}
+async function supervisorRow(p) {
+  if (p?.supervisor_id) {
+    const linked = await sb.from('supervisors').select('*').eq('id', p.supervisor_id).maybeSingle();
+    if (linked.error) throw linked.error;
+    if (linked.data) return linked.data;
+  }
+
+  const username = String(p?.username || '').trim();
+  if (username) {
+    const fallback = await sb.from('supervisors').select('*').eq('username', username).maybeSingle();
+    if (fallback.error) throw fallback.error;
+    if (fallback.data) return fallback.data;
+  }
+
+  throw new Error(
+    'Aucune fiche surveillant ne correspond à cet accès. Vérifiez que le compte portail est bien relié à une fiche surveillant.'
+  );
 }
 
 async function renderAttendance(p, profOnly = false) {
@@ -1010,7 +1046,7 @@ async function renderAccess(p) {
         <p class="muted">« Supprimer définitivement » supprime le compte Supabase Authentication via une fonction serveur sécurisée. Cette action est irréversible.</p>
       </div>
     </div>` +
-    `<div class="card" style="margin-top:15px"><h3>Comptes portail</h3><div class="table-wrap" style="margin-top:10px"><table class="table"><thead><tr><th>E-mail</th><th>Identifiant</th><th>Nom</th><th>Rôle</th><th>État</th><th>Créé</th><th>Actions</th></tr></thead><tbody>${profs.map(x => `<tr><td>${esc(x.email)}</td><td>${esc(x.username)}</td><td>${esc(x.full_name)}</td><td>${badge(ROLE_LABEL[x.role] || x.role)}</td><td>${x.active ? '<span class="tag">Actif</span>' : '<span class="tag red">Révoqué</span>'}</td><td>${dtFR(x.created_at)}</td><td><div class="actions"><button class="btn secondary small" data-edit-profile="${esc(x.id)}">Modifier</button>${String(x.id) === String(p.id) ? '' : `<button class="btn ${x.active ? 'danger' : 'secondary'} small" data-toggle-profile="${esc(x.id)}" data-current="${x.active ? 'true' : 'false'}">${x.active ? 'Révoquer l’accès' : 'Réactiver'}</button><button class="btn danger small" data-delete-profile="${esc(x.id)}" data-profile-email="${esc(x.email || '')}">🗑️ Supprimer définitivement</button>`}</div></td></tr>`).join('') || tableEmpty(7)}</tbody></table></div></div>`;
+    `<div class="card" style="margin-top:15px"><h3>Comptes portail</h3><div class="table-wrap" style="margin-top:10px"><table class="table"><thead><tr><th>E-mail</th><th>Identifiant</th><th>Nom</th><th>Rôle</th><th>État</th><th>Créé</th><th>Actions</th></tr></thead><tbody>${profs.map(x => `<tr><td>${esc(x.email)}</td><td>${esc(x.username)}</td><td>${esc(x.full_name)}</td><td>${badge(ROLE_LABEL[x.role] || x.role)}</td><td>${x.active ? '<span class="tag">Actif</span>' : '<span class="tag red">Révoqué</span>'}</td><td>${dtFR(x.created_at)}</td><td><div class="actions"><button class="btn secondary small" data-edit-profile="${esc(x.id)}">Modifier</button><button type="button" class="btn secondary small" data-change-email="${esc(x.id)}" data-current-email="${esc(x.email || '')}">✉️ E-mail</button><button type="button" class="btn secondary small" data-relink-auth="${esc(x.id)}">🔗 Relier Auth</button>${String(x.id) === String(p.id) ? '' : `<button class="btn ${x.active ? 'danger' : 'secondary'} small" data-toggle-profile="${esc(x.id)}" data-current="${x.active ? 'true' : 'false'}">${x.active ? 'Révoquer l’accès' : 'Réactiver'}</button><button class="btn danger small" data-delete-profile="${esc(x.id)}" data-profile-email="${esc(x.email || '')}">🗑️ Supprimer définitivement</button>`}</div></td></tr>`).join('') || tableEmpty(7)}</tbody></table></div></div>`;
 
   const form = qs('#accessForm');
   const formTitle = qs('#accessFormTitle');
@@ -1055,8 +1091,8 @@ async function renderAccess(p) {
   const startEdit = profile => {
     idInput.value = profile.id;
     emailInput.value = profile.email || '';
-    emailInput.readOnly = true;
-    emailInput.style.opacity = '.7';
+    emailInput.readOnly = false;
+    emailInput.style.opacity = '';
     roleSelect.value = profile.role || 'student';
     rebuildLinkOptions(profile.student_id || profile.professor_id || profile.supervisor_id || '');
     usernameInput.value = profile.username || '';
@@ -1096,7 +1132,32 @@ async function renderAccess(p) {
 
       if (editingId) {
         if (editingId === String(p.id) && (fd.get('active') === 'false' || role !== 'admin')) throw new Error('Vous ne pouvez pas désactiver ou retirer votre propre rôle administrateur ici.');
+
+        const newEmail = String(fd.get('email') || '').trim().toLowerCase();
+        if (!newEmail.endsWith('@midori.fr')) {
+          throw new Error('L’e-mail d’accès doit obligatoirement être une adresse @midori.fr.');
+        }
+
+        const oldProfile = profs.find(x => String(x.id) === editingId);
+        const oldEmail = String(oldProfile?.email || '').trim().toLowerCase();
+
+        if (newEmail !== oldEmail) {
+          const { data: emailResult, error: emailError } = await sb.functions.invoke('admin-update-user-email', {
+            body: { user_id: editingId, new_email: newEmail }
+          });
+          if (emailError) {
+            let message = errMsg(emailError);
+            try {
+              const ctx = await emailError.context?.json?.();
+              if (ctx?.error) message = ctx.error;
+            } catch (_) {}
+            throw new Error(message);
+          }
+          if (emailResult?.error) throw new Error(emailResult.error);
+        }
+
         const r = await update('profiles', editingId, {
+          email: newEmail,
           username: String(fd.get('username') || '').trim(),
           full_name: String(fd.get('full_name') || '').trim(),
           role,
@@ -1135,6 +1196,128 @@ async function renderAccess(p) {
     if (profile) startEdit(profile);
   });
 
+  qsa('[data-change-email]').forEach(b => b.onclick = async () => {
+    const id = b.dataset.changeEmail;
+    const currentEmail = b.dataset.currentEmail || '';
+    const profile = profs.find(x => String(x.id) === String(id));
+    const name = profile?.full_name || profile?.username || 'cet utilisateur';
+    const newEmail = prompt(`Nouvel e-mail Midori pour ${name}\n\nAdresse actuelle : ${currentEmail}\n\nEntrez une adresse @midori.fr :`, currentEmail);
+    if (newEmail === null) return;
+    const normalized = newEmail.trim().toLowerCase();
+    if (!normalized) return;
+    if (!normalized.endsWith('@midori.fr')) {
+      toast('L’e-mail doit se terminer par @midori.fr.', 'error');
+      return;
+    }
+    if (normalized === currentEmail.toLowerCase()) {
+      toast('Aucun changement.');
+      return;
+    }
+    try {
+      b.disabled = true;
+      b.textContent = 'Modification…';
+      const { data: sessionData, error: sessionError } = await sb.auth.getSession();
+      if (sessionError) throw sessionError;
+      const accessToken = sessionData?.session?.access_token;
+      if (!accessToken) throw new Error('Votre session administrateur a expiré. Déconnectez-vous puis reconnectez-vous.');
+
+      const { data, error } = await sb.functions.invoke('admin-update-user-email', {
+        body: { user_id: id, new_email: normalized },
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+      if (error) {
+        let message = errMsg(error);
+        try {
+          const ctx = await error.context?.json?.();
+          if (ctx?.error) message = ctx.error;
+        } catch (_) {}
+        throw new Error(message);
+      }
+      if (data?.error) throw new Error(data.error);
+      toast(`E-mail modifié : ${normalized}`);
+      const row = b.closest('tr');
+      const emailCell = row?.querySelector('td');
+      if (emailCell) emailCell.textContent = normalized;
+      b.dataset.currentEmail = normalized;
+      b.disabled = false;
+      b.textContent = '✉️ E-mail';
+    } catch (er) {
+      console.error('Modification e-mail :', er);
+      b.disabled = false;
+      b.textContent = '✉️ E-mail';
+      toast(errMsg(er), 'error');
+    }
+  });
+
+  qsa('[data-relink-auth]').forEach(b => b.onclick = async () => {
+    const profileId = b.dataset.relinkAuth;
+    const profile = profs.find(x => String(x.id) === String(profileId));
+    const name = profile?.full_name || profile?.username || 'cet utilisateur';
+
+    const authEmail = prompt(
+      `Adresse du NOUVEAU compte Supabase Authentication pour ${name}\n\n` +
+      `Le compte doit déjà avoir été créé dans Authentication → Users.\n` +
+      `Utilisez son adresse @midori.fr :`,
+      ''
+    );
+
+    if (authEmail === null) return;
+
+    const normalized = authEmail.trim().toLowerCase();
+    if (!normalized) return;
+
+    if (!normalized.endsWith('@midori.fr')) {
+      toast('Le compte Auth doit utiliser une adresse @midori.fr.', 'error');
+      return;
+    }
+
+    if (!confirm(`Relier le profil « ${name} » au compte Auth ${normalized} ?\n\nLes données du profil Midori seront conservées.`)) {
+      return;
+    }
+
+    try {
+      b.disabled = true;
+      b.textContent = 'Liaison…';
+
+      const { data: sessionData, error: sessionError } = await sb.auth.getSession();
+      if (sessionError) throw sessionError;
+
+      const accessToken = sessionData?.session?.access_token;
+      if (!accessToken) {
+        throw new Error('Votre session administrateur a expiré. Déconnectez-vous puis reconnectez-vous.');
+      }
+
+      const { data, error } = await sb.functions.invoke('admin-relink-profile', {
+        body: {
+          profile_id: profileId,
+          auth_email: normalized
+        },
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      });
+
+      if (error) {
+        let message = errMsg(error);
+        try {
+          const ctx = await error.context?.json?.();
+          if (ctx?.error) message = ctx.error;
+        } catch (_) {}
+        throw new Error(message);
+      }
+
+      if (data?.error) throw new Error(data.error);
+
+      toast(`Compte Auth relié : ${normalized}`);
+      setTimeout(() => location.reload(), 700);
+    } catch (er) {
+      console.error('Liaison profil / Auth :', er);
+      b.disabled = false;
+      b.textContent = '🔗 Relier Auth';
+      toast(errMsg(er), 'error');
+    }
+  });
+
   qsa('[data-toggle-profile]').forEach(b => b.onclick = async () => {
     const isActive = b.dataset.current === 'true';
     if (!confirm(isActive ? 'Révoquer l’accès de ce compte au portail ?' : 'Réactiver l’accès de ce compte ?')) return;
@@ -1163,21 +1346,8 @@ async function renderAccess(p) {
     try {
       b.disabled = true;
       b.textContent = 'Suppression…';
-      // On envoie explicitement la session de l'administrateur à l'Edge Function.
-      // Cela évite que Supabase considère l'appel comme anonyme sur certains hébergements.
-      const sessionResult = await sb.auth.getSession();
-      if (sessionResult.error) throw sessionResult.error;
-
-      const activeSession = sessionResult.data?.session;
-      if (!activeSession?.access_token) {
-        throw new Error('Votre session administrateur a expiré. Reconnectez-vous au portail puis réessayez.');
-      }
-
       const { data, error } = await sb.functions.invoke('admin-delete-user', {
-        body: { user_id: id },
-        headers: {
-          Authorization: `Bearer ${activeSession.access_token}`
-        }
+        body: { user_id: id }
       });
       if (error) {
         let message = errMsg(error);
