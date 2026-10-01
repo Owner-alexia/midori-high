@@ -227,7 +227,7 @@ function shell(p) {
     <div class="page-shell">
       <aside class="sidebar" id="sidebar">
         <div class="brand">
-          <img class="school-logo" src="assets/midori-high-logo.jpg" alt="Midori High">
+          <img class="school-logo" src="./midori-high-logo.jpg?v=20261001" alt="Midori High">
           <div><strong>Midori High</strong><small>Portail administratif</small></div>
         </div>
         <nav class="nav">${nav}</nav>
