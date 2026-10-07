@@ -277,7 +277,7 @@ function shell(p) {
   navForProfile(p).forEach(group => {
     nav += `<div class="nav-section">${esc(group[0])}</div>`;
     group[1].forEach(item => {
-      nav += `<a href="${item[0]}" class="${page === item[0] ? 'active' : ''}"><span>${item[1]}</span><span style="display:flex;gap:7px;align-items:center">${esc(item[2])}${item[0] === 'messages.html' ? '<span id="mailBadge" class="tag red" style="display:none;padding:2px 6px;font-size:10px"></span>' : ''}</span></a>`;
+      nav += `<a href="${item[0]}" class="${page === item[0] ? 'active' : ''}" ${item[0] === 'wl.html' ? 'data-portal-nav="recruteur_wl"' : ''}><span>${item[1]}</span><span style="display:flex;gap:7px;align-items:center">${esc(item[2])}${item[0] === 'messages.html' ? '<span id="mailBadge" class="tag red" style="display:none;padding:2px 6px;font-size:10px"></span>' : ''}</span></a>`;
     });
   });
   document.body.className = '';
@@ -309,6 +309,7 @@ function shell(p) {
   qs('#logout').onclick = logout;
   qs('#menu').onclick = () => qs('#sidebar').classList.toggle('open');
   qsa('[data-portal-function]').forEach(b => b.addEventListener('click', () => setPortalMode(b.dataset.portalFunction, p)));
+  qsa('[data-portal-nav="recruteur_wl"]').forEach(a => a.addEventListener('click', (e) => { e.preventDefault(); setPortalMode('recruteur_wl', p); }));
   loadUnreadBadge();
 }
 
