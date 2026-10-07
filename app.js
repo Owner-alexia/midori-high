@@ -27,7 +27,7 @@ const NAV = {
   recruteur_wl: [
     ['Recrutement WL', [
       ['wl.html', '📋', 'Registre WL'],
-      ['profile-management.html', '👥', 'Gestion des profils'],
+      ['wl.html?view=profiles', '👥', 'Gestion des profils'],
       ['migration.html', '🔄', 'Migration des profils'],
       ['profiles.html', '🔄', 'Mes profils'],
       ['profile.html', '👤', 'Mon profil']
@@ -59,7 +59,7 @@ const NAV = {
       ['supervisor-reports.html', '📄', 'Rapports surveillants']
     ]],
     ['Administration', [
-      ['profile-management.html', '👥', 'Gestion des profils'],
+      ['wl.html?view=profiles', '👥', 'Gestion des profils'],
       ['access.html', '🔐', 'Accès & comptes'],
       ['logs.html', '🕘', 'Journal d’activité'],
       ['profile.html', '👤', 'Mon profil']
@@ -1940,7 +1940,7 @@ async function init() {
       case 'access.html': await renderAccess(ctx.profile); break;
       case 'profile-management.html': await renderProfileManagement(ctx.profile); break;
       case 'migration.html': await renderMigration(ctx.profile); break;
-      case 'wl.html': await renderWLRegistry(ctx.profile); break;
+      case 'wl.html': if (new URLSearchParams(location.search).get('view') === 'profiles') await renderProfileManagement(ctx.profile); else await renderWLRegistry(ctx.profile); break;
       case 'profiles.html': await renderProfilesChooser(ctx.profile); break;
       case 'logs.html': await renderLogs(); break;
       case 'profile.html': await renderProfile(ctx.profile); break;
