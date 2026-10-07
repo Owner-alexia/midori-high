@@ -27,6 +27,7 @@ const NAV = {
   recruteur_wl: [
     ['Recrutement WL', [
       ['wl.html', '📋', 'Registre WL'],
+      ['profile-management.html', '👥', 'Gestion des profils'],
       ['migration.html', '🔄', 'Migration des profils'],
       ['profiles.html', '🔄', 'Mes profils'],
       ['profile.html', '👤', 'Mon profil']
@@ -58,6 +59,7 @@ const NAV = {
       ['supervisor-reports.html', '📄', 'Rapports surveillants']
     ]],
     ['Administration', [
+      ['profile-management.html', '👥', 'Gestion des profils'],
       ['access.html', '🔐', 'Accès & comptes'],
       ['logs.html', '🕘', 'Journal d’activité'],
       ['profile.html', '👤', 'Mon profil']
@@ -135,7 +137,7 @@ const TITLE = {
   'subjects.html': 'Matières', 'timetable.html': 'Emploi du temps', 'attendance.html': 'Fiches d’appel',
   'absences.html': 'Absences', 'grades.html': 'Notes', 'homework.html': 'Devoirs',
   'points.html': 'Points / Réputation', 'discipline.html': 'Discipline', 'clubs.html': 'Clubs',
-  'access.html': 'Accès & comptes', 'migration.html': 'Migration des profils', 'wl.html': 'Registre WL', 'profiles.html': 'Mes profils', 'logs.html': 'Journal d’activité', 'events.html': 'Calendrier RP', 'profile.html': 'Mon profil',
+  'access.html': 'Accès & comptes', 'profile-management.html': 'Gestion des profils', 'migration.html': 'Migration des profils', 'wl.html': 'Registre WL', 'profiles.html': 'Mes profils', 'logs.html': 'Journal d’activité', 'events.html': 'Calendrier RP', 'profile.html': 'Mon profil',
   'prof-space.html': 'Espace professeur', 'prof-attendance.html': 'Fiches d’appel', 'prof-grades.html': 'Notes',
   'prof-homework.html': 'Devoirs', 'prof-resources.html': 'Ressources', 'prof-timetable.html': 'Emploi du temps',
   'supervisor-space.html': 'Espace surveillant', 'supervisor-absences.html': 'Absences & retards',
@@ -148,7 +150,7 @@ const TITLE = {
 };
 
 const PAGE_ROLES = {
-  'dashboard.html': ['admin'], 'wl.html': ['admin','recruteur_wl'], 'profiles.html': ['admin','recruteur_wl','professor','surveillant','student','psychologue','infirmiere'], 'messages.html': ['admin','professor','surveillant','student','psychologue','infirmiere'], 'homework-submissions.html': ['admin','professor'], 'access.html': ['admin'], 'migration.html': ['admin','recruteur_wl'], 'students.html': ['admin'], 'professors.html': ['admin'],
+  'dashboard.html': ['admin'], 'wl.html': ['admin','recruteur_wl'], 'profiles.html': ['admin','recruteur_wl','professor','surveillant','student','psychologue','infirmiere'], 'messages.html': ['admin','professor','surveillant','student','psychologue','infirmiere'], 'homework-submissions.html': ['admin','professor'], 'access.html': ['admin'], 'profile-management.html': ['admin','recruteur_wl'], 'migration.html': ['admin','recruteur_wl'], 'students.html': ['admin'], 'professors.html': ['admin'],
   'supervisors.html': ['admin'], 'classes.html': ['admin'], 'subjects.html': ['admin'], 'timetable.html': ['admin'],
   'attendance.html': ['admin', 'professor', 'surveillant'], 'absences.html': ['admin', 'professor', 'surveillant'],
   'grades.html': ['admin', 'professor'], 'homework.html': ['admin', 'professor'], 'points.html': ['admin'],
@@ -1117,23 +1119,14 @@ async function renderWLRegistry(p) {
     rpByProfile = Object.fromEntries((profRows || []).map(x => [String(x.id), x.rp_status || 'normal']));
   }
   list.forEach(x => { x.rp_status = rpByProfile[String(x.profile_id)] || 'normal'; });
-  const my = list.filter(x => p.role === 'admin' || String(x.recruiter_profile_id) === String(p.id));
+  // Les recruteurs WL autorisés consultent le registre WL complet, pas uniquement leurs propres recrutements.
+  const my = list;
 
   qs('#app').innerHTML =
     head('Registre WL', 'Registre administratif des personnes déjà validées par votre équipe.') +
     `<div class="notice" style="margin-bottom:15px">🔒 Le site ne communique pas avec Discord. Après votre validation interne, utilisez ce formulaire pour enregistrer la personne dans le registre WL.</div>` +
     `<div class="toolbar"><input id="wlSearch" class="search" placeholder="Rechercher un personnage…"><button id="wlAdd" class="btn primary">＋ Ajouter une WL</button></div>` +
-    `<div class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Personnage</th><th>Discord</th><th>Roblox</th><th>Classe</th><th>Type</th><th>Recruteur</th><th>Identifiant</th><th>Actions</th></tr></thead><tbody id="wlRows">${
-      my.map(x => `<tr data-wl-row data-search="${esc(`${x.rp_last_name} ${x.rp_first_name} ${x.discord_username||''} ${x.roblox_username||''}`.toLowerCase())}">
-        <td><strong>${esc(x.rp_last_name)} ${esc(x.rp_first_name)}</strong></td>
-        <td>${esc(x.discord_username || '—')}</td>
-        <td>${esc(x.roblox_username || '—')}</td>
-        <td>${esc(x.class_name || '—')}</td>
-        <td>${x.is_alt ? '<span class="tag yellow">🟣 ALT PERSO</span>' : '<span class="tag">Principal</span>'}${isStudentProfile(x) ? `<br>${rpStatusBadge(x.rp_status)}` : ''}</td>
-        <td>${esc(x.recruiter_profile_id || '—')}</td>
-        <td>${esc('Voir sur la fiche profil')}</td>
-        <td><a class="btn secondary small" href="migration.html?profile=${encodeURIComponent(x.profile_id)}">✏️ Modifier</a> <button class="btn danger small" data-remove-wl="${esc(x.id)}">🗑️ Retirer</button></td>
-      </tr>`).join('') || tableEmpty(8, 'Aucune WL validée.')}</tbody></table></div></div>` +
+    `<div class="card"><div class="toolbar" style="margin-bottom:12px"><button class="btn secondary" data-wl-tab="students">🎓 Élèves</button><button class="btn secondary" data-wl-tab="staff">🏫 Personnel</button></div><div id="wlStudentsSection"><h3>🎓 Élèves</h3><div class="table-wrap"><table class="table"><thead><tr><th>Personnage</th><th>Discord</th><th>Roblox</th><th>Classe</th><th>Type / Statut RP</th><th>E-mail scolaire</th><th>Actions</th></tr></thead><tbody id="wlStudentRows"></tbody></table></div></div><div id="wlStaffSection" style="display:none"><h3>🏫 Personnel</h3><div class="table-wrap"><table class="table"><thead><tr><th>Personnage</th><th>Fonction</th><th>Discord</th><th>Roblox</th><th>Type</th><th>E-mail scolaire</th><th>Actions</th></tr></thead><tbody id="wlStaffRows"></tbody></table></div></div></div>` +
     modal('wlm', 'Ajouter une WL validée', `<form id="wlf" class="form">
       <div class="field"><label>Nom RP</label><input name="rp_last_name" required></div>
       <div class="field"><label>Prénom RP</label><input name="rp_first_name" required></div>
@@ -1168,6 +1161,18 @@ async function renderWLRegistry(p) {
     </form>`);
 
   qs('#wlAdd').onclick = () => openModal('wlm');
+  const renderWLRows = () => {
+    const q = (qs('#wlSearch')?.value || '').trim().toLowerCase();
+    const filtered = my.filter(x => `${x.rp_last_name||''} ${x.rp_first_name||''} ${x.discord_username||''} ${x.roblox_username||''} ${x.school_email||''} ${x.class_name||''} ${x.function_name||''}`.toLowerCase().includes(q));
+    const row = x => `<tr data-wl-row><td><strong>${esc(x.rp_last_name)} ${esc(x.rp_first_name)}</strong></td><td>${esc(x.discord_username || '—')}</td><td>${esc(x.roblox_username || '—')}</td><td>${esc(x.class_name || '—')}</td><td>${x.is_alt ? '<span class="tag yellow">🟣 ALT PERSO</span>' : '<span class="tag">Principal</span>'}${isStudentProfile(x) ? `<br>${rpStatusBadge(x.rp_status)}` : ''}</td><td>${esc(x.school_email || '—')}</td><td><a class="btn secondary small" href="profile-management.html?profile=${encodeURIComponent(x.profile_id)}">✏️ Modifier</a> <button class="btn danger small" data-remove-wl="${esc(x.id)}">🗑️ Retirer</button></td></tr>`;
+    const staffRow = x => `<tr><td><strong>${esc(x.rp_last_name)} ${esc(x.rp_first_name)}</strong></td><td>${esc(x.function_name || ROLE_LABEL[x.profile_kind] || 'Personnel')}</td><td>${esc(x.discord_username || '—')}</td><td>${esc(x.roblox_username || '—')}</td><td>${x.is_alt ? '<span class="tag yellow">🟣 ALT PERSO</span>' : '<span class="tag">Principal</span>'}</td><td>${esc(x.school_email || '—')}</td><td><a class="btn secondary small" href="profile-management.html?profile=${encodeURIComponent(x.profile_id)}">✏️ Modifier</a> <button class="btn danger small" data-remove-wl="${esc(x.id)}">🗑️ Retirer</button></td></tr>`;
+    qs('#wlStudentRows').innerHTML = filtered.filter(isStudentProfile).map(row).join('') || tableEmpty(7, 'Aucun élève dans le registre WL.');
+    qs('#wlStaffRows').innerHTML = filtered.filter(x => !isStudentProfile(x)).map(staffRow).join('') || tableEmpty(7, 'Aucun personnel dans le registre WL.');
+    qsa('[data-remove-wl]').forEach(b => b.onclick = async () => { if (!confirm('Retirer cette WL du registre actif ? Le profil et son historique ne seront pas supprimés.')) return; try { await update('wl_registry', b.dataset.removeWl, {active:false, removed_at:new Date().toISOString(), removed_by:p.id}); await log('update','wl_registry',b.dataset.removeWl,{active:false}); toast('WL retirée du registre actif.'); location.reload(); } catch (er) { toast(errMsg(er), 'error'); } });
+  };
+  qs('#wlSearch').oninput = renderWLRows;
+  qsa('[data-wl-tab]').forEach(b => b.onclick = () => { const student = b.dataset.wlTab === 'students'; qs('#wlStudentsSection').style.display = student ? '' : 'none'; qs('#wlStaffSection').style.display = student ? 'none' : ''; });
+  renderWLRows();
   closeBindings();
   const wlKind = qs('#wlf')?.querySelector('[name=profile_kind]');
   const wlStatusField = qs('#wlRpStatusField');
@@ -1346,6 +1351,27 @@ async function renderMigration(p) {
   linkBtn.onclick=async()=>{ if(!selectedProfile||!selectedPerson)return; if(!confirm(`Rattacher « ${selectedProfile.full_name||'ce profil'} » à « ${(profileNames[selectedPerson.id]||[]).join(', ')||'cette personne'} » ?\n\nAucun profil ne sera supprimé.`))return; try{const {error}=await sb.rpc('midori_migrate_link_profile',{p_profile_id:selectedProfile.profile_id,p_target_person_id:selectedPerson.id});if(error)throw error;toast('Profil rattaché.');location.reload();}catch(e){toast(errMsg(e),'error')}};
   editBtn.onclick=()=>{if(!selectedProfile)return;const f=qs('#migEditForm');f.profile_id.value=selectedProfile.profile_id;f.full_name.value=selectedProfile.full_name||'';f.discord_username.value=selectedProfile.discord_username||'';f.roblox_username.value=selectedProfile.roblox_username||'';f.class_name.value=selectedProfile.class_name||'';f.profile_kind.value=selectedProfile.profile_kind||selectedProfile.role||'student';f.is_alt.value=String(!!selectedProfile.is_alt);f.rp_status.value=selectedProfile.rp_status||'normal';f.rp_status_reason.value='';f.school_email.value=selectedProfile.school_email||'';const migIsStudent=isStudentProfile(selectedProfile);qs('#migRpStatusField').style.display=migIsStudent?'':'none';qs('#migRpStatusReasonField').style.display=migIsStudent?'':'none';openModal('migEditModal');closeBindings();};
   qs('#migEditForm').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);try{const {error}=await sb.rpc('midori_migrate_update_profile',{p_profile_id:f.get('profile_id'),p_full_name:String(f.get('full_name')||'').trim(),p_discord_username:String(f.get('discord_username')||'').trim()||null,p_roblox_username:String(f.get('roblox_username')||'').trim()||null,p_class_name:String(f.get('class_name')||'').trim()||null,p_profile_kind:String(f.get('profile_kind')||'student'),p_is_alt:f.get('is_alt')==='true',p_school_email:String(f.get('school_email')||'').trim().toLowerCase()||null});if(error)throw error;if(String(f.get('profile_kind')||'student')==='student'){const {error:se}=await sb.rpc('midori_set_rp_status',{p_profile_id:f.get('profile_id'),p_status:f.get('rp_status'),p_reason:String(f.get('rp_status_reason')||'').trim()||null});if(se)throw se;}toast('Profil corrigé.');closeModal('migEditModal');location.reload();}catch(e){toast(errMsg(e),'error')}};
+}
+
+async function renderProfileManagement(p) {
+  if (!['admin','recruteur_wl'].includes(p.role)) throw new Error('Accès réservé aux recruteurs WL et administrateurs.');
+  const { data: profiles, error } = await sb.rpc('midori_migration_search_profiles', { p_search: '' });
+  if (error) throw error;
+  const allProfiles = profiles || [];
+  const activeRows = allProfiles.filter(x => x.active !== false);
+  qs('#app').innerHTML = head('Gestion des profils', 'Nettoyez et corrigez les anciens profils un par un sans supprimer leurs données.') +
+    `<div class="notice" style="margin-bottom:15px">🛠️ Utilisez cette page pour corriger les anciens pseudos Discord/Roblox, le nom RP, la classe ou l’e-mail scolaire. La migration sert ensuite uniquement à rattacher plusieurs profils à la même personne.</div>` +
+    `<div class="toolbar"><input id="pmSearch" class="search" placeholder="Rechercher par nom RP, Discord, Roblox ou e-mail…"><span class="muted" id="pmCount"></span></div>` +
+    `<div class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Profil</th><th>Discord</th><th>Roblox</th><th>Type</th><th>Principal / ALT</th><th>E-mail scolaire</th><th>État</th><th>Actions</th></tr></thead><tbody id="pmRows"></tbody></table></div></div>` +
+    modal('pmEditModal','Modifier le profil',`<form id="pmEditForm" class="form"><input type="hidden" name="profile_id"><div class="field"><label>Nom complet / RP</label><input name="full_name" required></div><div class="field"><label>Pseudo Discord</label><input name="discord_username"></div><div class="field"><label>Pseudo Roblox</label><input name="roblox_username"></div><div class="field"><label>Classe</label><input name="class_name"></div><div class="field"><label>Type de profil</label><select name="profile_kind"><option value="student">Élève</option><option value="professor">Professeur</option><option value="surveillant">Surveillant</option><option value="psychologue">Psychologue</option><option value="infirmiere">Infirmière</option></select></div><div class="field"><label>Personnage</label><select name="is_alt"><option value="false">Principal</option><option value="true">ALT PERSO</option></select></div><div class="field" id="pmStatusField"><label>Statut RP (élève uniquement)</label><select name="rp_status"><option value="normal">🟢 Normal</option><option value="delinquant">🔴 Délinquant</option><option value="parfait">⭐ Parfait</option></select></div><div class="field" id="pmReasonField"><label>Motif du changement (élève uniquement)</label><input name="rp_status_reason"></div><div class="field full"><label>E-mail scolaire / identifiant du portail</label><input name="school_email" type="email"></div><div class="field full"><button class="btn primary">💾 Enregistrer les corrections</button></div></form>`);
+  const search=qs('#pmSearch'), tbody=qs('#pmRows'), count=qs('#pmCount');
+  const render=()=>{ const q=search.value.trim().toLowerCase(); const rows=activeRows.filter(x=>!q||`${x.full_name||''} ${x.discord_username||''} ${x.roblox_username||''} ${x.school_email||''} ${x.class_name||''}`.toLowerCase().includes(q)); count.textContent=`${rows.length} profil(s) affiché(s)`; tbody.innerHTML=rows.map(x=>`<tr><td><strong>${esc(x.full_name||'Sans nom')}</strong></td><td>${esc(x.discord_username||'—')}</td><td>${esc(x.roblox_username||'—')}</td><td>${esc(ROLE_LABEL[x.profile_kind]||ROLE_LABEL[x.role]||x.profile_kind||'—')}</td><td>${x.is_alt?'<span class="tag yellow">🟣 ALT</span>':'<span class="tag">Principal</span>'}</td><td>${esc(x.school_email||'—')}</td><td>${x.active===false?'<span class="tag red">Inactif</span>':'<span class="tag green">Actif</span>'}</td><td><button class="btn secondary small" data-pm-edit="${esc(x.profile_id)}">✏️ Modifier</button> <a class="btn secondary small" href="migration.html?profile=${encodeURIComponent(x.profile_id)}">🔗 Migration</a></td></tr>`).join('')||tableEmpty(8,'Aucun profil trouvé.');
+    qsa('[data-pm-edit]').forEach(b=>b.onclick=()=>{const x=allProfiles.find(v=>String(v.profile_id)===String(b.dataset.pmEdit)); if(!x)return; const f=qs('#pmEditForm'); f.profile_id.value=x.profile_id; f.full_name.value=x.full_name||''; f.discord_username.value=x.discord_username||''; f.roblox_username.value=x.roblox_username||''; f.class_name.value=x.class_name||''; f.profile_kind.value=x.profile_kind||x.role||'student'; f.is_alt.value=String(!!x.is_alt); f.rp_status.value=x.rp_status||'normal'; f.rp_status_reason.value=''; f.school_email.value=x.school_email||''; const student=isStudentProfile(x); qs('#pmStatusField').style.display=student?'':'none'; qs('#pmReasonField').style.display=student?'':'none'; openModal('pmEditModal'); closeBindings();});
+  };
+  search.oninput=render;
+  qs('#pmEditForm').onsubmit=async e=>{e.preventDefault(); const f=new FormData(e.target); try { const kind=String(f.get('profile_kind')||'student'); const {error:ue}=await sb.rpc('midori_migrate_update_profile',{p_profile_id:f.get('profile_id'),p_full_name:String(f.get('full_name')||'').trim(),p_discord_username:String(f.get('discord_username')||'').trim()||null,p_roblox_username:String(f.get('roblox_username')||'').trim()||null,p_class_name:String(f.get('class_name')||'').trim()||null,p_profile_kind:kind,p_is_alt:f.get('is_alt')==='true',p_school_email:String(f.get('school_email')||'').trim().toLowerCase()||null}); if(ue)throw ue; if(kind==='student'){const {error:se}=await sb.rpc('midori_set_rp_status',{p_profile_id:f.get('profile_id'),p_status:f.get('rp_status'),p_reason:String(f.get('rp_status_reason')||'').trim()||null}); if(se)throw se;} toast('Profil corrigé.'); closeModal('pmEditModal'); location.reload(); } catch(e){toast(errMsg(e),'error');}};
+  const wanted=new URLSearchParams(location.search).get('profile'); if(wanted){search.value=''; const x=allProfiles.find(v=>String(v.profile_id)===String(wanted)); if(x){render(); setTimeout(()=>qs(`[data-pm-edit="${CSS.escape(wanted)}"]`)?.click(),0);}}
+  render();
 }
 
 async function renderAccess(p) {
@@ -1912,6 +1938,7 @@ async function init() {
       case 'clubs.html': await renderAdminClubs(); break;
       case 'events.html': await renderEvents(ctx.profile); break;
       case 'access.html': await renderAccess(ctx.profile); break;
+      case 'profile-management.html': await renderProfileManagement(ctx.profile); break;
       case 'migration.html': await renderMigration(ctx.profile); break;
       case 'wl.html': await renderWLRegistry(ctx.profile); break;
       case 'profiles.html': await renderProfilesChooser(ctx.profile); break;
