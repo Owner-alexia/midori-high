@@ -1078,13 +1078,83 @@ async function renderWLRegistry(p) {
       <div class="field"><label>Club</label><input name="club"></div>
       <div class="field"><label>Fonction</label><input name="function_name"></div>
       <div class="field"><label>E-mail scolaire (optionnel)</label><input name="school_email" type="email" placeholder="prenom@midori.fr"></div>
-      <div class="field full"><label>Personne existante (laisser vide pour une nouvelle personne)</label><input name="person_id" placeholder="ID de la personne si ALT / profil supplémentaire"></div>
-      <div class="field full"><div class="notice">La WL doit déjà avoir été validée sur Discord avant cet enregistrement. Pour un ALT d'une personne existante, indiquez son <code>person_id</code>. Le compte de connexion n'est pas créé ici.</div></div>
+      <div class="field full"><label>Rattachement de la personne</label>
+        <select name="person_mode" id="wlPersonMode">
+          <option value="new">➕ Nouvelle personne</option>
+          <option value="existing">🔎 Personne existante</option>
+        </select>
+      </div>
+      <div class="field full" id="wlExistingWrap" style="display:none">
+        <label>Rechercher une personne existante</label>
+        <input id="wlPersonSearch" autocomplete="off" placeholder="Discord ou Roblox…">
+        <select name="person_id" id="wlPersonSelect" size="4" style="margin-top:8px">
+          <option value="">Commencez à rechercher une personne…</option>
+        </select>
+        <div class="muted" id="wlPersonHint" style="margin-top:7px">Une personne existante permet notamment de rattacher un ALT PERSO au même compte.</div>
+      </div>
+      <div class="field full"><div class="notice">La WL doit déjà avoir été validée sur Discord avant cet enregistrement. Pour un ALT ou un profil supplémentaire, choisissez <strong>Personne existante</strong> puis sélectionnez la personne concernée. Le compte de connexion n'est pas créé ici.</div></div>
       <div class="field full"><button class="btn primary">Enregistrer la WL validée</button></div>
     </form>`);
 
   qs('#wlAdd').onclick = () => openModal('wlm');
   closeBindings();
+
+  // Recherche sécurisée des personnes existantes pour éviter les doublons.
+  const personMode = qs('#wlPersonMode');
+  const existingWrap = qs('#wlExistingWrap');
+  const personSearch = qs('#wlPersonSearch');
+  const personSelect = qs('#wlPersonSelect');
+  const personHint = qs('#wlPersonHint');
+  let personSearchTimer = null;
+
+  const renderPersonOptions = (people) => {
+    if (!people.length) {
+      personSelect.innerHTML = '<option value="">Aucune personne trouvée</option>';
+      return;
+    }
+    personSelect.innerHTML = '<option value="">— Sélectionner une personne —</option>' + people.map(x => {
+      const discord = x.discord_username || 'Discord non renseigné';
+      const roblox = x.roblox_username || 'Roblox non renseigné';
+      return `<option value="${esc(x.person_id)}">${esc(discord)} · ${esc(roblox)} · ${x.profile_count || 0} profil(s)</option>`;
+    }).join('');
+  };
+
+  const searchPeople = async () => {
+    const q = String(personSearch.value || '').trim();
+    if (!q) {
+      personSelect.innerHTML = '<option value="">Commencez à rechercher une personne…</option>';
+      return;
+    }
+    personHint.textContent = 'Recherche en cours…';
+    const { data, error } = await sb.rpc('midori_search_people', { p_search: q });
+    if (error) {
+      personHint.textContent = 'Impossible de rechercher les personnes.';
+      toast(errMsg(error), 'error');
+      return;
+    }
+    renderPersonOptions(data || []);
+    personHint.textContent = (data || []).length
+      ? `${data.length} personne(s) trouvée(s). Sélectionnez la personne à laquelle rattacher ce profil.`
+      : 'Aucune personne trouvée. Vérifiez le pseudo Discord ou Roblox.';
+  };
+
+  personMode.onchange = () => {
+    const existing = personMode.value === 'existing';
+    existingWrap.style.display = existing ? '' : 'none';
+    personSearch.required = existing;
+    personSelect.required = existing;
+    if (!existing) {
+      personSearch.value = '';
+      personSelect.innerHTML = '<option value="">Commencez à rechercher une personne…</option>';
+      personHint.textContent = 'Une personne existante permet notamment de rattacher un ALT PERSO au même compte.';
+    }
+  };
+
+  personSearch.oninput = () => {
+    clearTimeout(personSearchTimer);
+    personSearchTimer = setTimeout(searchPeople, 300);
+  };
+
   qs('#wlSearch').oninput = e => {
     const q = e.target.value.trim().toLowerCase();
     qsa('[data-wl-row]').forEach(r => r.style.display = !q || r.dataset.search.includes(q) ? '' : 'none');
@@ -1106,8 +1176,11 @@ async function renderWLRegistry(p) {
         p_club: String(f.get('club')||'').trim() || null,
         p_function_name: String(f.get('function_name')||'').trim() || null,
         p_school_email: String(f.get('school_email')||'').trim().toLowerCase() || null,
-        p_person_id: String(f.get('person_id')||'').trim() || null
+        p_person_id: f.get('person_mode') === 'existing' ? (String(f.get('person_id')||'').trim() || null) : null
       };
+      if (f.get('person_mode') === 'existing' && !payload.p_person_id) {
+        throw new Error('Sélectionnez une personne existante.');
+      }
       const { data, error } = await sb.rpc('midori_add_validated_wl', payload);
       if (error) throw error;
       await log('create', 'wl_registry', data, { validated_on_discord: true, is_alt: payload.p_is_alt });
