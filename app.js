@@ -147,7 +147,7 @@ const TITLE = {
 };
 
 const PAGE_ROLES = {
-  'dashboard.html': ['admin'], 'wl.html': ['admin','recruteur_wl'], 'profiles.html': ['admin','recruteur_wl','professor','surveillant','student','psychologue','infirmiere'], 'messages.html': ['admin','professor','surveillant','student','psychologue','infirmiere'], 'homework-submissions.html': ['admin','professor'], 'access.html': ['admin'], 'students.html': ['admin'], 'professors.html': ['admin'],
+  'dashboard.html': ['admin'], 'wl.html': [], 'profiles.html': [], 'messages.html': ['admin','professor','surveillant','student','psychologue','infirmiere'], 'homework-submissions.html': ['admin','professor'], 'access.html': ['admin'], 'students.html': ['admin'], 'professors.html': ['admin'],
   'supervisors.html': ['admin'], 'classes.html': ['admin'], 'subjects.html': ['admin'], 'timetable.html': ['admin'],
   'attendance.html': ['admin', 'professor', 'surveillant'], 'absences.html': ['admin', 'professor', 'surveillant'],
   'grades.html': ['admin', 'professor'], 'homework.html': ['admin', 'professor'], 'points.html': ['admin'],
@@ -241,7 +241,8 @@ function setPortalMode(mode, p) {
     return;
   }
   localStorage.setItem('midori_portal_mode', mode);
-  location.href = mode === 'wl' ? 'wl.html' : (HOME[p.role] || 'dashboard.html');
+  // Navigation directe : le bouton ne dépend pas d'un submit ou d'un formulaire.
+  window.location.assign(mode === 'wl' ? 'wl.html?mode=wl' : (HOME[p.role] || 'dashboard.html'));
 }
 
 async function loadPortalFunctions(p) {
@@ -301,7 +302,10 @@ function shell(p) {
     </div>`;
   qs('#logout').onclick = logout;
   qs('#menu').onclick = () => qs('#sidebar').classList.toggle('open');
-  qsa('[data-portal-function]').forEach(b => b.addEventListener('click', () => setPortalMode(b.dataset.portalFunction, p)));
+  qsa('[data-portal-function]').forEach(b => {
+    b.type = 'button';
+    b.onclick = (ev) => { ev.preventDefault(); ev.stopPropagation(); setPortalMode(b.dataset.portalFunction, p); };
+  });
   loadUnreadBadge();
 }
 
@@ -1085,7 +1089,8 @@ async function renderAdminClubs() {
 
 
 async function renderWLRegistry(p) {
-  if (!['admin','recruteur_wl'].includes(p.role)) throw new Error('Accès réservé aux recruteurs WL.');
+  const hasWLFunction = MIDORI_PORTAL_FUNCTIONS.some(f => f.function_code === 'recruteur_wl');
+  if (!hasWLFunction && p.role !== 'admin') throw new Error('Accès réservé aux recruteurs WL.');
   const { data, error } = await sb.from('wl_registry')
     .select('id,profile_id,person_id,rp_last_name,rp_first_name,discord_username,roblox_username,school_year,section,class_name,profile_kind,is_alt,club,function_name,recruiter_profile_id,validated_at,active,removed_at')
     .eq('active', true)
@@ -1787,7 +1792,8 @@ async function init() {
   // Cela évite d'afficher ou d'utiliser les outils WL depuis l'espace CPE,
   // tout en gardant un seul compte de connexion.
   const wlPages = new Set(['wl.html', 'profiles.html']);
-  const mode = portalModeFor(ctx.profile);
+  const mode = wlPages.has(page) ? 'wl' : portalModeFor(ctx.profile);
+  if (wlPages.has(page)) localStorage.setItem('midori_portal_mode', 'wl');
   if (wlPages.has(page) && mode !== 'wl') {
     location.href = HOME[ctx.profile.role] || 'dashboard.html';
     return;
