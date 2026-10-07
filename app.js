@@ -7,7 +7,8 @@ const ROLE_LABEL = {
   surveillant: 'Surveillant',
   student: 'Élève',
   psychologue: 'Psychologue',
-  infirmiere: 'Infirmière'
+  infirmiere: 'Infirmière',
+  recruteur_wl: 'Recruteur WL'
 };
 
 const HOME = {
@@ -16,10 +17,18 @@ const HOME = {
   surveillant: 'supervisor-space.html',
   student: 'student-space.html',
   psychologue: 'psych-space.html',
-  infirmiere: 'nurse-space.html'
+  infirmiere: 'nurse-space.html',
+  recruteur_wl: 'wl.html'
 };
 
 const NAV = {
+  recruteur_wl: [
+    ['Recrutement WL', [
+      ['wl.html', '📋', 'Registre WL'],
+      ['profiles.html', '🔄', 'Mes profils'],
+      ['profile.html', '👤', 'Mon profil']
+    ]]
+  ],
   admin: [
     ['Général', [
       ['dashboard.html', '📊', 'Tableau de bord'],
@@ -123,7 +132,7 @@ const TITLE = {
   'subjects.html': 'Matières', 'timetable.html': 'Emploi du temps', 'attendance.html': 'Fiches d’appel',
   'absences.html': 'Absences', 'grades.html': 'Notes', 'homework.html': 'Devoirs',
   'points.html': 'Points / Réputation', 'discipline.html': 'Discipline', 'clubs.html': 'Clubs',
-  'access.html': 'Accès & comptes', 'logs.html': 'Journal d’activité', 'events.html': 'Calendrier RP', 'profile.html': 'Mon profil',
+  'access.html': 'Accès & comptes', 'wl.html': 'Registre WL', 'profiles.html': 'Mes profils', 'logs.html': 'Journal d’activité', 'events.html': 'Calendrier RP', 'profile.html': 'Mon profil',
   'prof-space.html': 'Espace professeur', 'prof-attendance.html': 'Fiches d’appel', 'prof-grades.html': 'Notes',
   'prof-homework.html': 'Devoirs', 'prof-resources.html': 'Ressources', 'prof-timetable.html': 'Emploi du temps',
   'supervisor-space.html': 'Espace surveillant', 'supervisor-absences.html': 'Absences & retards',
@@ -136,7 +145,7 @@ const TITLE = {
 };
 
 const PAGE_ROLES = {
-  'dashboard.html': ['admin'], 'messages.html': ['admin','professor','surveillant','student','psychologue','infirmiere'], 'homework-submissions.html': ['admin','professor'], 'access.html': ['admin'], 'students.html': ['admin'], 'professors.html': ['admin'],
+  'dashboard.html': ['admin'], 'wl.html': ['admin','recruteur_wl'], 'profiles.html': ['admin','recruteur_wl','professor','surveillant','student','psychologue','infirmiere'], 'messages.html': ['admin','professor','surveillant','student','psychologue','infirmiere'], 'homework-submissions.html': ['admin','professor'], 'access.html': ['admin'], 'students.html': ['admin'], 'professors.html': ['admin'],
   'supervisors.html': ['admin'], 'classes.html': ['admin'], 'subjects.html': ['admin'], 'timetable.html': ['admin'],
   'attendance.html': ['admin', 'professor', 'surveillant'], 'absences.html': ['admin', 'professor', 'surveillant'],
   'grades.html': ['admin', 'professor'], 'homework.html': ['admin', 'professor'], 'points.html': ['admin'],
@@ -1030,6 +1039,110 @@ async function renderAdminClubs() {
   qsa('[data-reject-request]').forEach(b => b.onclick = async () => { try { await update('club_requests',b.dataset.rejectRequest,{status:'Refusée'}); await log('update','club_request',b.dataset.rejectRequest,{status:'Refusée'}); toast('Candidature refusée.'); location.reload(); } catch(er){toast(errMsg(er),'error');} });
 }
 
+
+async function renderWLRegistry(p) {
+  if (!['admin','recruteur_wl'].includes(p.role)) throw new Error('Accès réservé aux recruteurs WL.');
+  const { data, error } = await sb.from('wl_registry')
+    .select('id,profile_id,person_id,rp_last_name,rp_first_name,discord_username,roblox_username,school_year,section,class_name,profile_kind,is_alt,club,function_name,recruiter_profile_id,validated_at,active,removed_at')
+    .eq('active', true)
+    .order('validated_at', { ascending: false });
+  if (error) throw error;
+  const list = data || [];
+  const my = list.filter(x => p.role === 'admin' || String(x.recruiter_profile_id) === String(p.id));
+
+  qs('#app').innerHTML =
+    head('Registre WL', 'Réservé aux WL déjà validées sur Discord.') +
+    `<div class="notice" style="margin-bottom:15px">🔒 Les candidatures, entretiens et refus restent sur Discord. Cette page sert uniquement à enregistrer les WL validées.</div>` +
+    `<div class="toolbar"><input id="wlSearch" class="search" placeholder="Rechercher un personnage…"><button id="wlAdd" class="btn primary">＋ Ajouter une WL validée</button></div>` +
+    `<div class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Personnage</th><th>Discord</th><th>Roblox</th><th>Classe</th><th>Type</th><th>Recruteur</th><th>Identifiant</th><th>Actions</th></tr></thead><tbody id="wlRows">${
+      my.map(x => `<tr data-wl-row data-search="${esc(`${x.rp_last_name} ${x.rp_first_name} ${x.discord_username||''} ${x.roblox_username||''}`.toLowerCase())}">
+        <td><strong>${esc(x.rp_last_name)} ${esc(x.rp_first_name)}</strong></td>
+        <td>${esc(x.discord_username || '—')}</td>
+        <td>${esc(x.roblox_username || '—')}</td>
+        <td>${esc(x.class_name || '—')}</td>
+        <td>${x.is_alt ? '<span class="tag yellow">🟣 ALT PERSO</span>' : '<span class="tag">Principal</span>'}</td>
+        <td>${esc(x.recruiter_profile_id || '—')}</td>
+        <td>${esc('Voir sur la fiche profil')}</td>
+        <td><button class="btn danger small" data-remove-wl="${esc(x.id)}">🗑️ Retirer</button></td>
+      </tr>`).join('') || tableEmpty(8, 'Aucune WL validée.')}</tbody></table></div></div>` +
+    modal('wlm', 'Ajouter une WL validée', `<form id="wlf" class="form">
+      <div class="field"><label>Nom RP</label><input name="rp_last_name" required></div>
+      <div class="field"><label>Prénom RP</label><input name="rp_first_name" required></div>
+      <div class="field"><label>Pseudo Discord</label><input name="discord_username"></div>
+      <div class="field"><label>Pseudo Roblox</label><input name="roblox_username"></div>
+      <div class="field"><label>Année</label><input name="school_year"></div>
+      <div class="field"><label>Section</label><input name="section"></div>
+      <div class="field"><label>Classe</label><input name="class_name"></div>
+      <div class="field"><label>Type de profil</label><select name="profile_kind"><option value="student">Élève</option><option value="professor">Professeur</option><option value="surveillant">Surveillant</option><option value="psychologue">Psychologue</option><option value="infirmiere">Infirmière</option></select></div>
+      <div class="field"><label>Personnage</label><select name="is_alt"><option value="false">Principal</option><option value="true">ALT PERSO</option></select></div>
+      <div class="field"><label>Club</label><input name="club"></div>
+      <div class="field"><label>Fonction</label><input name="function_name"></div>
+      <div class="field full"><div class="notice">La WL doit déjà avoir été validée sur Discord avant cet enregistrement.</div></div>
+      <div class="field full"><button class="btn primary">Enregistrer la WL validée</button></div>
+    </form>`);
+
+  qs('#wlAdd').onclick = () => openModal('wlm');
+  closeBindings();
+  qs('#wlSearch').oninput = e => {
+    const q = e.target.value.trim().toLowerCase();
+    qsa('[data-wl-row]').forEach(r => r.style.display = !q || r.dataset.search.includes(q) ? '' : 'none');
+  };
+  qs('#wlf').onsubmit = async e => {
+    e.preventDefault();
+    try {
+      const f = new FormData(e.target);
+      const payload = {
+        rp_last_name: String(f.get('rp_last_name')||'').trim(),
+        rp_first_name: String(f.get('rp_first_name')||'').trim(),
+        discord_username: String(f.get('discord_username')||'').trim() || null,
+        roblox_username: String(f.get('roblox_username')||'').trim() || null,
+        school_year: String(f.get('school_year')||'').trim() || null,
+        section: String(f.get('section')||'').trim() || null,
+        class_name: String(f.get('class_name')||'').trim() || null,
+        profile_kind: String(f.get('profile_kind')||'student'),
+        is_alt: f.get('is_alt') === 'true',
+        club: String(f.get('club')||'').trim() || null,
+        function_name: String(f.get('function_name')||'').trim() || null,
+        recruiter_profile_id: p.id,
+        active: true
+      };
+      const { data, error } = await sb.from('wl_registry').insert(payload).select('id').single();
+      if (error) throw error;
+      await log('create', 'wl_registry', data.id, { validated_on_discord: true, is_alt: payload.is_alt });
+      toast('WL enregistrée.');
+      closeModal('wlm');
+      location.reload();
+    } catch (er) { toast(errMsg(er), 'error'); }
+  };
+  qsa('[data-remove-wl]').forEach(b => b.onclick = async () => {
+    if (!confirm('Retirer cette WL ? Le profil associé doit ensuite être désactivé par la procédure de gestion des accès.')) return;
+    try {
+      const { error } = await sb.from('wl_registry').update({ active:false, removed_at:new Date().toISOString(), removed_by:p.id }).eq('id', b.dataset.removeWl);
+      if (error) throw error;
+      toast('WL retirée.');
+      location.reload();
+    } catch (er) { toast(errMsg(er), 'error'); }
+  });
+}
+
+async function renderProfilesChooser(p) {
+  // V9: uses the new midori_profile_links table when installed.
+  let links = [];
+  try {
+    const r = await sb.from('midori_profile_links').select('profile_id,profiles(id,email,username,full_name,role,active,student_id,professor_id,supervisor_id)').eq('person_id', p.person_id);
+    if (!r.error) links = (r.data || []).map(x => x.profiles).filter(Boolean);
+  } catch (_) {}
+  if (!links.length) links = [p];
+  qs('#app').innerHTML = head('Mes profils', 'Choisissez le personnage ou la fonction à utiliser.') +
+    `<div class="notice" style="margin-bottom:15px">Chaque profil conserve ses propres permissions et ses propres données. Un ALT ne mélange pas les données du personnage principal.</div>` +
+    `<div class="grid g2">${links.map(x => `<div class="card"><div class="toolbar"><div><h3>${esc(x.full_name || x.username || 'Profil')}</h3><div class="muted">${esc(ROLE_LABEL[x.role] || x.role)} · ${x.active === false ? 'Désactivé' : 'Actif'}</div></div><span class="brand-mark">${x.role === 'student' ? '🎓' : x.role === 'professor' ? '🧑‍🏫' : x.role === 'surveillant' ? '🛡️' : '👤'}</span></div><button class="btn primary" data-select-profile="${esc(x.id)}" ${x.active === false ? 'disabled' : ''}>Utiliser ce profil</button></div>`).join('')}</div>`;
+  qsa('[data-select-profile]').forEach(b => b.onclick = () => {
+    localStorage.setItem('midori_active_profile_id', b.dataset.selectProfile);
+    toast('Profil sélectionné. Rechargez la page d’accueil pour appliquer le contexte.');
+    setTimeout(() => location.href = HOME[p.role] || 'dashboard.html', 500);
+  });
+}
+
 async function renderAccess(p) {
   const [profs, students, teachers, supervisors] = await Promise.all([
     rows('profiles', 'id,email,username,full_name,role,active,student_id,professor_id,supervisor_id,created_at', { order: 'created_at', ascending: false }),
@@ -1503,6 +1616,8 @@ async function init() {
       case 'clubs.html': await renderAdminClubs(); break;
       case 'events.html': await renderEvents(ctx.profile); break;
       case 'access.html': await renderAccess(ctx.profile); break;
+      case 'wl.html': await renderWLRegistry(ctx.profile); break;
+      case 'profiles.html': await renderProfilesChooser(ctx.profile); break;
       case 'logs.html': await renderLogs(); break;
       case 'profile.html': await renderProfile(ctx.profile); break;
       case 'prof-space.html': await renderProfSpace(ctx.profile); break;
