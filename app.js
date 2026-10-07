@@ -194,6 +194,9 @@ function badge(v) { const s = String(v ?? ''); return `<span class="tag">${esc(s
 const RP_STATUS_LABEL = { normal: 'Normal', delinquant: 'Délinquant', parfait: 'Parfait' };
 const rpStatusLabel = v => RP_STATUS_LABEL[String(v || 'normal')] || 'Normal';
 const rpStatusBadge = v => { const k=String(v || 'normal'); const cls=k==='delinquant'?'red':(k==='parfait'?'':'yellow'); return `<span class="tag ${cls}">${k==='delinquant'?'🔴':k==='parfait'?'⭐':'🟢'} ${esc(rpStatusLabel(k))}</span>`; };
+const isStudentProfile = x => String(x?.profile_kind || x?.role || '').toLowerCase() === 'student';
+const rpStatusBadgeIfStudent = x => isStudentProfile(x) ? rpStatusBadge(x?.rp_status) : '';
+const rpStatusLabelIfStudent = x => isStudentProfile(x) ? rpStatusLabel(x?.rp_status) : '—';
 
 async function session() {
   const r = await sb.auth.getSession();
@@ -749,11 +752,11 @@ async function adminCrudPage({ title, sub, table, fields, select = '*', order = 
 
 async function renderStudents() {
   const classes = await rows('classes', 'id,name', { order: 'name' });
-  const list = await rows('students', 'id,username,full_name,class_name,birth_date,class_id,created_at,rp_status', { order: 'created_at', ascending: false });
-  qs('#app').innerHTML = head('Élèves', 'Gestion des élèves, classes et accès.') + `<div class="toolbar"><input id="ss" class="search" placeholder="Rechercher un élève…"><button id="addStudent" class="btn primary">+ Ajouter</button></div><div class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Pseudo</th><th>Nom</th><th>Classe</th><th>Statut RP</th><th>Date de naissance</th><th>Accès</th><th>Actions</th></tr></thead><tbody id="studentRows">${list.map(s => `<tr><td>${esc(s.username)}</td><td>${esc(s.full_name)}</td><td>${esc(s.class_name || classes.find(c => c.id === s.class_id)?.name || '—')}</td><td>${rpStatusBadge(s.rp_status)}</td><td>${dateFR(s.birth_date)}</td><td><a class="btn secondary small" href="access.html?role=student&fiche_id=${encodeURIComponent(s.id)}">Gérer</a></td><td><a class="btn secondary small" href="student-profile.html?id=${esc(s.id)}">Dossier</a> <button class="btn danger small" data-del-student="${esc(s.id)}">Supprimer</button></td></tr>`).join('') || tableEmpty(7)}</tbody></table></div></div>` + modal('sm', 'Nouvel élève', `<form id="sf" class="form"><div class="field"><label>Pseudo Roblox</label><input name="username" required></div><div class="field"><label>Nom complet</label><input name="full_name" required></div><div class="field"><label>Classe</label><select name="class_id">${opts(classes)}</select></div><div class="field"><label>Date de naissance</label><input name="birth_date" type="date"></div><div class="field full"><button class="btn primary">Créer l’élève</button></div></form>`);
+  const list = await rows('students', 'id,username,full_name,class_name,class_id,created_at,rp_status', { order: 'created_at', ascending: false });
+  qs('#app').innerHTML = head('Élèves', 'Gestion des élèves, classes et accès.') + `<div class="toolbar"><input id="ss" class="search" placeholder="Rechercher un élève…"><button id="addStudent" class="btn primary">+ Ajouter</button></div><div class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Pseudo</th><th>Nom</th><th>Classe</th><th>Statut RP</th><th>Accès</th><th>Actions</th></tr></thead><tbody id="studentRows">${list.map(s => `<tr><td>${esc(s.username)}</td><td>${esc(s.full_name)}</td><td>${esc(s.class_name || classes.find(c => c.id === s.class_id)?.name || '—')}</td><td>${rpStatusBadge(s.rp_status)}</td><td><a class="btn secondary small" href="access.html?role=student&fiche_id=${encodeURIComponent(s.id)}">Gérer</a></td><td><a class="btn secondary small" href="student-profile.html?id=${esc(s.id)}">Dossier</a> <button class="btn danger small" data-del-student="${esc(s.id)}">Supprimer</button></td></tr>`).join('') || tableEmpty(6)}</tbody></table></div></div>` + modal('sm', 'Nouvel élève', `<form id="sf" class="form"><div class="field"><label>Pseudo Roblox</label><input name="username" required></div><div class="field"><label>Nom complet</label><input name="full_name" required></div><div class="field"><label>Classe</label><select name="class_id">${opts(classes)}</select></div><div class="field full"><button class="btn primary">Créer l’élève</button></div></form>`);
   qs('#addStudent').onclick = () => openModal('sm'); closeBindings();
   qs('#ss').oninput = e => { const q = e.target.value.toLowerCase(); qsa('#studentRows tr').forEach(tr => tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none'); };
-  qs('#sf').onsubmit = async e => { e.preventDefault(); const f = new FormData(e.target); try { const c = classes.find(x => x.id === f.get('class_id')); const r = await add('students', { username: f.get('username'), full_name: f.get('full_name'), class_id: f.get('class_id') || null, class_name: c?.name || null, birth_date: f.get('birth_date') || null }); await log('create', 'student', r.id, { username: r.username }); toast('Élève créé.'); location.reload(); } catch (er) { toast(errMsg(er), 'error'); } };
+  qs('#sf').onsubmit = async e => { e.preventDefault(); const f = new FormData(e.target); try { const c = classes.find(x => x.id === f.get('class_id')); const r = await add('students', { username: f.get('username'), full_name: f.get('full_name'), class_id: f.get('class_id') || null, class_name: c?.name || null }); await log('create', 'student', r.id, { username: r.username }); toast('Élève créé.'); location.reload(); } catch (er) { toast(errMsg(er), 'error'); } };
   qsa('[data-del-student]').forEach(b => b.onclick = async () => { if (!confirm('Supprimer cet élève et ses données liées ?')) return; try { await remove('students', b.dataset.delStudent); toast('Élève supprimé.'); location.reload(); } catch (er) { toast(errMsg(er), 'error'); } });
 }
 
@@ -768,7 +771,7 @@ async function renderStudentProfile(p, asAdmin = false) {
   const total = myPts.reduce((n, x) => n + Number(x.points || 0), 0);
   qs('#app').innerHTML = head(`Dossier — ${esc(s.data.full_name)}`, 'Informations scolaires et suivi RP.') +
     `<div class="grid g4">${statCard('Classe', s.data.class_name || '—', '🏫')}${statCard('Absences', myAbs.filter(x => x.type === 'absence').length, '⏱️')}${statCard('Retards', myAbs.filter(x => x.type === 'retard').length, '⌛')}${statCard('Réputation', `${total} pts`, '⭐')}${statCard('Statut RP', rpStatusLabel(s.data.rp_status), '🎭')}</div>` +
-    `<div class="grid g2" style="margin-top:15px"><div class="card"><h3>Profil</h3><p style="margin-top:10px"><strong>Pseudo :</strong> ${esc(s.data.username)}</p><p><strong>Nom :</strong> ${esc(s.data.full_name)}</p><p><strong>Classe :</strong> ${esc(s.data.class_name || '—')}</p><p><strong>Statut RP :</strong> ${rpStatusBadge(s.data.rp_status)}</p><p><strong>Date de naissance :</strong> ${dateFR(s.data.birth_date)}</p></div><div class="card"><h3>Réputation</h3><p style="margin-top:10px;font-size:22px;font-weight:800">${total} pts</p><p class="muted">${esc(reputation(total))}</p>${pointReference()}</div></div>` +
+    `<div class="grid g2" style="margin-top:15px"><div class="card"><h3>Profil</h3><p style="margin-top:10px"><strong>Pseudo :</strong> ${esc(s.data.username)}</p><p><strong>Nom :</strong> ${esc(s.data.full_name)}</p><p><strong>Classe :</strong> ${esc(s.data.class_name || '—')}</p><p><strong>Statut RP :</strong> ${rpStatusBadge(s.data.rp_status)}</p></div><div class="card"><h3>Réputation</h3><p style="margin-top:10px;font-size:22px;font-weight:800">${total} pts</p><p class="muted">${esc(reputation(total))}</p>${pointReference()}</div></div>` +
     `<div class="card" style="margin-top:15px"><h3>Derniers événements de présence</h3><div class="table-wrap" style="margin-top:12px"><table class="table"><thead><tr><th>Date</th><th>Type</th><th>Motif</th><th>Justifié</th></tr></thead><tbody>${myAbs.map(a => `<tr><td>${dateFR(a.date)}</td><td>${badge(a.type)}</td><td>${esc(a.motif || '—')}</td><td>${a.justifie ? 'Oui' : 'Non'}</td></tr>`).join('') || tableEmpty(4)}</tbody></table></div></div>`;
   if (!asAdmin) document.title = `Dossier — ${s.data.full_name}`;
 }
@@ -1099,11 +1102,21 @@ async function renderAdminClubs() {
 async function renderWLRegistry(p) {
   if (!['admin','recruteur_wl'].includes(p.role)) throw new Error('Accès réservé aux recruteurs WL.');
   const { data, error } = await sb.from('wl_registry')
-    .select('id,profile_id,person_id,rp_last_name,rp_first_name,discord_username,roblox_username,school_year,section,class_name,profile_kind,is_alt,club,function_name,recruiter_profile_id,validated_at,active,removed_at,profiles(rp_status)')
+    .select('id,profile_id,person_id,rp_last_name,rp_first_name,discord_username,roblox_username,school_year,section,class_name,profile_kind,is_alt,club,function_name,recruiter_profile_id,validated_at,active,removed_at')
     .eq('active', true)
     .order('validated_at', { ascending: false });
   if (error) throw error;
   const list = data || [];
+  // wl_registry possède plusieurs relations vers profiles (profile_id, recruiter_profile_id).
+  // On évite l'embed automatique ambigu et on récupère les statuts RP séparément.
+  const profileIds = [...new Set(list.map(x => x.profile_id).filter(Boolean))];
+  let rpByProfile = {};
+  if (profileIds.length) {
+    const { data: profRows, error: profError } = await sb.from('profiles').select('id,rp_status').in('id', profileIds);
+    if (profError) throw profError;
+    rpByProfile = Object.fromEntries((profRows || []).map(x => [String(x.id), x.rp_status || 'normal']));
+  }
+  list.forEach(x => { x.rp_status = rpByProfile[String(x.profile_id)] || 'normal'; });
   const my = list.filter(x => p.role === 'admin' || String(x.recruiter_profile_id) === String(p.id));
 
   qs('#app').innerHTML =
@@ -1116,7 +1129,7 @@ async function renderWLRegistry(p) {
         <td>${esc(x.discord_username || '—')}</td>
         <td>${esc(x.roblox_username || '—')}</td>
         <td>${esc(x.class_name || '—')}</td>
-        <td>${x.is_alt ? '<span class="tag yellow">🟣 ALT PERSO</span>' : '<span class="tag">Principal</span>'}<br>${rpStatusBadge(x.profiles?.rp_status)}</td>
+        <td>${x.is_alt ? '<span class="tag yellow">🟣 ALT PERSO</span>' : '<span class="tag">Principal</span>'}${isStudentProfile(x) ? `<br>${rpStatusBadge(x.rp_status)}` : ''}</td>
         <td>${esc(x.recruiter_profile_id || '—')}</td>
         <td>${esc('Voir sur la fiche profil')}</td>
         <td><a class="btn secondary small" href="migration.html?profile=${encodeURIComponent(x.profile_id)}">✏️ Modifier</a> <button class="btn danger small" data-remove-wl="${esc(x.id)}">🗑️ Retirer</button></td>
@@ -1131,8 +1144,8 @@ async function renderWLRegistry(p) {
       <div class="field"><label>Classe</label><input name="class_name"></div>
       <div class="field"><label>Type de profil</label><select name="profile_kind"><option value="student">Élève</option><option value="professor">Professeur</option><option value="surveillant">Surveillant</option><option value="psychologue">Psychologue</option><option value="infirmiere">Infirmière</option></select></div>
       <div class="field"><label>Personnage</label><select name="is_alt"><option value="false">Principal</option><option value="true">ALT PERSO</option></select></div>
-      <div class="field"><label>Statut RP</label><select name="rp_status"><option value="normal">🟢 Normal</option><option value="delinquant">🔴 Délinquant</option><option value="parfait">⭐ Parfait</option></select></div>
-      <div class="field"><label>Motif du statut (optionnel)</label><input name="rp_status_reason" placeholder="Création WL, évolution RP…"></div>
+      <div class="field" id="wlRpStatusField"><label>Statut RP (élève uniquement)</label><select name="rp_status"><option value="normal">🟢 Normal</option><option value="delinquant">🔴 Délinquant</option><option value="parfait">⭐ Parfait</option></select></div>
+      <div class="field" id="wlRpStatusReasonField"><label>Motif du statut (élève uniquement, optionnel)</label><input name="rp_status_reason" placeholder="Création WL, évolution RP…"></div>
       <div class="field"><label>Club</label><input name="club"></div>
       <div class="field"><label>Fonction</label><input name="function_name"></div>
       <div class="field"><label>E-mail scolaire (optionnel)</label><input name="school_email" type="email" placeholder="prenom@midori.fr"></div>
@@ -1156,6 +1169,16 @@ async function renderWLRegistry(p) {
 
   qs('#wlAdd').onclick = () => openModal('wlm');
   closeBindings();
+  const wlKind = qs('#wlf')?.querySelector('[name=profile_kind]');
+  const wlStatusField = qs('#wlRpStatusField');
+  const wlStatusReasonField = qs('#wlRpStatusReasonField');
+  const syncWLStatusFields = () => {
+    const isStudent = wlKind?.value === 'student';
+    if (wlStatusField) wlStatusField.style.display = isStudent ? '' : 'none';
+    if (wlStatusReasonField) wlStatusReasonField.style.display = isStudent ? '' : 'none';
+  };
+  wlKind?.addEventListener('change', syncWLStatusFields);
+  syncWLStatusFields();
 
   // Recherche sécurisée des personnes existantes pour éviter les doublons.
   const personMode = qs('#wlPersonMode');
@@ -1246,11 +1269,11 @@ async function renderWLRegistry(p) {
         p_registry_id: data,
         p_discord_username: payload.p_discord_username,
         p_roblox_username: payload.p_roblox_username,
-        p_rp_status: String(f.get('rp_status') || 'normal'),
+        p_rp_status: f.get('profile_kind') === 'student' ? String(f.get('rp_status') || 'normal') : 'normal',
         p_reason: String(f.get('rp_status_reason') || '').trim() || null
       });
       if (finalizeError) throw finalizeError;
-      await log('create', 'wl_registry', data, { validated_on_discord: true, is_alt: payload.p_is_alt, rp_status: f.get('rp_status') || 'normal' });
+      await log('create', 'wl_registry', data, { validated_on_discord: true, is_alt: payload.p_is_alt, rp_status: payload.p_profile_kind === 'student' ? (f.get('rp_status') || 'normal') : null });
       toast('WL enregistrée. Le profil est maintenant rattaché à cette personne.');
       closeModal('wlm');
       location.reload();
@@ -1307,22 +1330,22 @@ async function renderMigration(p) {
     `</div>` +
     `<div class="card" style="margin-top:15px"><div class="toolbar"><div><h3>🔗 Rattacher le profil</h3><p class="muted">Aucune donnée n'est supprimée. Le profil devient simplement un profil supplémentaire de la personne cible.</p></div><button id="migLink" class="btn primary" disabled>🔗 Rattacher le profil</button></div></div>` +
     `<div class="card" style="margin-top:15px"><h3>✏️ Corriger un ancien profil</h3><p class="muted">Les anciens faux pseudos ne servent plus d'identifiants de connexion. Renseignez séparément Discord, Roblox et e-mail.</p><button id="migEdit" class="btn secondary" disabled>Modifier les informations</button></div>` +
-    modal('migEditModal','Modifier le profil',`<form id="migEditForm" class="form"><input type="hidden" name="profile_id"><div class="field"><label>Nom complet / RP</label><input name="full_name" required></div><div class="field"><label>Pseudo Discord</label><input name="discord_username"></div><div class="field"><label>Pseudo Roblox</label><input name="roblox_username"></div><div class="field"><label>Classe</label><input name="class_name"></div><div class="field"><label>Type de profil</label><select name="profile_kind"><option value="student">Élève</option><option value="professor">Professeur</option><option value="surveillant">Surveillant</option><option value="psychologue">Psychologue</option><option value="infirmiere">Infirmière</option></select></div><div class="field"><label>Personnage</label><select name="is_alt"><option value="false">Principal</option><option value="true">ALT PERSO</option></select></div><div class="field"><label>Statut RP</label><select name="rp_status"><option value="normal">🟢 Normal</option><option value="delinquant">🔴 Délinquant</option><option value="parfait">⭐ Parfait</option></select></div><div class="field"><label>Motif du changement</label><input name="rp_status_reason"></div><div class="field full"><label>E-mail scolaire / identifiant du portail</label><input name="school_email" type="email"></div><div class="field full"><button class="btn primary">Enregistrer les corrections</button></div></form>`);
+    modal('migEditModal','Modifier le profil',`<form id="migEditForm" class="form"><input type="hidden" name="profile_id"><div class="field"><label>Nom complet / RP</label><input name="full_name" required></div><div class="field"><label>Pseudo Discord</label><input name="discord_username"></div><div class="field"><label>Pseudo Roblox</label><input name="roblox_username"></div><div class="field"><label>Classe</label><input name="class_name"></div><div class="field"><label>Type de profil</label><select name="profile_kind"><option value="student">Élève</option><option value="professor">Professeur</option><option value="surveillant">Surveillant</option><option value="psychologue">Psychologue</option><option value="infirmiere">Infirmière</option></select></div><div class="field"><label>Personnage</label><select name="is_alt"><option value="false">Principal</option><option value="true">ALT PERSO</option></select></div><div class="field" id="migRpStatusField"><label>Statut RP (élève uniquement)</label><select name="rp_status"><option value="normal">🟢 Normal</option><option value="delinquant">🔴 Délinquant</option><option value="parfait">⭐ Parfait</option></select></div><div class="field" id="migRpStatusReasonField"><label>Motif du changement (élève uniquement)</label><input name="rp_status_reason"></div><div class="field full"><label>E-mail scolaire / identifiant du portail</label><input name="school_email" type="email"></div><div class="field full"><button class="btn primary">Enregistrer les corrections</button></div></form>`);
 
   const pSearch=qs('#migProfileSearch'), pSelect=qs('#migProfileSelect'), personSearch=qs('#migPersonSearch'), personSelect=qs('#migPersonSelect');
   const pInfo=qs('#migProfileInfo'), personInfo=qs('#migPersonInfo'), linkBtn=qs('#migLink'), editBtn=qs('#migEdit');
   const allProfiles=profiles||[], allPeople=people||[]; let selectedProfile=null, selectedPerson=null;
-  const renderProfiles=()=>{ const q=pSearch.value.trim().toLowerCase(); const rows=allProfiles.filter(x=>!q||`${x.full_name||''} ${x.discord_username||''} ${x.roblox_username||''} ${x.school_email||''}`.toLowerCase().includes(q)); pSelect.innerHTML=rows.length?'<option value="">— Sélectionner un profil —</option>'+rows.map(x=>`<option value="${esc(x.profile_id)}">${esc(x.full_name||'Sans nom')} · ${esc(x.roblox_username||'Roblox non renseigné')}${x.is_alt?' · ALT':''} · ${esc(rpStatusLabel(x.rp_status))}</option>`).join(''):'<option value="">Aucun profil trouvé</option>'; };
+  const renderProfiles=()=>{ const q=pSearch.value.trim().toLowerCase(); const rows=allProfiles.filter(x=>!q||`${x.full_name||''} ${x.discord_username||''} ${x.roblox_username||''} ${x.school_email||''}`.toLowerCase().includes(q)); pSelect.innerHTML=rows.length?'<option value="">— Sélectionner un profil —</option>'+rows.map(x=>`<option value="${esc(x.profile_id)}">${esc(x.full_name||'Sans nom')} · ${esc(x.roblox_username||'Roblox non renseigné')}${x.is_alt?' · ALT':''} · ${isStudentProfile(x) ? esc(rpStatusLabel(x.rp_status)) : 'sans statut RP'}</option>`).join(''):'<option value="">Aucun profil trouvé</option>'; };
   const renderPeople=()=>{ const q=personSearch.value.trim().toLowerCase(); const rows=allPeople.filter(x=>!q||`${x.discord_username||''} ${x.roblox_username||''} ${(profileNames[x.id]||[]).join(' ')}`.toLowerCase().includes(q)); personSelect.innerHTML=rows.length?'<option value="">— Sélectionner une personne —</option>'+rows.map(x=>`<option value="${esc(x.id)}">${esc((profileNames[x.id]||['Personne sans profil']).join(' • '))} · ${esc(x.discord_username||'Discord non renseigné')} · ${esc(x.roblox_username||'Roblox non renseigné')} · ${profileCount[x.id]||0} profil(s)</option>`).join(''):'<option value="">Aucune personne trouvée</option>'; };
   renderProfiles(); renderPeople();
   const requestedProfile = new URLSearchParams(location.search).get('profile');
   if (requestedProfile && allProfiles.some(x=>String(x.profile_id)===String(requestedProfile))) { pSelect.value=requestedProfile; pSelect.dispatchEvent(new Event('change')); }
   pSearch.oninput=renderProfiles; personSearch.oninput=renderPeople;
-  pSelect.onchange=()=>{ selectedProfile=allProfiles.find(x=>String(x.profile_id)===String(pSelect.value))||null; editBtn.disabled=!selectedProfile; if(selectedProfile){pInfo.style.display='';pInfo.innerHTML=`<strong>${esc(selectedProfile.full_name||'Sans nom')}</strong><br>Discord : ${esc(selectedProfile.discord_username||'—')} · Roblox : ${esc(selectedProfile.roblox_username||'—')}<br>E-mail portail : ${esc(selectedProfile.school_email||'—')}<br>Statut : ${rpStatusBadge(selectedProfile.rp_status)}<br>Personne actuelle : ${esc((profileNames[selectedProfile.person_id]||[]).join(' • ')||selectedProfile.person_id||'non liée')}`;}else pInfo.style.display='none'; linkBtn.disabled=!(selectedProfile&&selectedPerson&&String(selectedProfile.person_id)!==String(selectedPerson.id)); };
+  pSelect.onchange=()=>{ selectedProfile=allProfiles.find(x=>String(x.profile_id)===String(pSelect.value))||null; editBtn.disabled=!selectedProfile; if(selectedProfile){pInfo.style.display='';pInfo.innerHTML=`<strong>${esc(selectedProfile.full_name||'Sans nom')}</strong><br>Discord : ${esc(selectedProfile.discord_username||'—')} · Roblox : ${esc(selectedProfile.roblox_username||'—')}<br>E-mail portail : ${esc(selectedProfile.school_email||'—')}<br>${isStudentProfile(selectedProfile) ? `Statut RP : ${rpStatusBadge(selectedProfile.rp_status)}<br>` : ''}Personne actuelle : ${esc((profileNames[selectedProfile.person_id]||[]).join(' • ')||selectedProfile.person_id||'non liée')}`;}else pInfo.style.display='none'; linkBtn.disabled=!(selectedProfile&&selectedPerson&&String(selectedProfile.person_id)!==String(selectedPerson.id)); };
   personSelect.onchange=()=>{ selectedPerson=allPeople.find(x=>String(x.id)===String(personSelect.value))||null; personInfo.style.display=selectedPerson?'':'none'; if(selectedPerson) personInfo.innerHTML=`<strong>Personne cible</strong><br>${esc((profileNames[selectedPerson.id]||[]).join(' • ')||'Aucun profil')}<br>Discord : ${esc(selectedPerson.discord_username||'—')} · Roblox : ${esc(selectedPerson.roblox_username||'—')}<br>${profileCount[selectedPerson.id]||0} profil(s) déjà rattaché(s)`; linkBtn.disabled=!(selectedProfile&&selectedPerson&&String(selectedProfile.person_id)!==String(selectedPerson.id)); };
   linkBtn.onclick=async()=>{ if(!selectedProfile||!selectedPerson)return; if(!confirm(`Rattacher « ${selectedProfile.full_name||'ce profil'} » à « ${(profileNames[selectedPerson.id]||[]).join(', ')||'cette personne'} » ?\n\nAucun profil ne sera supprimé.`))return; try{const {error}=await sb.rpc('midori_migrate_link_profile',{p_profile_id:selectedProfile.profile_id,p_target_person_id:selectedPerson.id});if(error)throw error;toast('Profil rattaché.');location.reload();}catch(e){toast(errMsg(e),'error')}};
-  editBtn.onclick=()=>{if(!selectedProfile)return;const f=qs('#migEditForm');f.profile_id.value=selectedProfile.profile_id;f.full_name.value=selectedProfile.full_name||'';f.discord_username.value=selectedProfile.discord_username||'';f.roblox_username.value=selectedProfile.roblox_username||'';f.class_name.value=selectedProfile.class_name||'';f.profile_kind.value=selectedProfile.profile_kind||selectedProfile.role||'student';f.is_alt.value=String(!!selectedProfile.is_alt);f.rp_status.value=selectedProfile.rp_status||'normal';f.rp_status_reason.value='';f.school_email.value=selectedProfile.school_email||'';openModal('migEditModal');closeBindings();};
-  qs('#migEditForm').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);try{const {error}=await sb.rpc('midori_migrate_update_profile',{p_profile_id:f.get('profile_id'),p_full_name:String(f.get('full_name')||'').trim(),p_discord_username:String(f.get('discord_username')||'').trim()||null,p_roblox_username:String(f.get('roblox_username')||'').trim()||null,p_class_name:String(f.get('class_name')||'').trim()||null,p_profile_kind:String(f.get('profile_kind')||'student'),p_is_alt:f.get('is_alt')==='true',p_school_email:String(f.get('school_email')||'').trim().toLowerCase()||null});if(error)throw error;const {error:se}=await sb.rpc('midori_set_rp_status',{p_profile_id:f.get('profile_id'),p_status:f.get('rp_status'),p_reason:String(f.get('rp_status_reason')||'').trim()||null});if(se)throw se;toast('Profil corrigé.');closeModal('migEditModal');location.reload();}catch(e){toast(errMsg(e),'error')}};
+  editBtn.onclick=()=>{if(!selectedProfile)return;const f=qs('#migEditForm');f.profile_id.value=selectedProfile.profile_id;f.full_name.value=selectedProfile.full_name||'';f.discord_username.value=selectedProfile.discord_username||'';f.roblox_username.value=selectedProfile.roblox_username||'';f.class_name.value=selectedProfile.class_name||'';f.profile_kind.value=selectedProfile.profile_kind||selectedProfile.role||'student';f.is_alt.value=String(!!selectedProfile.is_alt);f.rp_status.value=selectedProfile.rp_status||'normal';f.rp_status_reason.value='';f.school_email.value=selectedProfile.school_email||'';const migIsStudent=isStudentProfile(selectedProfile);qs('#migRpStatusField').style.display=migIsStudent?'':'none';qs('#migRpStatusReasonField').style.display=migIsStudent?'':'none';openModal('migEditModal');closeBindings();};
+  qs('#migEditForm').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);try{const {error}=await sb.rpc('midori_migrate_update_profile',{p_profile_id:f.get('profile_id'),p_full_name:String(f.get('full_name')||'').trim(),p_discord_username:String(f.get('discord_username')||'').trim()||null,p_roblox_username:String(f.get('roblox_username')||'').trim()||null,p_class_name:String(f.get('class_name')||'').trim()||null,p_profile_kind:String(f.get('profile_kind')||'student'),p_is_alt:f.get('is_alt')==='true',p_school_email:String(f.get('school_email')||'').trim().toLowerCase()||null});if(error)throw error;if(String(f.get('profile_kind')||'student')==='student'){const {error:se}=await sb.rpc('midori_set_rp_status',{p_profile_id:f.get('profile_id'),p_status:f.get('rp_status'),p_reason:String(f.get('rp_status_reason')||'').trim()||null});if(se)throw se;}toast('Profil corrigé.');closeModal('migEditModal');location.reload();}catch(e){toast(errMsg(e),'error')}};
 }
 
 async function renderAccess(p) {
