@@ -1077,7 +1077,9 @@ async function renderWLRegistry(p) {
       <div class="field"><label>Personnage</label><select name="is_alt"><option value="false">Principal</option><option value="true">ALT PERSO</option></select></div>
       <div class="field"><label>Club</label><input name="club"></div>
       <div class="field"><label>Fonction</label><input name="function_name"></div>
-      <div class="field full"><div class="notice">La WL doit déjà avoir été validée sur Discord avant cet enregistrement.</div></div>
+      <div class="field"><label>E-mail scolaire (optionnel)</label><input name="school_email" type="email" placeholder="prenom@midori.fr"></div>
+      <div class="field full"><label>Personne existante (laisser vide pour une nouvelle personne)</label><input name="person_id" placeholder="ID de la personne si ALT / profil supplémentaire"></div>
+      <div class="field full"><div class="notice">La WL doit déjà avoir été validée sur Discord avant cet enregistrement. Pour un ALT d'une personne existante, indiquez son <code>person_id</code>. Le compte de connexion n'est pas créé ici.</div></div>
       <div class="field full"><button class="btn primary">Enregistrer la WL validée</button></div>
     </form>`);
 
@@ -1092,24 +1094,24 @@ async function renderWLRegistry(p) {
     try {
       const f = new FormData(e.target);
       const payload = {
-        rp_last_name: String(f.get('rp_last_name')||'').trim(),
-        rp_first_name: String(f.get('rp_first_name')||'').trim(),
-        discord_username: String(f.get('discord_username')||'').trim() || null,
-        roblox_username: String(f.get('roblox_username')||'').trim() || null,
-        school_year: String(f.get('school_year')||'').trim() || null,
-        section: String(f.get('section')||'').trim() || null,
-        class_name: String(f.get('class_name')||'').trim() || null,
-        profile_kind: String(f.get('profile_kind')||'student'),
-        is_alt: f.get('is_alt') === 'true',
-        club: String(f.get('club')||'').trim() || null,
-        function_name: String(f.get('function_name')||'').trim() || null,
-        recruiter_profile_id: p.id,
-        active: true
+        p_rp_last_name: String(f.get('rp_last_name')||'').trim(),
+        p_rp_first_name: String(f.get('rp_first_name')||'').trim(),
+        p_discord_username: String(f.get('discord_username')||'').trim() || null,
+        p_roblox_username: String(f.get('roblox_username')||'').trim() || null,
+        p_school_year: String(f.get('school_year')||'').trim() || null,
+        p_section: String(f.get('section')||'').trim() || null,
+        p_class_name: String(f.get('class_name')||'').trim() || null,
+        p_profile_kind: String(f.get('profile_kind')||'student'),
+        p_is_alt: f.get('is_alt') === 'true',
+        p_club: String(f.get('club')||'').trim() || null,
+        p_function_name: String(f.get('function_name')||'').trim() || null,
+        p_school_email: String(f.get('school_email')||'').trim().toLowerCase() || null,
+        p_person_id: String(f.get('person_id')||'').trim() || null
       };
-      const { data, error } = await sb.from('wl_registry').insert(payload).select('id').single();
+      const { data, error } = await sb.rpc('midori_add_validated_wl', payload);
       if (error) throw error;
-      await log('create', 'wl_registry', data.id, { validated_on_discord: true, is_alt: payload.is_alt });
-      toast('WL enregistrée.');
+      await log('create', 'wl_registry', data, { validated_on_discord: true, is_alt: payload.p_is_alt });
+      toast('WL enregistrée et profil créé.');
       closeModal('wlm');
       location.reload();
     } catch (er) { toast(errMsg(er), 'error'); }
