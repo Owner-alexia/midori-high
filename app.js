@@ -1,6 +1,8 @@
 const { createClient } = window.supabase;
 const sb = createClient(MIDORI_CONFIG.SUPABASE_URL, MIDORI_CONFIG.SUPABASE_KEY);
 
+let MIDORI_PORTAL_FUNCTIONS = [];
+
 const ROLE_LABEL = {
   admin: 'Administration',
   professor: 'Professeur',
@@ -223,25 +225,41 @@ async function guard(roles = []) {
 async function logout() { await sb.auth.signOut(); location.href = 'index.html'; }
 
 function portalModeFor(p) {
-  // Le mode WL est réservé aux comptes réellement autorisés par le rôle.
-  // Un administrateur peut basculer entre son espace CPE/administration et WL.
-  // Un recruteur WL reste uniquement dans l'espace WL.
+  const allowed = MIDORI_PORTAL_FUNCTIONS.map(x => x.function_code);
   const saved = localStorage.getItem('midori_portal_mode');
-  if (p.role === 'recruteur_wl') return 'wl';
-  if (p.role === 'admin' && saved === 'wl') return 'wl';
-  return 'cpe';
+  if (saved === 'wl' && allowed.includes('recruteur_wl')) return 'wl';
+  if (saved === 'cpe' && allowed.includes('cpe')) return 'cpe';
+  if (allowed.includes('cpe')) return 'cpe';
+  if (allowed.includes('recruteur_wl')) return 'wl';
+  return p.role === 'recruteur_wl' ? 'wl' : 'cpe';
 }
 
 function setPortalMode(mode, p) {
-  if (p.role === 'recruteur_wl') mode = 'wl';
-  if (p.role === 'admin' && !['cpe', 'wl'].includes(mode)) mode = 'cpe';
+  const allowed = MIDORI_PORTAL_FUNCTIONS.map(x => x.function_code);
+  if (!allowed.includes(mode)) {
+    toast('Cette fonction n’est pas attribuée à votre compte.', 'error');
+    return;
+  }
   localStorage.setItem('midori_portal_mode', mode);
   location.href = mode === 'wl' ? 'wl.html' : (HOME[p.role] || 'dashboard.html');
 }
 
+async function loadPortalFunctions(p) {
+  const r = await sb.rpc('midori_get_my_functions');
+  if (!r.error && Array.isArray(r.data) && r.data.length) {
+    MIDORI_PORTAL_FUNCTIONS = r.data;
+    return MIDORI_PORTAL_FUNCTIONS;
+  }
+  // Compatibilité avec les anciennes données si la migration n'est pas encore installée.
+  MIDORI_PORTAL_FUNCTIONS = p.role === 'admin'
+    ? [{function_code:'cpe',label:'CPE / Administration',icon:'🏫'},{function_code:'recruteur_wl',label:'Recruteur WL',icon:'📋'}]
+    : (p.role === 'recruteur_wl' ? [{function_code:'recruteur_wl',label:'Recruteur WL',icon:'📋'}] : [{function_code:'cpe',label:ROLE_LABEL[p.role] || p.role,icon:'🏫'}]);
+  return MIDORI_PORTAL_FUNCTIONS;
+}
+
 function navForProfile(p) {
   const mode = portalModeFor(p);
-  if (p.role === 'admin' && mode === 'wl') return NAV.recruteur_wl;
+  if (mode === 'wl') return NAV.recruteur_wl;
   return NAV[p.role] || [];
 }
 
@@ -274,7 +292,7 @@ function shell(p) {
           <div class="top-user">
             <div class="avatar">${esc((p.full_name || p.username || '?').slice(0, 1).toUpperCase())}</div>
             <div style="text-align:right"><strong style="font-size:13px;display:block">${esc(p.full_name || p.username)}</strong><span style="font-size:11px;color:#77827e">${esc(mode === 'wl' ? 'Recruteur WL' : (p.role === 'admin' ? 'CPE / Administration' : (ROLE_LABEL[p.role] || p.role)))}</span></div>
-            ${p.role === 'admin' ? `<div style="display:flex;gap:6px;align-items:center"><button type="button" class="btn ${mode === 'cpe' ? 'primary' : 'secondary'} small" id="modeCpe">🏫 CPE</button><button type="button" class="btn ${mode === 'wl' ? 'primary' : 'secondary'} small" id="modeWl">📋 WL</button></div>` : ''}
+            ${MIDORI_PORTAL_FUNCTIONS.length > 1 ? `<div style="display:flex;gap:6px;align-items:center">${MIDORI_PORTAL_FUNCTIONS.map(f => `<button type="button" class="btn ${((f.function_code==='recruteur_wl'&&mode==='wl')||(f.function_code==='cpe'&&mode==='cpe')) ? 'primary' : 'secondary'} small" data-portal-function="${esc(f.function_code)}">${esc(f.icon)} ${esc(f.function_code==='recruteur_wl'?'WL':'CPE')}</button>`).join('')}</div>` : ''}
             <button id="logout" class="logout">Déconnexion</button>
           </div>
         </header>
@@ -283,8 +301,7 @@ function shell(p) {
     </div>`;
   qs('#logout').onclick = logout;
   qs('#menu').onclick = () => qs('#sidebar').classList.toggle('open');
-  qs('#modeCpe')?.addEventListener('click', () => setPortalMode('cpe', p));
-  qs('#modeWl')?.addEventListener('click', () => setPortalMode('wl', p));
+  qsa('[data-portal-function]').forEach(b => b.addEventListener('click', () => setPortalMode(b.dataset.portalFunction, p)));
   loadUnreadBadge();
 }
 
@@ -1764,17 +1781,18 @@ async function init() {
   const roles = PAGE_ROLES[page] || [];
   const ctx = await guard(roles);
   if (!ctx) return;
+  await loadPortalFunctions(ctx.profile);
 
-  // Pour un administrateur/CPE, le mode WL est un espace séparé.
+  // Pour un compte disposant de plusieurs fonctions, le mode sélectionné est un espace séparé.
   // Cela évite d'afficher ou d'utiliser les outils WL depuis l'espace CPE,
   // tout en gardant un seul compte de connexion.
   const wlPages = new Set(['wl.html', 'profiles.html']);
   const mode = portalModeFor(ctx.profile);
-  if (ctx.profile.role === 'admin' && wlPages.has(page) && mode !== 'wl') {
-    location.href = 'dashboard.html';
+  if (wlPages.has(page) && mode !== 'wl') {
+    location.href = HOME[ctx.profile.role] || 'dashboard.html';
     return;
   }
-  if (ctx.profile.role === 'admin' && !wlPages.has(page) && page !== 'profile.html' && mode === 'wl') {
+  if (!wlPages.has(page) && page !== 'profile.html' && mode === 'wl' && page === 'dashboard.html') {
     location.href = 'wl.html';
     return;
   }
