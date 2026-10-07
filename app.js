@@ -30,6 +30,7 @@ const NAV = {
       ['wl.html?view=profiles', '👥', 'Gestion des profils'],
       ['wl-import.html', '📥', 'Import WL en masse'],
       ['migration.html', '🔄', 'Migration des profils'],
+      ['access.html', '🔐', 'Accès & comptes'],
       ['profiles.html', '🔄', 'Mes profils'],
       ['profile.html', '👤', 'Mon profil']
     ]]
@@ -151,7 +152,7 @@ const TITLE = {
 };
 
 const PAGE_ROLES = {
-  'dashboard.html': ['admin'], 'wl.html': ['admin','recruteur_wl'], 'profiles.html': ['admin','recruteur_wl','professor','surveillant','student','psychologue','infirmiere'], 'messages.html': ['admin','professor','surveillant','student','psychologue','infirmiere'], 'homework-submissions.html': ['admin','professor'], 'access.html': ['admin'], 'profile-management.html': ['admin','recruteur_wl'], 'wl-import.html': ['admin','recruteur_wl'], 'migration.html': ['admin','recruteur_wl'], 'students.html': ['admin'], 'professors.html': ['admin'],
+  'dashboard.html': ['admin'], 'wl.html': ['admin','recruteur_wl'], 'profiles.html': ['admin','recruteur_wl','professor','surveillant','student','psychologue','infirmiere'], 'messages.html': ['admin','professor','surveillant','student','psychologue','infirmiere'], 'homework-submissions.html': ['admin','professor'], 'access.html': ['admin','recruteur_wl'], 'profile-management.html': ['admin','recruteur_wl'], 'wl-import.html': ['admin','recruteur_wl'], 'migration.html': ['admin','recruteur_wl'], 'students.html': ['admin'], 'professors.html': ['admin'],
   'supervisors.html': ['admin'], 'classes.html': ['admin'], 'subjects.html': ['admin'], 'timetable.html': ['admin'],
   'attendance.html': ['admin', 'professor', 'surveillant'], 'absences.html': ['admin', 'professor', 'surveillant'],
   'grades.html': ['admin', 'professor'], 'homework.html': ['admin', 'professor'], 'points.html': ['admin'],
@@ -354,6 +355,16 @@ async function rows(table, select = '*', cfg = {}) {
 async function add(table, row) { const r = await sb.from(table).insert(row).select().single(); if (r.error) throw r.error; return r.data; }
 async function update(table, id, row) { const r = await sb.from(table).update(row).eq('id', id).select().single(); if (r.error) throw r.error; return r.data; }
 async function remove(table, id) { const r = await sb.from(table).delete().eq('id', id); if (r.error) throw r.error; }
+async function hardDelete(entity, id) {
+  const { data, error } = await sb.functions.invoke('admin-hard-delete', { body: { entity, id } });
+  if (error) {
+    let message = errMsg(error);
+    try { const ctx = await error.context?.json?.(); if (ctx?.error) message = ctx.error; } catch (_) {}
+    throw new Error(message);
+  }
+  if (data?.error) throw new Error(data.error);
+  return data || {};
+}
 async function log(action, entity, entityId = null, details = null) {
   try { await sb.from('activity_logs').insert({ actor_profile_id: (await currentUser())?.id || null, action, entity, entity_id: entityId, details: details || null }); } catch (_) {}
 }
@@ -529,8 +540,7 @@ async function renderMessages(p) {
         const b = qs('#deleteMsgView');
         try {
           b.disabled = true;
-          await deleteInternalMessage(m.id);
-          await log('delete', 'message', m.id, null);
+          await hardDelete('message', m.id);
           closeModal('msgView');
           toast('Message supprimé.');
           await renderMessages(p);
@@ -549,8 +559,7 @@ async function renderMessages(p) {
     if (!confirm('Supprimer définitivement ce message ?')) return;
     try {
       btn.disabled = true;
-      await deleteInternalMessage(btn.dataset.deleteMessage);
-      await log('delete', 'message', btn.dataset.deleteMessage, null);
+      await hardDelete('message', btn.dataset.deleteMessage);
       toast('Message supprimé.');
       await renderMessages(p);
       await loadUnreadBadge();
@@ -710,6 +719,73 @@ async function initLogin() {
 }
 
 
+
+async function enhanceClassFilteredTables() {
+  const tables = qsa('table.table');
+  if (!tables.length) return;
+  let classes = [];
+  try { classes = await rows('classes', 'id,name', { order: 'name' }); } catch (_) { return; }
+  if (!classes.length) return;
+  const classNames = classes.map(c => String(c.name || '').trim()).filter(Boolean);
+  const classKey = value => {
+    const s = String(value || '').toLowerCase();
+    const m = s.match(/(1|2|3)\s*(?:ere|ère|eme|ème|e|er|nd|rd)?\s*[- ]?\s*([abc])/i);
+    if (m) return `${m[1]}-${m[2].toLowerCase()}`;
+    const n = Number((s.match(/^[123]/) || ['99'])[0]);
+    const letter = (s.match(/[abc](?:$|\b)/i) || ['z'])[0].toLowerCase();
+    return `${String(n).padStart(2,'0')}-${letter}`;
+  };
+  const normText = v => String(v || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const collator = new Intl.Collator('fr', { sensitivity: 'base', numeric: true });
+
+  for (const table of tables) {
+    const card = table.closest('.card') || table.parentElement;
+    if (!card || card.querySelector('.class-filter-bar')) continue;
+    const headers = [...table.querySelectorAll('thead th')].map(th => normText(th.textContent));
+    const classIndex = headers.findIndex(h => h.includes('classe'));
+    const studentIndex = headers.findIndex(h => h.includes('eleve') || h.includes('etudiant') || h.includes('personnage'));
+    if (classIndex < 0 && studentIndex < 0) continue;
+
+    const bar = document.createElement('div');
+    bar.className = 'toolbar class-filter-bar';
+    bar.style.margin = '0 0 12px';
+    bar.innerHTML = `<label style="display:flex;align-items:center;gap:8px;font-weight:600">🏫 Classe <select class="search class-filter-select" style="min-width:180px"><option value="">Toutes les classes</option>${classNames.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('')}</select></label>`;
+    const wrap = table.parentElement;
+    card.insertBefore(bar, wrap);
+    const select = bar.querySelector('.class-filter-select');
+    const tbody = table.tBodies[0];
+    if (!tbody) continue;
+
+    const getClass = tr => {
+      const cell = classIndex >= 0 ? tr.cells[classIndex] : null;
+      const hay = normText(cell ? cell.textContent : tr.textContent);
+      const hit = classNames.find(c => hay.includes(normText(c)));
+      return hit || '';
+    };
+    const getName = tr => {
+      if (studentIndex >= 0 && tr.cells[studentIndex]) return tr.cells[studentIndex].textContent.trim();
+      return tr.cells[0]?.textContent?.trim() || '';
+    };
+    const sortRows = () => {
+      [...tbody.rows].sort((a,b) => {
+        const ak = classKey(getClass(a)), bk = classKey(getClass(b));
+        const c = collator.compare(ak,bk);
+        return c || collator.compare(getName(a), getName(b));
+      }).forEach(tr => tbody.appendChild(tr));
+    };
+    const filterRows = () => {
+      const wanted = normText(select.value);
+      [...tbody.rows].forEach(tr => {
+        const cn = normText(getClass(tr));
+        tr.style.display = !wanted || cn === wanted ? '' : 'none';
+      });
+      sortRows();
+    };
+    select.onchange = filterRows;
+    sortRows();
+  }
+}
+
 async function renderDashboard() {
   const [students, professors, classes, absences] = await Promise.all([
     sb.from('students').select('id', { count: 'exact', head: true }),
@@ -736,7 +812,7 @@ async function renderAnnouncements(p) {
     qs('#aa').onclick = () => openModal('am');
     closeBindings();
     qs('#af').onsubmit = async e => { e.preventDefault(); const f = new FormData(e.target); try { const r = await add('announcements', { title: f.get('title'), content: f.get('content'), published: f.get('published') === 'true', published_at: new Date().toISOString() }); await log('create', 'announcement', r.id, { title: r.title }); toast('Annonce enregistrée.'); location.reload(); } catch (er) { toast(errMsg(er), 'error'); } };
-    qsa('[data-del-ann]').forEach(b => b.onclick = async () => { if (!confirm('Supprimer cette annonce ?')) return; try { await remove('announcements', b.dataset.delAnn); toast('Annonce supprimée.'); location.reload(); } catch (er) { toast(errMsg(er), 'error'); } });
+    qsa('[data-del-ann]').forEach(b => b.onclick = async () => { if (!confirm('⚠️ Supprimer définitivement cette annonce ?\n\nCette action est irréversible.')) return; try { b.disabled=true; b.textContent='Suppression…'; await hardDelete('announcement', b.dataset.delAnn); toast('Annonce supprimée définitivement.'); location.reload(); } catch (er) { b.disabled=false; b.textContent='Supprimer'; toast(errMsg(er), 'error'); } });
   }
 }
 
@@ -748,19 +824,37 @@ async function adminCrudPage({ title, sub, table, fields, select = '*', order = 
   qs('#addBtn').onclick = () => { qs('#genericForm').reset(); openModal('genericModal'); };
   closeBindings();
   qs('#search').oninput = e => { const q = e.target.value.toLowerCase(); qsa('#rows tr').forEach(tr => tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none'); };
-  qsa('[data-del]').forEach(b => b.onclick = async () => { if (!confirm('Supprimer cette ligne ?')) return; try { await remove(table, b.dataset.del); toast('Supprimé.'); location.reload(); } catch (er) { toast(errMsg(er), 'error'); } });
+  qsa('[data-del]').forEach(b => b.onclick = async () => { if (!confirm('⚠️ SUPPRESSION DÉFINITIVE\n\nCette suppression efface la ligne et les données directement liées.\n\nCette action est irréversible. Continuer ?')) return; try { b.disabled=true; b.textContent='Suppression…'; await hardDelete(table, b.dataset.del); toast('Supprimé définitivement.'); location.reload(); } catch (er) { b.disabled=false; b.textContent='Supprimer'; toast(errMsg(er), 'error'); } });
   qsa('[data-edit]').forEach(b => b.onclick = () => { const r=list.find(x=>String(x.id)===String(b.dataset.edit)); if(!r)return; const form=qs('#genericForm'); form.reset(); form.elements.__id.value=r.id; fields.forEach(f=>{if(!f.name)return;const el=form.elements[f.name];if(!el)return;if(el.tagName==='SELECT')el.value=String(r[f.name]??'');else if(el.type==='checkbox')el.checked=!!r[f.name];else el.value=r[f.name]??'';}); qs('#genericModal .modal-head h3').textContent=`Modifier — ${title}`; openModal('genericModal'); });
   qs('#genericForm').onsubmit = async e => { e.preventDefault(); const f = new FormData(e.target); try { const obj = {}; fields.forEach(x => { if (x.name) obj[x.name] = x.type === 'number' ? Number(f.get(x.name) || 0) : (f.get(x.name) || null); }); const id=f.get('__id'); const r=id?await update(table,id,obj):await add(table,obj); await log(id?'update':'create', table, r.id, null); toast(id?'Modification enregistrée.':'Enregistré.'); closeModal('genericModal'); location.reload(); } catch (er) { toast(errMsg(er), 'error'); } };
 }
 
 async function renderStudents() {
   const classes = await rows('classes', 'id,name', { order: 'name' });
-  const list = await rows('students', 'id,username,full_name,class_name,class_id,created_at,rp_status', { order: 'created_at', ascending: false });
-  qs('#app').innerHTML = head('Élèves', 'Gestion des élèves, classes et accès.') + `<div class="toolbar"><input id="ss" class="search" placeholder="Rechercher un élève…"><button id="addStudent" class="btn primary">+ Ajouter</button></div><div class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Pseudo</th><th>Nom</th><th>Classe</th><th>Statut RP</th><th>Accès</th><th>Actions</th></tr></thead><tbody id="studentRows">${list.map(s => `<tr><td>${esc(s.username)}</td><td>${esc(s.full_name)}</td><td>${esc(s.class_name || classes.find(c => c.id === s.class_id)?.name || '—')}</td><td>${rpStatusBadge(s.rp_status)}</td><td><a class="btn secondary small" href="access.html?role=student&fiche_id=${encodeURIComponent(s.id)}">Gérer</a></td><td><a class="btn secondary small" href="student-profile.html?id=${esc(s.id)}">Dossier</a> <button class="btn danger small" data-del-student="${esc(s.id)}">Supprimer</button></td></tr>`).join('') || tableEmpty(6)}</tbody></table></div></div>` + modal('sm', 'Nouvel élève', `<form id="sf" class="form"><div class="field"><label>Pseudo Roblox</label><input name="username" required></div><div class="field"><label>Nom complet</label><input name="full_name" required></div><div class="field"><label>Classe</label><select name="class_id">${opts(classes)}</select></div><div class="field full"><button class="btn primary">Créer l’élève</button></div></form>`);
-  qs('#addStudent').onclick = () => openModal('sm'); closeBindings();
-  qs('#ss').oninput = e => { const q = e.target.value.toLowerCase(); qsa('#studentRows tr').forEach(tr => tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none'); };
+  const list = await rows('students', 'id,username,full_name,class_name,class_id,created_at,rp_status', { order: 'full_name' });
+  const classFor = s => s.class_name || classes.find(c => String(c.id) === String(s.class_id))?.name || '—';
+  list.sort((a,b) => {
+    const ca = classFor(a), cb = classFor(b);
+    const ka = String(ca).match(/(\d)/)?.[1] || '9', kb = String(cb).match(/(\d)/)?.[1] || '9';
+    return Number(ka) - Number(kb) || new Intl.Collator('fr',{numeric:true,sensitivity:'base'}).compare(ca,cb) || new Intl.Collator('fr',{numeric:true,sensitivity:'base'}).compare(a.full_name||'',b.full_name||'');
+  });
+  qs('#app').innerHTML = head('Élèves', 'Gestion des élèves, classes et accès.') + `<div class="toolbar class-filter-bar"><input id="ss" class="search" placeholder="Rechercher un élève…"><select id="studentClassFilter" class="search"><option value="">🏫 Toutes les classes</option>${classes.map(c=>`<option value="${esc(c.name)}">${esc(c.name)}</option>`).join('')}</select><button id="addStudent" class="btn primary">+ Ajouter</button></div><div class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Pseudo</th><th>Nom</th><th>Classe</th><th>Statut RP</th><th>Accès</th><th>Actions</th></tr></thead><tbody id="studentRows">${list.map(s => `<tr><td>${esc(s.username)}</td><td>${esc(s.full_name)}</td><td>${esc(classFor(s))}</td><td>${rpStatusBadge(s.rp_status)}</td><td><a class="btn secondary small" href="access.html?role=student&fiche_id=${encodeURIComponent(s.id)}">Gérer</a></td><td><a class="btn secondary small" href="student-profile.html?id=${esc(s.id)}">Dossier</a> <button class="btn danger small" data-del-student="${esc(s.id)}">Supprimer</button></td></tr>`).join('') || tableEmpty(6)}</tbody></table></div></div>` + modal('sm', 'Nouvel élève', `<form id="sf" class="form"><div class="field"><label>Pseudo Roblox</label><input name="username" required></div><div class="field"><label>Nom complet</label><input name="full_name" required></div><div class="field"><label>Classe</label><select name="class_id">${opts(classes)}</select></div><div class="field full"><button class="btn primary">Créer l’élève</button></div></form>`);
+  qs('#addStudent').onclick = () => openModal('sm');
+  closeBindings();
+  const applyStudentFilters = () => {
+    const q = qs('#ss').value.trim().toLowerCase();
+    const c = qs('#studentClassFilter').value.trim().toLowerCase();
+    qsa('#studentRows tr').forEach(tr => {
+      const okSearch = !q || tr.textContent.toLowerCase().includes(q);
+      const classCell = (tr.cells[2]?.textContent || '').trim().toLowerCase();
+      const okClass = !c || classCell === c;
+      tr.style.display = okSearch && okClass ? '' : 'none';
+    });
+  };
+  qs('#ss').oninput = applyStudentFilters;
+  qs('#studentClassFilter').onchange = applyStudentFilters;
   qs('#sf').onsubmit = async e => { e.preventDefault(); const f = new FormData(e.target); try { const c = classes.find(x => x.id === f.get('class_id')); const r = await add('students', { username: f.get('username'), full_name: f.get('full_name'), class_id: f.get('class_id') || null, class_name: c?.name || null }); await log('create', 'student', r.id, { username: r.username }); toast('Élève créé.'); location.reload(); } catch (er) { toast(errMsg(er), 'error'); } };
-  qsa('[data-del-student]').forEach(b => b.onclick = async () => { if (!confirm('Supprimer cet élève et ses données liées ?')) return; try { await remove('students', b.dataset.delStudent); toast('Élève supprimé.'); location.reload(); } catch (er) { toast(errMsg(er), 'error'); } });
+  qsa('[data-del-student]').forEach(b => b.onclick = async () => { if (!confirm('⚠️ SUPPRESSION DÉFINITIVE\n\nCet élève, son profil portail et toutes ses données scolaires/santé/RP liées seront supprimés.\n\nCette action est irréversible. Continuer ?')) return; const second = prompt('Pour confirmer, tapez SUPPRIMER'); if (second !== 'SUPPRIMER') { toast('Suppression annulée.','error'); return; } try { b.disabled=true; b.textContent='Suppression…'; await hardDelete('student', b.dataset.delStudent); toast('Élève supprimé définitivement.'); location.reload(); } catch (er) { b.disabled=false; b.textContent='Supprimer'; toast(errMsg(er), 'error'); } });
 }
 
 async function renderStudentProfile(p, asAdmin = false) {
@@ -803,7 +897,7 @@ async function renderProfessors() {
   closeBindings();
   qs('#ps').oninput = e => { const q = e.target.value.toLowerCase(); qsa('#pr tr').forEach(tr => tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none'); };
   qsa('[data-edit-prof]').forEach(b => b.onclick = () => { const r = list.find(x => x.id === b.dataset.editProf); qs('#pf').reset(); Object.entries({ id: r.id, username: r.username, full_name: r.full_name, subject: r.subject || '', email: r.email || '', phone: r.phone || '', active: String(r.active !== false), note: r.note || '' }).forEach(([k,v]) => { if (qs(`#pf [name="${k}"]`)) qs(`#pf [name="${k}"]`).value = v; }); const ids = links.filter(x => x.professor_id === r.id).map(x => x.class_id); qsa('input[name="class_ids"]').forEach(x => x.checked = ids.includes(x.value)); openModal('pm'); });
-  qsa('[data-del-prof]').forEach(b => b.onclick = async () => { if (!confirm('Supprimer ce professeur ?')) return; try { await remove('professors', b.dataset.delProf); toast('Professeur supprimé.'); location.reload(); } catch (er) { toast(errMsg(er), 'error'); } });
+  qsa('[data-del-prof]').forEach(b => b.onclick = async () => { if (!confirm('⚠️ SUPPRESSION DÉFINITIVE\n\nCe professeur, son profil portail et toutes ses données liées seront supprimés.\n\nCette action est irréversible. Continuer ?')) return; const second=prompt('Pour confirmer, tapez SUPPRIMER'); if(second!=='SUPPRIMER'){toast('Suppression annulée.','error');return;} try { b.disabled=true; b.textContent='Suppression…'; await hardDelete('professor', b.dataset.delProf); toast('Professeur supprimé définitivement.'); location.reload(); } catch (er) { b.disabled=false; b.textContent='Supprimer'; toast(errMsg(er), 'error'); } });
   qs('#pf').onsubmit = async e => { e.preventDefault(); const f = new FormData(e.target); try { let r; const obj = { username: f.get('username'), full_name: f.get('full_name'), subject: f.get('subject') || null, email: f.get('email') || null, phone: f.get('phone') || null, active: f.get('active') === 'true', note: f.get('note') || null }; if (f.get('id')) r = await update('professors', f.get('id'), obj); else r = await add('professors', obj); const old = links.filter(x => x.professor_id === r.id); for (const x of old) await remove('professor_classes', x.id); for (const cid of f.getAll('class_ids')) await add('professor_classes', { professor_id: r.id, class_id: cid }); await log(f.get('id') ? 'update' : 'create', 'professor', r.id, { username: r.username }); toast('Professeur enregistré.'); location.reload(); } catch (er) { toast(errMsg(er), 'error'); } };
 }
 
@@ -829,7 +923,7 @@ async function renderTimetable() {
   qs('#app').innerHTML = head('Emploi du temps', 'Construisez le planning de Midori High.') + `<div class="toolbar"><input id="ts" class="search" placeholder="Rechercher classe, prof ou matière…"><button id="ta" class="btn primary">+ Ajouter un cours</button></div><div class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Jour</th><th>Horaire</th><th>Classe</th><th>Professeur</th><th>Matière</th><th>Salle</th><th>Actions</th></tr></thead><tbody id="tr">${list.map(r => `<tr><td>${days[r.day_of_week]}</td><td>${String(r.start_time).slice(0,5)}–${String(r.end_time).slice(0,5)}</td><td>${esc(r.classes?.name || '')}</td><td>${esc(r.professors?.full_name || '')}</td><td>${esc(r.subjects?.name || '')}</td><td>${esc(r.room || '—')}</td><td><button class="btn danger small" data-del-time="${esc(r.id)}">Supprimer</button></td></tr>`).join('') || tableEmpty(7)}</tbody></table></div></div>` + modal('tm', 'Cours', `<form id="tf" class="form"><div class="field"><label>Jour</label><select name="day_of_week" required>${days.slice(1).map((d,i) => `<option value="${i+1}">${d}</option>`).join('')}</select></div><div class="field"><label>Classe</label><select name="class_id" required>${opts(classes)}</select></div><div class="field"><label>Professeur</label><select name="professor_id" required>${opts(professors, 'id', 'full_name')}</select></div><div class="field"><label>Matière</label><select name="subject_id" required>${opts(subjects)}</select></div><div class="field"><label>Début</label><input name="start_time" type="time" required></div><div class="field"><label>Fin</label><input name="end_time" type="time" required></div><div class="field"><label>Salle</label><input name="room"></div><div class="field full"><button class="btn primary">Enregistrer</button></div></form>`);
   qs('#ta').onclick = () => openModal('tm'); closeBindings();
   qs('#ts').oninput = e => { const q = e.target.value.toLowerCase(); qsa('#tr tr').forEach(tr => tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none'); };
-  qsa('[data-del-time]').forEach(b => b.onclick = async () => { if (!confirm('Supprimer ce cours ?')) return; try { await remove('timetable', b.dataset.delTime); toast('Cours supprimé.'); location.reload(); } catch (er) { toast(errMsg(er), 'error'); } });
+  qsa('[data-del-time]').forEach(b => b.onclick = async () => { if (!confirm('⚠️ Supprimer définitivement ce cours et ses feuilles d’appel liées ?\n\nCette action est irréversible.')) return; try { b.disabled=true; b.textContent='Suppression…'; await hardDelete('timetable', b.dataset.delTime); toast('Cours supprimé définitivement.'); location.reload(); } catch (er) { b.disabled=false; b.textContent='Supprimer'; toast(errMsg(er), 'error'); } });
   qs('#tf').onsubmit = async e => { e.preventDefault(); const f = new FormData(e.target); try { const r = await add('timetable', { class_id: f.get('class_id'), professor_id: f.get('professor_id'), subject_id: f.get('subject_id'), day_of_week: Number(f.get('day_of_week')), start_time: f.get('start_time'), end_time: f.get('end_time'), room: f.get('room') || null }); await log('create', 'timetable', r.id, null); toast('Cours ajouté.'); location.reload(); } catch (er) { toast(errMsg(er), 'error'); } };
 }
 
@@ -1073,7 +1167,7 @@ async function renderEvents(p) {
     };
     qsa('[data-del-event]').forEach(b => b.onclick = async () => {
       if (!confirm('Supprimer cet événement ?')) return;
-      try { await remove('school_events', b.dataset.delEvent); toast('Événement supprimé.'); location.reload(); }
+      try { await hardDelete('school_event', b.dataset.delEvent); toast('Événement supprimé définitivement.'); location.reload(); }
       catch (er) { toast(errMsg(er), 'error'); }
     });
   }
@@ -1095,8 +1189,8 @@ async function renderAdminClubs() {
   qs('#ca').onclick = () => openModal('cm');
   closeBindings();
   qs('#cf').onsubmit = async e => { e.preventDefault(); const f = new FormData(e.target); try { const r = await add('clubs', { name: f.get('name'), description: f.get('description') || null, president_student_id: f.get('president_student_id') || null, status: f.get('status') }); await log('create', 'club', r.id, null); toast('Club créé.'); location.reload(); } catch (er) { toast(errMsg(er), 'error'); } };
-  qsa('[data-del-club]').forEach(b => b.onclick = async () => { if (!confirm('Supprimer ce club et ses demandes ?')) return; try { await remove('clubs', b.dataset.delClub); toast('Club supprimé.'); location.reload(); } catch (er) { toast(errMsg(er), 'error'); } });
-  qsa('[data-del-member]').forEach(b => b.onclick = async () => { if (!confirm('Retirer cet élève du club ?')) return; try { await remove('club_members', b.dataset.delMember); toast('Membre retiré.'); location.reload(); } catch (er) { toast(errMsg(er), 'error'); } });
+  qsa('[data-del-club]').forEach(b => b.onclick = async () => { if (!confirm('⚠️ Supprimer définitivement ce club, ses membres et demandes ?\n\nCette action est irréversible.')) return; try { b.disabled=true; b.textContent='Suppression…'; await hardDelete('club', b.dataset.delClub); toast('Club supprimé définitivement.'); location.reload(); } catch (er) { b.disabled=false; b.textContent='Supprimer'; toast(errMsg(er), 'error'); } });
+  qsa('[data-del-member]').forEach(b => b.onclick = async () => { if (!confirm('Retirer définitivement cet élève du club ?')) return; try { await hardDelete('club_member', b.dataset.delMember); toast('Membre retiré définitivement.'); location.reload(); } catch (er) { toast(errMsg(er), 'error'); } });
   qsa('[data-approve-request]').forEach(b => b.onclick = async () => { const req=requests.find(x=>x.id===b.dataset.approveRequest); if(!req)return; try { await add('club_members',{club_id:req.club_id,student_id:req.student_id,role:'Membre'}); await update('club_requests',req.id,{status:'Acceptée'}); await log('update','club_request',req.id,{status:'Acceptée'}); toast('Candidature acceptée.'); location.reload(); } catch(er){toast(errMsg(er),'error');} });
   qsa('[data-reject-request]').forEach(b => b.onclick = async () => { try { await update('club_requests',b.dataset.rejectRequest,{status:'Refusée'}); await log('update','club_request',b.dataset.rejectRequest,{status:'Refusée'}); toast('Candidature refusée.'); location.reload(); } catch(er){toast(errMsg(er),'error');} });
 }
@@ -1126,7 +1220,7 @@ async function renderWLRegistry(p) {
   qs('#app').innerHTML =
     head('Registre WL', 'Registre administratif des personnes déjà validées par votre équipe.') +
     `<div class="notice" style="margin-bottom:15px">🔒 Le site ne communique pas avec Discord. Après votre validation interne, utilisez ce formulaire pour enregistrer la personne dans le registre WL.</div>` +
-    `<div class="toolbar"><input id="wlSearch" class="search" placeholder="Rechercher un personnage…"><button id="wlAdd" class="btn primary">＋ Ajouter une WL</button><a href="wl-import.html" class="btn secondary">📥 Importer en masse</a></div>` +
+    `<div class="toolbar class-filter-bar"><input id="wlSearch" class="search" placeholder="Rechercher un personnage…"><select id="wlClassFilter" class="search"><option value="">🏫 Toutes les classes</option></select><button id="wlAdd" class="btn primary">＋ Ajouter une WL</button><a href="wl-import.html" class="btn secondary">📥 Importer en masse</a><button id="wlSyncSchool" class="btn secondary">🔗 Synchroniser Scolarité</button></div>` +
     `<div class="card"><div class="toolbar" style="margin-bottom:12px"><button class="btn secondary" data-wl-tab="students">🎓 Élèves</button><button class="btn secondary" data-wl-tab="staff">🏫 Personnel</button></div><div id="wlStudentsSection"><h3>🎓 Élèves</h3><div class="table-wrap"><table class="table"><thead><tr><th>Personnage</th><th>Discord</th><th>Roblox</th><th>Classe</th><th>Type / Statut RP</th><th>E-mail scolaire</th><th>Actions</th></tr></thead><tbody id="wlStudentRows"></tbody></table></div></div><div id="wlStaffSection" style="display:none"><h3>🏫 Personnel</h3><div class="table-wrap"><table class="table"><thead><tr><th>Personnage</th><th>Fonction</th><th>Discord</th><th>Roblox</th><th>Type</th><th>E-mail scolaire</th><th>Actions</th></tr></thead><tbody id="wlStaffRows"></tbody></table></div></div></div>` +
     modal('wlm', 'Ajouter une WL validée', `<form id="wlf" class="form">
       <div class="field"><label>Nom RP</label><input name="rp_last_name" required></div>
@@ -1161,17 +1255,24 @@ async function renderWLRegistry(p) {
       <div class="field full"><button class="btn primary">Enregistrer la WL validée</button></div>
     </form>`);
 
+  const classFilter = qs('#wlClassFilter');
+  try { const cls = await rows('classes','id,name',{order:'name'}); classFilter.innerHTML = '<option value="">🏫 Toutes les classes</option>' + (cls||[]).map(c=>`<option value="${esc(c.name)}">${esc(c.name)}</option>`).join(''); } catch (_) {}
   qs('#wlAdd').onclick = () => openModal('wlm');
+  qs('#wlSyncSchool').onclick = async () => { if (!confirm('Synchroniser le registre WL actif vers les fiches scolaires ?\n\nLes élèves/professeurs/surveillants déjà liés seront mis à jour, les fiches manquantes seront créées.')) return; try { const { data, error } = await sb.rpc('midori_sync_all_wl_school_links'); if(error) throw error; toast(`Synchronisation terminée : ${data?.students_created ?? 0} élèves, ${data?.professors_created ?? 0} professeurs, ${data?.supervisors_created ?? 0} surveillants.`); location.reload(); } catch(er) { toast(errMsg(er),'error'); } };
   const renderWLRows = () => {
     const q = (qs('#wlSearch')?.value || '').trim().toLowerCase();
-    const filtered = my.filter(x => `${x.rp_last_name||''} ${x.rp_first_name||''} ${x.discord_username||''} ${x.roblox_username||''} ${x.school_email||''} ${x.class_name||''} ${x.function_name||''}`.toLowerCase().includes(q));
+    const wantedClass = (qs('#wlClassFilter')?.value || '').trim().toLowerCase();
+    const filtered = my.filter(x => { const hay = `${x.rp_last_name||''} ${x.rp_first_name||''} ${x.discord_username||''} ${x.roblox_username||''} ${x.school_email||''} ${x.class_name||''} ${x.function_name||''}`.toLowerCase(); return (!q || hay.includes(q)) && (!wantedClass || String(x.class_name||'').trim().toLowerCase() === wantedClass); });
+    const classOrder = x => { const m=String(x||'').match(/(\d)/); return `${m?m[1]:'9'}-${String(x||'').toLowerCase()}`; };
+    filtered.sort((a,b)=>classOrder(a.class_name).localeCompare(classOrder(b.class_name),'fr',{numeric:true,sensitivity:'base'}) || `${a.rp_last_name||''} ${a.rp_first_name||''}`.localeCompare(`${b.rp_last_name||''} ${b.rp_first_name||''}`,'fr',{numeric:true,sensitivity:'base'}));
     const row = x => `<tr data-wl-row><td><strong>${esc(x.rp_last_name)} ${esc(x.rp_first_name)}</strong></td><td>${esc(x.discord_username || '—')}</td><td>${esc(x.roblox_username || '—')}</td><td>${esc(x.class_name || '—')}</td><td>${x.is_alt ? '<span class="tag yellow">🟣 ALT PERSO</span>' : '<span class="tag">Principal</span>'}${isStudentProfile(x) ? `<br>${rpStatusBadge(x.rp_status)}` : ''}</td><td>${esc(x.school_email || '—')}</td><td><a class="btn secondary small" href="profile-management.html?profile=${encodeURIComponent(x.profile_id)}">✏️ Modifier</a> <button class="btn danger small" data-remove-wl="${esc(x.id)}">🗑️ Retirer</button></td></tr>`;
     const staffRow = x => `<tr><td><strong>${esc(x.rp_last_name)} ${esc(x.rp_first_name)}</strong></td><td>${esc(x.function_name || ROLE_LABEL[x.profile_kind] || 'Personnel')}</td><td>${esc(x.discord_username || '—')}</td><td>${esc(x.roblox_username || '—')}</td><td>${x.is_alt ? '<span class="tag yellow">🟣 ALT PERSO</span>' : '<span class="tag">Principal</span>'}</td><td>${esc(x.school_email || '—')}</td><td><a class="btn secondary small" href="profile-management.html?profile=${encodeURIComponent(x.profile_id)}">✏️ Modifier</a> <button class="btn danger small" data-remove-wl="${esc(x.id)}">🗑️ Retirer</button></td></tr>`;
     qs('#wlStudentRows').innerHTML = filtered.filter(isStudentProfile).map(row).join('') || tableEmpty(7, 'Aucun élève dans le registre WL.');
     qs('#wlStaffRows').innerHTML = filtered.filter(x => !isStudentProfile(x)).map(staffRow).join('') || tableEmpty(7, 'Aucun personnel dans le registre WL.');
-    qsa('[data-remove-wl]').forEach(b => b.onclick = async () => { if (!confirm('Retirer cette WL du registre actif ? Le profil et son historique ne seront pas supprimés.')) return; try { await update('wl_registry', b.dataset.removeWl, {active:false, removed_at:new Date().toISOString(), removed_by:p.id}); await log('update','wl_registry',b.dataset.removeWl,{active:false}); toast('WL retirée du registre actif.'); location.reload(); } catch (er) { toast(errMsg(er), 'error'); } });
+    qsa('[data-remove-wl]').forEach(b => b.onclick = async () => { if (!confirm('⚠️ SUPPRESSION DÉFINITIVE DE LA WL\n\nLe profil, ses données liées et son compte Supabase Authentication seront supprimés.\n\nCette action est irréversible. Continuer ?')) return; const second=prompt('Pour confirmer, tapez SUPPRIMER'); if(second!=='SUPPRIMER'){toast('Suppression annulée.','error');return;} try { b.disabled=true; b.textContent='Suppression…'; const rowId=b.dataset.removeWl; const {data:row,error:rowErr}=await sb.from('wl_registry').select('profile_id').eq('id',rowId).maybeSingle(); if(rowErr)throw rowErr; if(!row?.profile_id) throw new Error('Profil WL introuvable.'); await hardDelete('profile',row.profile_id); toast('WL et profil supprimés définitivement.'); location.reload(); } catch (er) { b.disabled=false; b.textContent='🗑️ Retirer'; toast(errMsg(er), 'error'); } });
   };
   qs('#wlSearch').oninput = renderWLRows;
+  qs('#wlClassFilter').onchange = renderWLRows;
   qsa('[data-wl-tab]').forEach(b => b.onclick = () => { const student = b.dataset.wlTab === 'students'; qs('#wlStudentsSection').style.display = student ? '' : 'none'; qs('#wlStaffSection').style.display = student ? 'none' : ''; });
   renderWLRows();
   closeBindings();
@@ -1279,6 +1380,7 @@ async function renderWLRegistry(p) {
         p_reason: String(f.get('rp_status_reason') || '').trim() || null
       });
       if (finalizeError) throw finalizeError;
+      try { await sb.rpc('midori_sync_wl_school_record', { p_registry_id: data }); } catch (syncError) { console.warn('Synchronisation WL → fiche scolaire non disponible:', syncError); }
       await log('create', 'wl_registry', data, { validated_on_discord: true, is_alt: payload.p_is_alt, rp_status: payload.p_profile_kind === 'student' ? (f.get('rp_status') || 'normal') : null });
       toast('WL enregistrée. Le profil est maintenant rattaché à cette personne.');
       closeModal('wlm');
@@ -1286,13 +1388,18 @@ async function renderWLRegistry(p) {
     } catch (er) { toast(errMsg(er), 'error'); }
   };
   qsa('[data-remove-wl]').forEach(b => b.onclick = async () => {
-    if (!confirm('Retirer cette WL ? Le profil associé doit ensuite être désactivé par la procédure de gestion des accès.')) return;
+    if (!confirm('⚠️ SUPPRESSION DÉFINITIVE DE LA WL\n\nLe profil, ses données liées et son compte Supabase Authentication seront supprimés.\n\nCette action est irréversible. Continuer ?')) return;
+    const second=prompt('Pour confirmer, tapez SUPPRIMER');
+    if(second!=='SUPPRIMER'){toast('Suppression annulée.','error');return;}
     try {
-      const { error } = await sb.from('wl_registry').update({ active:false, removed_at:new Date().toISOString(), removed_by:p.id }).eq('id', b.dataset.removeWl);
-      if (error) throw error;
-      toast('WL retirée.');
+      b.disabled=true; b.textContent='Suppression…';
+      const {data:row,error:rowErr}=await sb.from('wl_registry').select('profile_id').eq('id',b.dataset.removeWl).maybeSingle();
+      if(rowErr) throw rowErr;
+      if(!row?.profile_id) throw new Error('Profil WL introuvable.');
+      await hardDelete('profile',row.profile_id);
+      toast('WL et profil supprimés définitivement.');
       location.reload();
-    } catch (er) { toast(errMsg(er), 'error'); }
+    } catch (er) { b.disabled=false; b.textContent='🗑️ Retirer'; toast(errMsg(er), 'error'); }
   });
 }
 
@@ -1411,6 +1518,7 @@ async function renderWLImport(p) {
           p_reason:'Import WL en masse'
         });
         if(fin) throw fin;
+        try { await sb.rpc('midori_sync_wl_school_record', { p_registry_id: data }); } catch (syncError) { console.warn('Synchronisation WL → fiche scolaire non disponible:', syncError); }
         const {data:reg,error:regErr}=await sb.from('wl_registry').select('person_id,profile_id').eq('id',data).maybeSingle();
         if(regErr) throw regErr;
         if(r.person_group && reg?.person_id) groupPersons[r.person_group]=reg.person_id;
@@ -1461,7 +1569,7 @@ async function renderMigration(p) {
   personSelect.onchange=()=>{ selectedPerson=allPeople.find(x=>String(x.id)===String(personSelect.value))||null; personInfo.style.display=selectedPerson?'':'none'; if(selectedPerson) personInfo.innerHTML=`<strong>Personne cible</strong><br>${esc((profileNames[selectedPerson.id]||[]).join(' • ')||'Aucun profil')}<br>Discord : ${esc(selectedPerson.discord_username||'—')} · Roblox : ${esc(selectedPerson.roblox_username||'—')}<br>${profileCount[selectedPerson.id]||0} profil(s) déjà rattaché(s)`; linkBtn.disabled=!(selectedProfile&&selectedPerson&&String(selectedProfile.person_id)!==String(selectedPerson.id)); };
   linkBtn.onclick=async()=>{ if(!selectedProfile||!selectedPerson)return; if(!confirm(`Rattacher « ${selectedProfile.full_name||'ce profil'} » à « ${(profileNames[selectedPerson.id]||[]).join(', ')||'cette personne'} » ?\n\nAucun profil ne sera supprimé.`))return; try{const {error}=await sb.rpc('midori_migrate_link_profile',{p_profile_id:selectedProfile.profile_id,p_target_person_id:selectedPerson.id});if(error)throw error;toast('Profil rattaché.');location.reload();}catch(e){toast(errMsg(e),'error')}};
   editBtn.onclick=()=>{if(!selectedProfile)return;const f=qs('#migEditForm');f.profile_id.value=selectedProfile.profile_id;f.full_name.value=selectedProfile.full_name||'';f.discord_username.value=selectedProfile.discord_username||'';f.roblox_username.value=selectedProfile.roblox_username||'';f.class_name.value=selectedProfile.class_name||'';f.profile_kind.value=selectedProfile.profile_kind||selectedProfile.role||'student';f.is_alt.value=String(!!selectedProfile.is_alt);f.rp_status.value=selectedProfile.rp_status||'normal';f.rp_status_reason.value='';f.school_email.value=selectedProfile.school_email||'';const migIsStudent=isStudentProfile(selectedProfile);qs('#migRpStatusField').style.display=migIsStudent?'':'none';qs('#migRpStatusReasonField').style.display=migIsStudent?'':'none';openModal('migEditModal');closeBindings();};
-  qs('#migEditForm').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);try{const {error}=await sb.rpc('midori_migrate_update_profile',{p_profile_id:f.get('profile_id'),p_full_name:String(f.get('full_name')||'').trim(),p_discord_username:String(f.get('discord_username')||'').trim()||null,p_roblox_username:String(f.get('roblox_username')||'').trim()||null,p_class_name:String(f.get('class_name')||'').trim()||null,p_profile_kind:String(f.get('profile_kind')||'student'),p_is_alt:f.get('is_alt')==='true',p_school_email:String(f.get('school_email')||'').trim().toLowerCase()||null});if(error)throw error;if(String(f.get('profile_kind')||'student')==='student'){const {error:se}=await sb.rpc('midori_set_rp_status',{p_profile_id:f.get('profile_id'),p_status:f.get('rp_status'),p_reason:String(f.get('rp_status_reason')||'').trim()||null});if(se)throw se;}toast('Profil corrigé.');closeModal('migEditModal');location.reload();}catch(e){toast(errMsg(e),'error')}};
+  qs('#migEditForm').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);try{const {error}=await sb.rpc('midori_migrate_update_profile',{p_profile_id:f.get('profile_id'),p_full_name:String(f.get('full_name')||'').trim(),p_discord_username:String(f.get('discord_username')||'').trim()||null,p_roblox_username:String(f.get('roblox_username')||'').trim()||null,p_class_name:String(f.get('class_name')||'').trim()||null,p_profile_kind:String(f.get('profile_kind')||'student'),p_is_alt:f.get('is_alt')==='true',p_school_email:String(f.get('school_email')||'').trim().toLowerCase()||null});if(error)throw error;if(String(f.get('profile_kind')||'student')==='student'){const {error:se}=await sb.rpc('midori_set_rp_status',{p_profile_id:f.get('profile_id'),p_status:f.get('rp_status'),p_reason:String(f.get('rp_status_reason')||'').trim()||null});if(se)throw se;}try{const wr=await sb.from('wl_registry').select('id').eq('profile_id',f.get('profile_id')).eq('active',true).maybeSingle();if(wr.data?.id)await sb.rpc('midori_sync_wl_school_record',{p_registry_id:wr.data.id});}catch(syncError){console.warn('Synchronisation WL → fiche après correction indisponible:',syncError);}toast('Profil corrigé.');closeModal('migEditModal');location.reload();}catch(e){toast(errMsg(e),'error')}};
 }
 
 async function renderProfileManagement(p) {
@@ -1480,12 +1588,14 @@ async function renderProfileManagement(p) {
     qsa('[data-pm-edit]').forEach(b=>b.onclick=()=>{const x=allProfiles.find(v=>String(v.profile_id)===String(b.dataset.pmEdit)); if(!x)return; const f=qs('#pmEditForm'); f.profile_id.value=x.profile_id; f.full_name.value=x.full_name||''; f.discord_username.value=x.discord_username||''; f.roblox_username.value=x.roblox_username||''; f.class_name.value=x.class_name||''; f.profile_kind.value=x.profile_kind||x.role||'student'; f.is_alt.value=String(!!x.is_alt); f.rp_status.value=x.rp_status||'normal'; f.rp_status_reason.value=''; f.school_email.value=x.school_email||''; const student=isStudentProfile(x); qs('#pmStatusField').style.display=student?'':'none'; qs('#pmReasonField').style.display=student?'':'none'; openModal('pmEditModal'); closeBindings();});
   };
   search.oninput=render;
-  qs('#pmEditForm').onsubmit=async e=>{e.preventDefault(); const f=new FormData(e.target); try { const kind=String(f.get('profile_kind')||'student'); const {error:ue}=await sb.rpc('midori_migrate_update_profile',{p_profile_id:f.get('profile_id'),p_full_name:String(f.get('full_name')||'').trim(),p_discord_username:String(f.get('discord_username')||'').trim()||null,p_roblox_username:String(f.get('roblox_username')||'').trim()||null,p_class_name:String(f.get('class_name')||'').trim()||null,p_profile_kind:kind,p_is_alt:f.get('is_alt')==='true',p_school_email:String(f.get('school_email')||'').trim().toLowerCase()||null}); if(ue)throw ue; if(kind==='student'){const {error:se}=await sb.rpc('midori_set_rp_status',{p_profile_id:f.get('profile_id'),p_status:f.get('rp_status'),p_reason:String(f.get('rp_status_reason')||'').trim()||null}); if(se)throw se;} toast('Profil corrigé.'); closeModal('pmEditModal'); location.reload(); } catch(e){toast(errMsg(e),'error');}};
+  qs('#pmEditForm').onsubmit=async e=>{e.preventDefault(); const f=new FormData(e.target); try { const kind=String(f.get('profile_kind')||'student'); const {error:ue}=await sb.rpc('midori_migrate_update_profile',{p_profile_id:f.get('profile_id'),p_full_name:String(f.get('full_name')||'').trim(),p_discord_username:String(f.get('discord_username')||'').trim()||null,p_roblox_username:String(f.get('roblox_username')||'').trim()||null,p_class_name:String(f.get('class_name')||'').trim()||null,p_profile_kind:kind,p_is_alt:f.get('is_alt')==='true',p_school_email:String(f.get('school_email')||'').trim().toLowerCase()||null}); if(ue)throw ue; if(kind==='student'){const {error:se}=await sb.rpc('midori_set_rp_status',{p_profile_id:f.get('profile_id'),p_status:f.get('rp_status'),p_reason:String(f.get('rp_status_reason')||'').trim()||null}); if(se)throw se;} try { const wr=await sb.from('wl_registry').select('id').eq('profile_id',f.get('profile_id')).eq('active',true).maybeSingle(); if(wr.data?.id) await sb.rpc('midori_sync_wl_school_record',{p_registry_id:wr.data.id}); } catch(syncError) { console.warn('Synchronisation WL → fiche après modification indisponible:',syncError); } toast('Profil corrigé.'); closeModal('pmEditModal'); location.reload(); } catch(e){toast(errMsg(e),'error');}};
   const wanted=new URLSearchParams(location.search).get('profile'); if(wanted){search.value=''; const x=allProfiles.find(v=>String(v.profile_id)===String(wanted)); if(x){render(); setTimeout(()=>qs(`[data-pm-edit="${CSS.escape(wanted)}"]`)?.click(),0);}}
   render();
 }
 
 async function renderAccess(p) {
+  if (!['admin','recruteur_wl'].includes(p.role)) throw new Error('Accès réservé à l’administration et aux recruteurs WL.');
+  const recruiterView = p.role === 'recruteur_wl';
   const [profs, students, teachers, supervisors, people] = await Promise.all([
     rows('profiles', 'id,email,username,full_name,role,active,student_id,professor_id,supervisor_id,person_id,school_email,access_status,created_at', { order: 'created_at', ascending: false }),
     rows('students', 'id,username,full_name', { order: 'full_name' }),
@@ -1499,7 +1609,8 @@ async function renderAccess(p) {
   const preTeacher = teachers.find(x => x.username === queryUser);
   const preSupervisor = supervisors.find(x => x.username === queryUser);
 
-  qs('#app').innerHTML = head('Accès & comptes', 'Gérez les rôles, les fiches liées et l’accès au portail.') +
+  qs('#app').innerHTML = head('Accès & comptes', 'Identifiants du portail et gestion des comptes.') +
+    (recruiterView ? `<div class="notice" style="margin-bottom:15px">🔐 <strong>Vue recruteur WL :</strong> vous pouvez consulter les e-mails/identifiants et générer un nouveau mot de passe temporaire pour les comptes non-administrateurs. Les mots de passe existants ne sont jamais lisibles ni stockés en clair.</div>` : '') +
     `<div class="grid g2">
       <div class="card">
         <h3 id="accessFormTitle">Créer / lier un accès</h3>
@@ -1510,18 +1621,17 @@ async function renderAccess(p) {
           <div class="field"><label>Fiche à relier</label><select id="accessLink"><option value="">Aucune fiche / personnel santé / admin</option></select></div>
           <div class="field full"><label>Identifiant du portail</label><input id="accessUsername" name="username" value="${esc(queryUser)}" placeholder="Généré automatiquement depuis l’e-mail" readonly><small class="muted">L’identifiant de connexion est l’e-mail du compte. Le pseudo Roblox/Discord appartient à la fiche RP et ne sert pas à se connecter.</small></div>
           <div class="field"><label>Nom affiché</label><input id="accessName" name="full_name" value="${esc(preStudent?.full_name || preTeacher?.full_name || preSupervisor?.full_name || '')}" placeholder="Nom et prénom" required></div>
-          <div class="field"><label>Accès</label><select name="active"><option value="true">Actif</option><option value="false">Révoqué</option></select></div>
-          <div class="field full"><div id="accessHint" class="notice">Choisissez un rôle puis, pour un élève, professeur ou surveillant, la fiche correspondante.</div></div>
+          <input type="hidden" name="active" value="true"><div class="field full"><div id="accessHint" class="notice">Choisissez un rôle puis, pour un élève, professeur ou surveillant, la fiche correspondante.</div></div>
           <div class="field full actions"><button id="accessSubmit" class="btn primary" type="submit">Créer / mettre à jour le profil</button><button id="accessCancel" class="btn secondary" type="button" style="display:none">Annuler la modification</button></div>
         </form>
       </div>
       <div class="card">
         <h3>Gestion des accès</h3>
-        <p class="muted" style="margin-top:8px">« Modifier » change le profil du portail et sa fiche liée. « Révoquer l’accès » empêche la connexion au portail sans supprimer le compte Supabase Authentication.</p>
-        <p class="muted">« Supprimer définitivement » supprime le compte Supabase Authentication via une fonction serveur sécurisée. Cette action est irréversible.</p>
+        <p class="muted" style="margin-top:8px">« Modifier » change le profil du portail et sa fiche liée.</p>
+        <p class="muted">« Supprimer définitivement » efface le profil, les données liées, les traces du portail et le compte Supabase Authentication. Cette action est irréversible.</p>
       </div>
     </div>` +
-    `<div class="card" style="margin-top:15px"><h3>Comptes portail</h3><div class="table-wrap" style="margin-top:10px"><table class="table"><thead><tr><th>E-mail / identifiant</th><th>Ancien identifiant technique</th><th>Nom</th><th>Rôle</th><th>État</th><th>Créé</th><th>Actions</th></tr></thead><tbody>${profs.map(x => `<tr><td>${esc(x.school_email || x.email || '—')}</td><td>${esc(x.username)}</td><td>${esc(x.full_name)}</td><td>${badge(ROLE_LABEL[x.role] || x.role)}</td><td>${x.active ? '<span class="tag">Actif</span>' : '<span class="tag red">Révoqué</span>'}</td><td>${dtFR(x.created_at)}</td><td><div class="actions"><button class="btn secondary small" data-edit-profile="${esc(x.id)}">Modifier</button><button type="button" class="btn secondary small" data-change-email="${esc(x.id)}" data-current-email="${esc(x.email || x.school_email || '')}">✉️ E-mail</button>${x.person_id && !people.find(pp => String(pp.id) === String(x.person_id))?.auth_user_id ? `<button type="button" class="btn secondary small" data-create-auth="${esc(x.id)}" data-person-id="${esc(x.person_id)}">👤 Créer compte</button>` : ''}${x.person_id && people.find(pp => String(pp.id) === String(x.person_id))?.auth_user_id ? `<button type="button" class="btn secondary small" data-reset-password="${esc(x.id)}">🔑 Réinitialiser</button>` : ''}<button type="button" class="btn secondary small" data-relink-auth="${esc(x.id)}">🔗 Relier Auth</button>${String(x.id) === String(p.id) ? '' : `<button class="btn ${x.active ? 'danger' : 'secondary'} small" data-toggle-profile="${esc(x.id)}" data-current="${x.active ? 'true' : 'false'}">${x.active ? 'Révoquer l’accès' : 'Réactiver'}</button><button class="btn danger small" data-delete-profile="${esc(x.id)}" data-profile-email="${esc(x.email || '')}">🗑️ Supprimer définitivement</button>`}</div></td></tr>`).join('') || tableEmpty(7)}</tbody></table></div></div>`;
+    `<div class="card" style="margin-top:15px"><h3>Comptes portail</h3><div class="table-wrap" style="margin-top:10px"><table class="table"><thead><tr><th>E-mail / identifiant</th><th>Ancien identifiant technique</th><th>Nom</th><th>Rôle</th><th>État</th><th>Créé</th><th>Actions</th></tr></thead><tbody>${profs.map(x => `<tr><td>${esc(x.school_email || x.email || '—')}</td><td>${esc(x.username)}</td><td>${esc(x.full_name)}</td><td>${badge(ROLE_LABEL[x.role] || x.role)}</td><td>${x.active ? '<span class="tag">Actif</span>' : '<span class="tag red">Révoqué</span>'}</td><td>${dtFR(x.created_at)}</td><td><div class="actions"><button class="btn secondary small" data-edit-profile="${esc(x.id)}">Modifier</button><button type="button" class="btn secondary small" data-change-email="${esc(x.id)}" data-current-email="${esc(x.email || x.school_email || '')}">✉️ E-mail</button>${!recruiterView && x.person_id && !people.find(pp => String(pp.id) === String(x.person_id))?.auth_user_id ? `<button type="button" class="btn secondary small" data-create-auth="${esc(x.id)}" data-person-id="${esc(x.person_id)}">👤 Créer compte</button>` : ''}${x.person_id && people.find(pp => String(pp.id) === String(x.person_id))?.auth_user_id && (!recruiterView || x.role !== 'admin') ? `<button type="button" class="btn secondary small" data-reset-password="${esc(x.id)}">🔑 Réinitialiser</button>` : ''}${!recruiterView ? `<button type="button" class="btn secondary small" data-relink-auth="${esc(x.id)}">🔗 Relier Auth</button>` : ''}${!recruiterView && String(x.id) !== String(p.id) ? `<button class="btn danger small" data-delete-profile="${esc(x.id)}" data-profile-email="${esc(x.email || '')}">🗑️ Supprimer définitivement</button>` : ''}</div></td></tr>`).join('') || tableEmpty(7)}</tbody></table></div></div>`;
 
   const form = qs('#accessForm');
   const formTitle = qs('#accessFormTitle');
@@ -1533,8 +1643,11 @@ async function renderAccess(p) {
   const linkSelect = qs('#accessLink');
   const usernameInput = qs('#accessUsername');
   const nameInput = qs('#accessName');
-  const activeSelect = form.elements.active;
   const hint = qs('#accessHint');
+  if (recruiterView) {
+    const formCard = form.closest('.card');
+    if (formCard) formCard.innerHTML = `<h3>🔐 Comptes des membres du portail</h3><p class="muted" style="margin-top:8px">La création/modification des rôles reste réservée à l'administration.</p>`;
+  }
 
   const rebuildLinkOptions = (selectedId = '') => {
     const role = roleSelect.value;
@@ -1572,7 +1685,6 @@ async function renderAccess(p) {
     rebuildLinkOptions(profile.student_id || profile.professor_id || profile.supervisor_id || '');
     usernameInput.value = profile.username || '';
     nameInput.value = profile.full_name || '';
-    activeSelect.value = profile.active === false ? 'false' : 'true';
     formTitle.textContent = `Modifier l’accès — ${profile.full_name || profile.username || 'compte'}`;
     submitBtn.textContent = 'Enregistrer les modifications';
     cancelBtn.style.display = '';
@@ -1595,6 +1707,7 @@ async function renderAccess(p) {
 
   form.onsubmit = async e => {
     e.preventDefault();
+    if (recruiterView) { toast('La création et la modification des rôles sont réservées à l’administration.', 'error'); return; }
     try {
       const fd = new FormData(form);
       const editingId = String(fd.get('id') || '').trim();
@@ -1608,7 +1721,8 @@ async function renderAccess(p) {
       };
 
       if (editingId) {
-        if (editingId === String(p.id) && (fd.get('active') === 'false' || role !== 'admin')) throw new Error('Vous ne pouvez pas désactiver ou retirer votre propre rôle administrateur ici.');
+        if (editingId === String(p.id) && role !== 'admin') throw new Error('Vous ne pouvez pas retirer votre propre rôle administrateur ici.');
+        fd.set('active', 'true');
 
         const newEmail = String(fd.get('email') || '').trim().toLowerCase();
         if (!newEmail.endsWith('@midori.fr')) {
@@ -1638,7 +1752,7 @@ async function renderAccess(p) {
           username: String(fd.get('username') || '').trim(),
           full_name: String(fd.get('full_name') || '').trim(),
           role,
-          active: fd.get('active') === 'true',
+          active: true,
           ...linkPayload
         });
         await log('update', 'profile', r.id, { username: r.username, role: r.role, active: r.active });
@@ -1649,7 +1763,7 @@ async function renderAccess(p) {
           p_username: fd.get('username'),
           p_full_name: fd.get('full_name'),
           p_role: role,
-          p_active: fd.get('active') === 'true',
+          p_active: true,
           p_student_id: role === 'student' ? linkId : null,
           p_professor_id: role === 'professor' ? linkId : null,
           p_supervisor_id: role === 'surveillant' ? linkId : null
@@ -1870,47 +1984,20 @@ async function renderAccess(p) {
     }
   });
 
-  qsa('[data-toggle-profile]').forEach(b => b.onclick = async () => {
-    const isActive = b.dataset.current === 'true';
-    if (!confirm(isActive ? 'Révoquer l’accès de ce compte au portail ?' : 'Réactiver l’accès de ce compte ?')) return;
-    try {
-      const r = await update('profiles', b.dataset.toggleProfile, { active: !isActive });
-      await log('update', 'profile', r.id, { active: r.active });
-      toast(r.active ? 'Accès réactivé.' : 'Accès révoqué.');
-      location.reload();
-    } catch (er) {
-      toast(errMsg(er), 'error');
-    }
-  });
+  // V17.7 : plus de bouton de révocation/réactivation. Les suppressions de comptes sont définitives.
 
   qsa('[data-delete-profile]').forEach(b => b.onclick = async () => {
     const id = b.dataset.deleteProfile;
     const email = b.dataset.profileEmail || 'ce compte';
-    const first = confirm(`⚠️ SUPPRESSION DÉFINITIVE\n\nLe compte ${email} sera supprimé de Supabase Authentication ainsi que son accès au portail.\n\nCette action est irréversible. Continuer ?`);
+    const first = confirm(`⚠️ SUPPRESSION DÉFINITIVE ET TOTALE\n\nLe profil ${email}, toutes ses données liées dans le portail et son compte Supabase Authentication seront supprimés.\n\nLes historiques WL/RP et les journaux du portail liés à ce profil seront également supprimés.\n\nCette action est irréversible. Continuer ?`);
     if (!first) return;
-
-    const second = prompt(`Pour confirmer la suppression définitive de ${email}, tapez SUPPRIMER`);
-    if (second !== 'SUPPRIMER') {
-      toast('Suppression annulée.', 'error');
-      return;
-    }
-
+    const second = prompt('Pour confirmer la suppression définitive, tapez SUPPRIMER');
+    if (second !== 'SUPPRIMER') { toast('Suppression annulée.', 'error'); return; }
     try {
       b.disabled = true;
       b.textContent = 'Suppression…';
-      const { data, error } = await sb.functions.invoke('admin-delete-user', {
-        body: { user_id: id }
-      });
-      if (error) {
-        let message = errMsg(error);
-        try {
-          const ctx = await error.context?.json?.();
-          if (ctx?.error) message = ctx.error;
-        } catch (_) {}
-        throw new Error(message);
-      }
-      await log('delete', 'profile', id, { email, permanent_auth_delete: true });
-      toast(data?.warning || 'Compte supprimé définitivement.');
+      await hardDelete('profile', id);
+      toast('Compte supprimé définitivement.');
       location.reload();
     } catch (er) {
       b.disabled = false;
@@ -2077,6 +2164,7 @@ async function init() {
       case 'nurse-records.html': await renderHealthRecords(ctx.profile, 'infirmiere'); break;
       default: qs('#app').innerHTML = `<div class="card error">Page non configurée.</div>`;
     }
+    try { await enhanceClassFilteredTables(); } catch (enhanceError) { console.warn('Filtres de classes non appliqués:', enhanceError); }
   } catch (er) {
     console.error('Midori High — erreur page', page, er);
     qs('#app').innerHTML = head(TITLE[page] || 'Portail', 'Une erreur a empêché le chargement de cette page.') + `<div class="card"><div class="notice error"><strong>Erreur détectée :</strong><br>${esc(errMsg(er))}</div><p class="muted" style="margin-top:12px">Si l'erreur concerne Supabase, vérifiez d'abord les fonctions et permissions installées pour cette version.</p><button class="btn secondary" onclick="location.reload()">Réessayer</button></div>`;
