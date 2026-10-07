@@ -27,6 +27,7 @@ const NAV = {
   recruteur_wl: [
     ['Recrutement WL', [
       ['wl.html', '📋', 'Registre WL'],
+      ['migration.html', '🔄', 'Migration des profils'],
       ['profiles.html', '🔄', 'Mes profils'],
       ['profile.html', '👤', 'Mon profil']
     ]]
@@ -58,7 +59,6 @@ const NAV = {
     ]],
     ['Administration', [
       ['access.html', '🔐', 'Accès & comptes'],
-      ['migration.html', '🔄', 'Migration des profils'],
       ['logs.html', '🕘', 'Journal d’activité'],
       ['profile.html', '👤', 'Mon profil']
     ]]
@@ -148,7 +148,7 @@ const TITLE = {
 };
 
 const PAGE_ROLES = {
-  'dashboard.html': ['admin'], 'wl.html': ['admin','recruteur_wl'], 'profiles.html': ['admin','recruteur_wl','professor','surveillant','student','psychologue','infirmiere'], 'messages.html': ['admin','professor','surveillant','student','psychologue','infirmiere'], 'homework-submissions.html': ['admin','professor'], 'access.html': ['admin'], 'migration.html': ['admin'], 'students.html': ['admin'], 'professors.html': ['admin'],
+  'dashboard.html': ['admin'], 'wl.html': ['admin','recruteur_wl'], 'profiles.html': ['admin','recruteur_wl','professor','surveillant','student','psychologue','infirmiere'], 'messages.html': ['admin','professor','surveillant','student','psychologue','infirmiere'], 'homework-submissions.html': ['admin','professor'], 'access.html': ['admin'], 'migration.html': ['admin','recruteur_wl'], 'students.html': ['admin'], 'professors.html': ['admin'],
   'supervisors.html': ['admin'], 'classes.html': ['admin'], 'subjects.html': ['admin'], 'timetable.html': ['admin'],
   'attendance.html': ['admin', 'professor', 'surveillant'], 'absences.html': ['admin', 'professor', 'surveillant'],
   'grades.html': ['admin', 'professor'], 'homework.html': ['admin', 'professor'], 'points.html': ['admin'],
@@ -1273,7 +1273,7 @@ async function renderProfilesChooser(p) {
 }
 
 async function renderMigration(p) {
-  if (p.role !== 'admin') throw new Error('Accès réservé à l’administration.');
+  if (!['admin','recruteur_wl'].includes(p.role)) throw new Error('Accès réservé aux recruteurs WL.');
   const { data: people, error: pe } = await sb.from('midori_people')
     .select('id,discord_username,roblox_username,active,auth_user_id')
     .eq('active', true).order('created_at', { ascending: false }).limit(500);
