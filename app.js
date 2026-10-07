@@ -28,6 +28,7 @@ const NAV = {
     ['Recrutement WL', [
       ['wl.html', '📋', 'Registre WL'],
       ['wl.html?view=profiles', '👥', 'Gestion des profils'],
+      ['wl-import.html', '📥', 'Import WL en masse'],
       ['migration.html', '🔄', 'Migration des profils'],
       ['profiles.html', '🔄', 'Mes profils'],
       ['profile.html', '👤', 'Mon profil']
@@ -137,7 +138,7 @@ const TITLE = {
   'subjects.html': 'Matières', 'timetable.html': 'Emploi du temps', 'attendance.html': 'Fiches d’appel',
   'absences.html': 'Absences', 'grades.html': 'Notes', 'homework.html': 'Devoirs',
   'points.html': 'Points / Réputation', 'discipline.html': 'Discipline', 'clubs.html': 'Clubs',
-  'access.html': 'Accès & comptes', 'profile-management.html': 'Gestion des profils', 'migration.html': 'Migration des profils', 'wl.html': 'Registre WL', 'profiles.html': 'Mes profils', 'logs.html': 'Journal d’activité', 'events.html': 'Calendrier RP', 'profile.html': 'Mon profil',
+  'access.html': 'Accès & comptes', 'profile-management.html': 'Gestion des profils', 'migration.html': 'Migration des profils', 'wl-import.html': 'Import WL en masse', 'wl.html': 'Registre WL', 'profiles.html': 'Mes profils', 'logs.html': 'Journal d’activité', 'events.html': 'Calendrier RP', 'profile.html': 'Mon profil',
   'prof-space.html': 'Espace professeur', 'prof-attendance.html': 'Fiches d’appel', 'prof-grades.html': 'Notes',
   'prof-homework.html': 'Devoirs', 'prof-resources.html': 'Ressources', 'prof-timetable.html': 'Emploi du temps',
   'supervisor-space.html': 'Espace surveillant', 'supervisor-absences.html': 'Absences & retards',
@@ -150,7 +151,7 @@ const TITLE = {
 };
 
 const PAGE_ROLES = {
-  'dashboard.html': ['admin'], 'wl.html': ['admin','recruteur_wl'], 'profiles.html': ['admin','recruteur_wl','professor','surveillant','student','psychologue','infirmiere'], 'messages.html': ['admin','professor','surveillant','student','psychologue','infirmiere'], 'homework-submissions.html': ['admin','professor'], 'access.html': ['admin'], 'profile-management.html': ['admin','recruteur_wl'], 'migration.html': ['admin','recruteur_wl'], 'students.html': ['admin'], 'professors.html': ['admin'],
+  'dashboard.html': ['admin'], 'wl.html': ['admin','recruteur_wl'], 'profiles.html': ['admin','recruteur_wl','professor','surveillant','student','psychologue','infirmiere'], 'messages.html': ['admin','professor','surveillant','student','psychologue','infirmiere'], 'homework-submissions.html': ['admin','professor'], 'access.html': ['admin'], 'profile-management.html': ['admin','recruteur_wl'], 'wl-import.html': ['admin','recruteur_wl'], 'migration.html': ['admin','recruteur_wl'], 'students.html': ['admin'], 'professors.html': ['admin'],
   'supervisors.html': ['admin'], 'classes.html': ['admin'], 'subjects.html': ['admin'], 'timetable.html': ['admin'],
   'attendance.html': ['admin', 'professor', 'surveillant'], 'absences.html': ['admin', 'professor', 'surveillant'],
   'grades.html': ['admin', 'professor'], 'homework.html': ['admin', 'professor'], 'points.html': ['admin'],
@@ -1125,7 +1126,7 @@ async function renderWLRegistry(p) {
   qs('#app').innerHTML =
     head('Registre WL', 'Registre administratif des personnes déjà validées par votre équipe.') +
     `<div class="notice" style="margin-bottom:15px">🔒 Le site ne communique pas avec Discord. Après votre validation interne, utilisez ce formulaire pour enregistrer la personne dans le registre WL.</div>` +
-    `<div class="toolbar"><input id="wlSearch" class="search" placeholder="Rechercher un personnage…"><button id="wlAdd" class="btn primary">＋ Ajouter une WL</button></div>` +
+    `<div class="toolbar"><input id="wlSearch" class="search" placeholder="Rechercher un personnage…"><button id="wlAdd" class="btn primary">＋ Ajouter une WL</button><a href="wl-import.html" class="btn secondary">📥 Importer en masse</a></div>` +
     `<div class="card"><div class="toolbar" style="margin-bottom:12px"><button class="btn secondary" data-wl-tab="students">🎓 Élèves</button><button class="btn secondary" data-wl-tab="staff">🏫 Personnel</button></div><div id="wlStudentsSection"><h3>🎓 Élèves</h3><div class="table-wrap"><table class="table"><thead><tr><th>Personnage</th><th>Discord</th><th>Roblox</th><th>Classe</th><th>Type / Statut RP</th><th>E-mail scolaire</th><th>Actions</th></tr></thead><tbody id="wlStudentRows"></tbody></table></div></div><div id="wlStaffSection" style="display:none"><h3>🏫 Personnel</h3><div class="table-wrap"><table class="table"><thead><tr><th>Personnage</th><th>Fonction</th><th>Discord</th><th>Roblox</th><th>Type</th><th>E-mail scolaire</th><th>Actions</th></tr></thead><tbody id="wlStaffRows"></tbody></table></div></div></div>` +
     modal('wlm', 'Ajouter une WL validée', `<form id="wlf" class="form">
       <div class="field"><label>Nom RP</label><input name="rp_last_name" required></div>
@@ -1314,6 +1315,116 @@ async function renderProfilesChooser(p) {
   });
 }
 
+
+async function renderWLImport(p) {
+  if (!['admin','recruteur_wl'].includes(p.role)) throw new Error('Accès réservé aux recruteurs WL et administrateurs.');
+  qs('#app').innerHTML = head('Import WL en masse', 'Ajoutez rapidement une liste de WL déjà validées, sans passer par 30 formulaires.') +
+    `<div class="notice" style="margin-bottom:15px">⚠️ Cet import ne crée pas de mot de passe et ne communique pas avec Discord. Les profils Administration et les cas ambigus doivent rester en traitement manuel.</div>` +
+    `<div class="card"><div class="field"><label>Fichier CSV WL préparé</label><input id="wlBulkFile" type="file" accept=".csv,text/csv"></div><div class="toolbar" style="margin-top:12px"><button id="wlBulkImport" class="btn primary" disabled>📥 Importer les lignes sûres</button><a class="btn secondary" href="wl.html">← Retour au registre WL</a></div><div id="wlBulkStatus" class="muted" style="margin-top:10px">Sélectionnez le fichier CSV.</div></div>` +
+    `<div id="wlBulkPreview" class="card" style="margin-top:15px;display:none"><h3>Prévisualisation</h3><div class="table-wrap" style="margin-top:10px"><table class="table"><thead><tr><th>Nom RP</th><th>Discord</th><th>Roblox</th><th>Type</th><th>Personne</th></tr></thead><tbody id="wlBulkRows"></tbody></table></div></div>` +
+    `<div class="card" style="margin-top:15px"><h3>Règles</h3><p class="muted">Les lignes avec un person_id existant sont rattachées directement. Pour un duo Principal + ALT du même groupe, le Principal est traité avant l'ALT. Une erreur sur une ligne n'arrête pas le reste du lot.</p></div>`;
+
+  const fileEl = qs('#wlBulkFile');
+  const importBtn = qs('#wlBulkImport');
+  const statusEl = qs('#wlBulkStatus');
+  const preview = qs('#wlBulkPreview');
+  const body = qs('#wlBulkRows');
+  let rows = [];
+
+  const parseCSV = text => {
+    const lines=[]; let row=[], field='', quoted=false;
+    for(let i=0;i<text.length;i++){
+      const ch=text[i], next=text[i+1];
+      if(quoted){ if(ch==='"' && next==='"'){ field+='"'; i++; } else if(ch==='"'){ quoted=false; } else field+=ch; }
+      else if(ch==='"'){ quoted=true; }
+      else if(ch===','){ row.push(field); field=''; }
+      else if(ch==='\n'){ row.push(field); lines.push(row); row=[]; field=''; }
+      else if(ch!=='\r'){ field+=ch; }
+    }
+    if(field!=='' || row.length){ row.push(field); lines.push(row); }
+    if(!lines.length) return [];
+    const header=lines.shift().map(x=>String(x||'').trim());
+    return lines.filter(r=>r.some(x=>String(x||'').trim())).map(r=>Object.fromEntries(header.map((h,i)=>[h,String(r[i]??'').trim()])));
+  };
+
+  const escHtml = v => esc(String(v ?? ''));
+  const deriveClass = (year, section) => {
+    const m=String(year||'').match(/([123])/);
+    const sec=String(section||'').trim();
+    return m && sec ? `${m[1]}-${sec}` : null;
+  };
+  const kindFunction = kind => ({professor:'Professeur',surveillant:'Surveillant',psychologue:'Psychologue',infirmiere:'Infirmière'}[kind] || null);
+
+  fileEl.onchange = async () => {
+    rows=[]; importBtn.disabled=true; preview.style.display='none';
+    const file=fileEl.files?.[0]; if(!file) return;
+    try {
+      rows=parseCSV(await file.text()).filter(r => r.nom_rp && (r.profile_kind==='student' || r.profile_kind==='professor' || r.profile_kind==='surveillant' || r.profile_kind==='psychologue' || r.profile_kind==='infirmiere'));
+      if(!rows.length) throw new Error('Aucune ligne importable trouvée dans le CSV.');
+      // Principals first, then ALTs.
+      rows.sort((a,b)=>String(a.is_alt).localeCompare(String(b.is_alt)));
+      body.innerHTML=rows.map(r=>`<tr><td><strong>${escHtml(r.nom_rp)}</strong></td><td>${escHtml(r.discord||'—')}</td><td>${escHtml(r.roblox||'—')}</td><td>${escHtml(ROLE_LABEL[r.profile_kind]||r.profile_kind)}</td><td>${escHtml(r.principal_name || 'Nouvelle personne')}</td></tr>`).join('');
+      preview.style.display=''; importBtn.disabled=false;
+      statusEl.textContent=`${rows.length} ligne(s) prête(s). Vérifiez la prévisualisation avant l'import.`;
+    } catch(er){ statusEl.textContent='Erreur : '+errMsg(er); toast(errMsg(er),'error'); }
+  };
+
+  importBtn.onclick = async () => {
+    if(!rows.length) return;
+    if(!confirm(`Importer ${rows.length} ligne(s) dans le registre WL ? Les lignes seront créées une par une et les erreurs seront conservées dans le rapport.`)) return;
+    importBtn.disabled=true; statusEl.textContent='Import en cours…';
+    const groupPersons = {};
+    const results=[];
+
+    // Resolve existing persons referenced by a known person_id before creating anything.
+    for(const r of rows){ if(r.person_group && r.person_id) groupPersons[r.person_group]=r.person_id; }
+
+    for(const r of rows){
+      try{
+        let personId = r.person_id || groupPersons[r.person_group] || null;
+        const parts=String(r.nom_rp).trim().split(/\s+/,2);
+        const last=parts[0] || r.nom_rp;
+        const first=parts[1] || parts[0] || r.nom_rp;
+        const className=deriveClass(r.school_year,r.section);
+        const payload={
+          p_rp_last_name:last,
+          p_rp_first_name:first,
+          p_discord_username:r.discord || null,
+          p_roblox_username:r.roblox || null,
+          p_school_year:r.school_year || null,
+          p_section:r.section || null,
+          p_class_name:className,
+          p_profile_kind:r.profile_kind,
+          p_is_alt:String(r.is_alt).toLowerCase()==='true',
+          p_club:null,
+          p_function_name:kindFunction(r.profile_kind),
+          p_school_email:null,
+          p_person_id:personId
+        };
+        const {data,error}=await sb.rpc('midori_add_validated_wl',payload);
+        if(error) throw error;
+        const {error:fin}=await sb.rpc('midori_finalize_wl_profile',{
+          p_registry_id:data,
+          p_discord_username:payload.p_discord_username,
+          p_roblox_username:payload.p_roblox_username,
+          p_rp_status:'normal',
+          p_reason:'Import WL en masse'
+        });
+        if(fin) throw fin;
+        const {data:reg,error:regErr}=await sb.from('wl_registry').select('person_id,profile_id').eq('id',data).maybeSingle();
+        if(regErr) throw regErr;
+        if(r.person_group && reg?.person_id) groupPersons[r.person_group]=reg.person_id;
+        await log('create','wl_registry',data,{bulk_import:true,source_name:r.nom_rp});
+        results.push({name:r.nom_rp,ok:true});
+      }catch(er){ results.push({name:r.nom_rp,ok:false,error:errMsg(er)}); }
+    }
+    const ok=results.filter(x=>x.ok).length, bad=results.length-ok;
+    statusEl.innerHTML=`✅ ${ok} importée(s) · ❌ ${bad} erreur(s). ` + (bad ? 'Les erreurs doivent être vérifiées dans le détail ci-dessous.' : 'Le lot est terminé.');
+    body.innerHTML=results.map(x=>`<tr><td colspan="4"><strong>${escHtml(x.name)}</strong></td><td>${x.ok ? '<span class="tag green">Importé</span>' : '<span class="tag red">Erreur</span> '+escHtml(x.error)}</td></tr>`).join('');
+    importBtn.disabled=true;
+  };
+}
+
 async function renderMigration(p) {
   if (!['admin','recruteur_wl'].includes(p.role)) throw new Error('Accès réservé aux recruteurs WL et administrateurs.');
   const { data: profiles, error: pr } = await sb.rpc('midori_migration_search_profiles', { p_search: '' });
@@ -1361,7 +1472,7 @@ async function renderProfileManagement(p) {
   const activeRows = allProfiles.filter(x => x.active !== false);
   qs('#app').innerHTML = head('Gestion des profils', 'Nettoyez et corrigez les anciens profils un par un sans supprimer leurs données.') +
     `<div class="notice" style="margin-bottom:15px">🛠️ Utilisez cette page pour corriger les anciens pseudos Discord/Roblox, le nom RP, la classe ou l’e-mail scolaire. La migration sert ensuite uniquement à rattacher plusieurs profils à la même personne.</div>` +
-    `<div class="toolbar"><input id="pmSearch" class="search" placeholder="Rechercher par nom RP, Discord, Roblox ou e-mail…"><span class="muted" id="pmCount"></span><button id="pmExport" class="btn secondary">⬇️ Exporter les profils</button></div>` +
+    `<div class="toolbar"><input id="pmSearch" class="search" placeholder="Rechercher par nom RP, Discord, Roblox ou e-mail…"><span class="muted" id="pmCount"></span></div>` +
     `<div class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Profil</th><th>Discord</th><th>Roblox</th><th>Type</th><th>Principal / ALT</th><th>E-mail scolaire</th><th>État</th><th>Actions</th></tr></thead><tbody id="pmRows"></tbody></table></div></div>` +
     modal('pmEditModal','Modifier le profil',`<form id="pmEditForm" class="form"><input type="hidden" name="profile_id"><div class="field"><label>Nom complet / RP</label><input name="full_name" required></div><div class="field"><label>Pseudo Discord</label><input name="discord_username"></div><div class="field"><label>Pseudo Roblox</label><input name="roblox_username"></div><div class="field"><label>Classe</label><input name="class_name"></div><div class="field"><label>Type de profil</label><select name="profile_kind"><option value="student">Élève</option><option value="professor">Professeur</option><option value="surveillant">Surveillant</option><option value="psychologue">Psychologue</option><option value="infirmiere">Infirmière</option></select></div><div class="field"><label>Personnage</label><select name="is_alt"><option value="false">Principal</option><option value="true">ALT PERSO</option></select></div><div class="field" id="pmStatusField"><label>Statut RP (élève uniquement)</label><select name="rp_status"><option value="normal">🟢 Normal</option><option value="delinquant">🔴 Délinquant</option><option value="parfait">⭐ Parfait</option></select></div><div class="field" id="pmReasonField"><label>Motif du changement (élève uniquement)</label><input name="rp_status_reason"></div><div class="field full"><label>E-mail scolaire / identifiant du portail</label><input name="school_email" type="email"></div><div class="field full"><button class="btn primary">💾 Enregistrer les corrections</button></div></form>`);
   const search=qs('#pmSearch'), tbody=qs('#pmRows'), count=qs('#pmCount');
@@ -1369,12 +1480,6 @@ async function renderProfileManagement(p) {
     qsa('[data-pm-edit]').forEach(b=>b.onclick=()=>{const x=allProfiles.find(v=>String(v.profile_id)===String(b.dataset.pmEdit)); if(!x)return; const f=qs('#pmEditForm'); f.profile_id.value=x.profile_id; f.full_name.value=x.full_name||''; f.discord_username.value=x.discord_username||''; f.roblox_username.value=x.roblox_username||''; f.class_name.value=x.class_name||''; f.profile_kind.value=x.profile_kind||x.role||'student'; f.is_alt.value=String(!!x.is_alt); f.rp_status.value=x.rp_status||'normal'; f.rp_status_reason.value=''; f.school_email.value=x.school_email||''; const student=isStudentProfile(x); qs('#pmStatusField').style.display=student?'':'none'; qs('#pmReasonField').style.display=student?'':'none'; openModal('pmEditModal'); closeBindings();});
   };
   search.oninput=render;
-  qs('#pmExport').onclick=()=>{
-    const headers=['profile_id','person_id','full_name','discord_username','roblox_username','school_email','class_name','profile_kind','role','is_alt','rp_status','active','student_id','created_at'];
-    const csv=[headers,...allProfiles.map(x=>headers.map(h=>x[h] ?? ''))].map(row=>row.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\r\n');
-    const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
-    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='midori-profils-actuels.csv'; a.click(); URL.revokeObjectURL(a.href);
-  };
   qs('#pmEditForm').onsubmit=async e=>{e.preventDefault(); const f=new FormData(e.target); try { const kind=String(f.get('profile_kind')||'student'); const {error:ue}=await sb.rpc('midori_migrate_update_profile',{p_profile_id:f.get('profile_id'),p_full_name:String(f.get('full_name')||'').trim(),p_discord_username:String(f.get('discord_username')||'').trim()||null,p_roblox_username:String(f.get('roblox_username')||'').trim()||null,p_class_name:String(f.get('class_name')||'').trim()||null,p_profile_kind:kind,p_is_alt:f.get('is_alt')==='true',p_school_email:String(f.get('school_email')||'').trim().toLowerCase()||null}); if(ue)throw ue; if(kind==='student'){const {error:se}=await sb.rpc('midori_set_rp_status',{p_profile_id:f.get('profile_id'),p_status:f.get('rp_status'),p_reason:String(f.get('rp_status_reason')||'').trim()||null}); if(se)throw se;} toast('Profil corrigé.'); closeModal('pmEditModal'); location.reload(); } catch(e){toast(errMsg(e),'error');}};
   const wanted=new URLSearchParams(location.search).get('profile'); if(wanted){search.value=''; const x=allProfiles.find(v=>String(v.profile_id)===String(wanted)); if(x){render(); setTimeout(()=>qs(`[data-pm-edit="${CSS.escape(wanted)}"]`)?.click(),0);}}
   render();
@@ -1945,6 +2050,7 @@ async function init() {
       case 'events.html': await renderEvents(ctx.profile); break;
       case 'access.html': await renderAccess(ctx.profile); break;
       case 'profile-management.html': await renderProfileManagement(ctx.profile); break;
+      case 'wl-import.html': await renderWLImport(ctx.profile); break;
       case 'migration.html': await renderMigration(ctx.profile); break;
       case 'wl.html': if (new URLSearchParams(location.search).get('view') === 'profiles') await renderProfileManagement(ctx.profile); else await renderWLRegistry(ctx.profile); break;
       case 'profiles.html': await renderProfilesChooser(ctx.profile); break;
