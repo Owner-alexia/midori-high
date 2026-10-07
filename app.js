@@ -1103,9 +1103,9 @@ async function renderWLRegistry(p) {
   const my = list.filter(x => p.role === 'admin' || String(x.recruiter_profile_id) === String(p.id));
 
   qs('#app').innerHTML =
-    head('Registre WL', 'Réservé aux WL déjà validées sur Discord.') +
-    `<div class="notice" style="margin-bottom:15px">🔒 Les candidatures, entretiens et refus restent sur Discord. Cette page sert uniquement à enregistrer les WL validées.</div>` +
-    `<div class="toolbar"><input id="wlSearch" class="search" placeholder="Rechercher un personnage…"><button id="wlAdd" class="btn primary">＋ Ajouter une WL validée</button></div>` +
+    head('Registre WL', 'Registre administratif des personnes déjà validées par votre équipe.') +
+    `<div class="notice" style="margin-bottom:15px">🔒 Le site ne communique pas avec Discord. Après votre validation interne, utilisez ce formulaire pour enregistrer la personne dans le registre WL.</div>` +
+    `<div class="toolbar"><input id="wlSearch" class="search" placeholder="Rechercher un personnage…"><button id="wlAdd" class="btn primary">＋ Ajouter une WL</button></div>` +
     `<div class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Personnage</th><th>Discord</th><th>Roblox</th><th>Classe</th><th>Type</th><th>Recruteur</th><th>Identifiant</th><th>Actions</th></tr></thead><tbody id="wlRows">${
       my.map(x => `<tr data-wl-row data-search="${esc(`${x.rp_last_name} ${x.rp_first_name} ${x.discord_username||''} ${x.roblox_username||''}`.toLowerCase())}">
         <td><strong>${esc(x.rp_last_name)} ${esc(x.rp_first_name)}</strong></td>
@@ -1236,7 +1236,7 @@ async function renderWLRegistry(p) {
       const { data, error } = await sb.rpc('midori_add_validated_wl', payload);
       if (error) throw error;
       await log('create', 'wl_registry', data, { validated_on_discord: true, is_alt: payload.p_is_alt });
-      toast('WL enregistrée et profil créé.');
+      toast('WL enregistrée. Le profil est maintenant rattaché à cette personne.');
       closeModal('wlm');
       location.reload();
     } catch (er) { toast(errMsg(er), 'error'); }
