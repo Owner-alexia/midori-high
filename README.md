@@ -29,3 +29,7 @@ La révocation d’un accès agit sur `profiles.active`. Elle empêche l’utili
 
 ## Suppression définitive des comptes
 La page **Accès & comptes** possède **🗑️ Supprimer définitivement** via la Supabase Edge Function `admin-delete-user`. Voir `INSTALLER_SUPPRESSION_COMPTE.txt`.
+
+
+## V9 — WL & profils multiples
+Voir `INSTALLATION_V9.md` et `sql/V9_WL_PROFILS.sql`.

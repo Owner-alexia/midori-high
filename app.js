@@ -1126,6 +1126,7 @@ async function renderWLRegistry(p) {
 }
 
 async function renderProfilesChooser(p) {
+  // V10: Accès & comptes wired to admin-create-user/admin-reset-user-password.
   // V9: uses the new midori_profile_links table when installed.
   let links = [];
   try {
@@ -1144,11 +1145,12 @@ async function renderProfilesChooser(p) {
 }
 
 async function renderAccess(p) {
-  const [profs, students, teachers, supervisors] = await Promise.all([
-    rows('profiles', 'id,email,username,full_name,role,active,student_id,professor_id,supervisor_id,created_at', { order: 'created_at', ascending: false }),
+  const [profs, students, teachers, supervisors, people] = await Promise.all([
+    rows('profiles', 'id,email,username,full_name,role,active,student_id,professor_id,supervisor_id,person_id,school_email,access_status,created_at', { order: 'created_at', ascending: false }),
     rows('students', 'id,username,full_name', { order: 'full_name' }),
     rows('professors', 'id,username,full_name,subject', { order: 'full_name' }),
-    rows('supervisors', 'id,username,full_name', { order: 'full_name' })
+    rows('supervisors', 'id,username,full_name', { order: 'full_name' }),
+    rows('midori_people', 'id,auth_user_id,active', { order: 'created_at', ascending: false })
   ]);
 
   const queryUser = new URLSearchParams(location.search).get('username') || '';
@@ -1178,7 +1180,7 @@ async function renderAccess(p) {
         <p class="muted">« Supprimer définitivement » supprime le compte Supabase Authentication via une fonction serveur sécurisée. Cette action est irréversible.</p>
       </div>
     </div>` +
-    `<div class="card" style="margin-top:15px"><h3>Comptes portail</h3><div class="table-wrap" style="margin-top:10px"><table class="table"><thead><tr><th>E-mail</th><th>Identifiant</th><th>Nom</th><th>Rôle</th><th>État</th><th>Créé</th><th>Actions</th></tr></thead><tbody>${profs.map(x => `<tr><td>${esc(x.email)}</td><td>${esc(x.username)}</td><td>${esc(x.full_name)}</td><td>${badge(ROLE_LABEL[x.role] || x.role)}</td><td>${x.active ? '<span class="tag">Actif</span>' : '<span class="tag red">Révoqué</span>'}</td><td>${dtFR(x.created_at)}</td><td><div class="actions"><button class="btn secondary small" data-edit-profile="${esc(x.id)}">Modifier</button><button type="button" class="btn secondary small" data-change-email="${esc(x.id)}" data-current-email="${esc(x.email || '')}">✉️ E-mail</button><button type="button" class="btn secondary small" data-relink-auth="${esc(x.id)}">🔗 Relier Auth</button>${String(x.id) === String(p.id) ? '' : `<button class="btn ${x.active ? 'danger' : 'secondary'} small" data-toggle-profile="${esc(x.id)}" data-current="${x.active ? 'true' : 'false'}">${x.active ? 'Révoquer l’accès' : 'Réactiver'}</button><button class="btn danger small" data-delete-profile="${esc(x.id)}" data-profile-email="${esc(x.email || '')}">🗑️ Supprimer définitivement</button>`}</div></td></tr>`).join('') || tableEmpty(7)}</tbody></table></div></div>`;
+    `<div class="card" style="margin-top:15px"><h3>Comptes portail</h3><div class="table-wrap" style="margin-top:10px"><table class="table"><thead><tr><th>E-mail</th><th>Identifiant</th><th>Nom</th><th>Rôle</th><th>État</th><th>Créé</th><th>Actions</th></tr></thead><tbody>${profs.map(x => `<tr><td>${esc(x.school_email || x.email || '—')}</td><td>${esc(x.username)}</td><td>${esc(x.full_name)}</td><td>${badge(ROLE_LABEL[x.role] || x.role)}</td><td>${x.active ? '<span class="tag">Actif</span>' : '<span class="tag red">Révoqué</span>'}</td><td>${dtFR(x.created_at)}</td><td><div class="actions"><button class="btn secondary small" data-edit-profile="${esc(x.id)}">Modifier</button><button type="button" class="btn secondary small" data-change-email="${esc(x.id)}" data-current-email="${esc(x.email || x.school_email || '')}">✉️ E-mail</button>${x.person_id && !people.find(pp => String(pp.id) === String(x.person_id))?.auth_user_id ? `<button type="button" class="btn secondary small" data-create-auth="${esc(x.id)}" data-person-id="${esc(x.person_id)}">👤 Créer compte</button>` : ''}${x.person_id && people.find(pp => String(pp.id) === String(x.person_id))?.auth_user_id ? `<button type="button" class="btn secondary small" data-reset-password="${esc(x.id)}">🔑 Réinitialiser</button>` : ''}<button type="button" class="btn secondary small" data-relink-auth="${esc(x.id)}">🔗 Relier Auth</button>${String(x.id) === String(p.id) ? '' : `<button class="btn ${x.active ? 'danger' : 'secondary'} small" data-toggle-profile="${esc(x.id)}" data-current="${x.active ? 'true' : 'false'}">${x.active ? 'Révoquer l’accès' : 'Réactiver'}</button><button class="btn danger small" data-delete-profile="${esc(x.id)}" data-profile-email="${esc(x.email || '')}">🗑️ Supprimer définitivement</button>`}</div></td></tr>`).join('') || tableEmpty(7)}</tbody></table></div></div>`;
 
   const form = qs('#accessForm');
   const formTitle = qs('#accessFormTitle');
@@ -1329,6 +1331,78 @@ async function renderAccess(p) {
   qsa('[data-edit-profile]').forEach(b => b.onclick = () => {
     const profile = profs.find(x => String(x.id) === String(b.dataset.editProfile));
     if (profile) startEdit(profile);
+  });
+
+  const generateTempPassword = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%';
+    const values = new Uint32Array(14);
+    crypto.getRandomValues(values);
+    return Array.from(values, v => chars[v % chars.length]).join('');
+  };
+
+  qsa('[data-create-auth]').forEach(b => b.onclick = async () => {
+    const profileId = b.dataset.createAuth;
+    const personId = b.dataset.personId;
+    const profile = profs.find(x => String(x.id) === String(profileId));
+    const name = profile?.full_name || profile?.username || 'cet utilisateur';
+    const suggestedEmail = profile?.school_email || profile?.email || '';
+    const email = prompt(`Adresse scolaire du compte pour ${name}:`, suggestedEmail);
+    if (email === null) return;
+    const normalized = email.trim().toLowerCase();
+    if (!normalized.endsWith('@midori.fr')) {
+      toast('L’e-mail doit se terminer par @midori.fr.', 'error');
+      return;
+    }
+    const temporaryPassword = generateTempPassword();
+    if (!confirm(`Créer le compte Supabase pour ${name} ?\n\nE-mail : ${normalized}\n\nUn mot de passe temporaire sera généré et affiché une seule fois.`)) return;
+    try {
+      b.disabled = true;
+      b.textContent = 'Création…';
+      const { data, error } = await sb.functions.invoke('admin-create-user', {
+        body: { person_id: personId, profile_id: profileId, email: normalized, password: temporaryPassword }
+      });
+      if (error) {
+        let message = errMsg(error);
+        try { const ctx = await error.context?.json?.(); if (ctx?.error) message = ctx.error; } catch (_) {}
+        throw new Error(message);
+      }
+      if (data?.error) throw new Error(data.error);
+      alert(`COMPTE CRÉÉ\n\nIdentifiant : ${normalized}\nMot de passe temporaire : ${temporaryPassword}\n\n⚠️ Copiez-le maintenant : il ne sera pas enregistré dans le portail.`);
+      toast('Compte Supabase créé.');
+      location.reload();
+    } catch (er) {
+      b.disabled = false;
+      b.textContent = '👤 Créer compte';
+      toast(errMsg(er), 'error');
+    }
+  });
+
+  qsa('[data-reset-password]').forEach(b => b.onclick = async () => {
+    const profileId = b.dataset.resetPassword;
+    const profile = profs.find(x => String(x.id) === String(profileId));
+    const name = profile?.full_name || profile?.username || 'cet utilisateur';
+    if (!confirm(`Réinitialiser le mot de passe de ${name} ?\n\nUn nouveau mot de passe temporaire sera généré.`)) return;
+    try {
+      b.disabled = true;
+      b.textContent = 'Réinitialisation…';
+      const { data, error } = await sb.functions.invoke('admin-reset-user-password', {
+        body: { profile_id: profileId }
+      });
+      if (error) {
+        let message = errMsg(error);
+        try { const ctx = await error.context?.json?.(); if (ctx?.error) message = ctx.error; } catch (_) {}
+        throw new Error(message);
+      }
+      if (data?.error) throw new Error(data.error);
+      alert(`NOUVEAU MOT DE PASSE\n\nCompte : ${data?.email || profile?.school_email || profile?.email || '—'}\nMot de passe temporaire : ${data?.temporary_password || '—'}\n\n⚠️ Copiez-le maintenant : il ne sera pas enregistré dans le portail.`);
+      toast('Mot de passe réinitialisé.');
+      b.disabled = false;
+      b.textContent = '🔑 Réinitialiser';
+    } catch (er) {
+      b.disabled = false;
+      b.textContent = '🔑 Réinitialiser';
+      toast(errMsg(er), 'error');
+    }
   });
 
   qsa('[data-change-email]').forEach(b => b.onclick = async () => {
