@@ -151,7 +151,7 @@ const PAGE_ROLES = {
   'grades.html': ['admin', 'professor'], 'homework.html': ['admin', 'professor'], 'points.html': ['admin'],
   'discipline.html': ['admin', 'surveillant'], 'clubs.html': ['admin'], 'supervisor-reports.html': ['admin','surveillant'], 'events.html': ['admin','professor','surveillant','student','psychologue','infirmiere'], 'logs.html': ['admin'],
   'announcements.html': ['admin', 'professor', 'surveillant', 'student', 'psychologue', 'infirmiere'],
-  'profile.html': ['admin', 'professor', 'surveillant', 'student', 'psychologue', 'infirmiere'], 'student-profile.html': ['admin'],
+  'profile.html': ['admin', 'recruteur_wl', 'professor', 'surveillant', 'student', 'psychologue', 'infirmiere'], 'student-profile.html': ['admin'],
   'prof-space.html': ['professor'], 'prof-attendance.html': ['professor'], 'prof-grades.html': ['professor'],
   'prof-homework.html': ['professor'], 'prof-resources.html': ['professor'], 'prof-timetable.html': ['professor'],
   'supervisor-space.html': ['surveillant'], 'supervisor-absences.html': ['surveillant'],
@@ -222,10 +222,34 @@ async function guard(roles = []) {
 }
 async function logout() { await sb.auth.signOut(); location.href = 'index.html'; }
 
+function portalModeFor(p) {
+  // Le mode WL est réservé aux comptes réellement autorisés par le rôle.
+  // Un administrateur peut basculer entre son espace CPE/administration et WL.
+  // Un recruteur WL reste uniquement dans l'espace WL.
+  const saved = localStorage.getItem('midori_portal_mode');
+  if (p.role === 'recruteur_wl') return 'wl';
+  if (p.role === 'admin' && saved === 'wl') return 'wl';
+  return 'cpe';
+}
+
+function setPortalMode(mode, p) {
+  if (p.role === 'recruteur_wl') mode = 'wl';
+  if (p.role === 'admin' && !['cpe', 'wl'].includes(mode)) mode = 'cpe';
+  localStorage.setItem('midori_portal_mode', mode);
+  location.href = mode === 'wl' ? 'wl.html' : (HOME[p.role] || 'dashboard.html');
+}
+
+function navForProfile(p) {
+  const mode = portalModeFor(p);
+  if (p.role === 'admin' && mode === 'wl') return NAV.recruteur_wl;
+  return NAV[p.role] || [];
+}
+
 function shell(p) {
   const page = location.pathname.split('/').pop() || 'dashboard.html';
+  const mode = portalModeFor(p);
   let nav = '';
-  (NAV[p.role] || []).forEach(group => {
+  navForProfile(p).forEach(group => {
     nav += `<div class="nav-section">${esc(group[0])}</div>`;
     group[1].forEach(item => {
       nav += `<a href="${item[0]}" class="${page === item[0] ? 'active' : ''}"><span>${item[1]}</span><span style="display:flex;gap:7px;align-items:center">${esc(item[2])}${item[0] === 'messages.html' ? '<span id="mailBadge" class="tag red" style="display:none;padding:2px 6px;font-size:10px"></span>' : ''}</span></a>`;
@@ -249,7 +273,8 @@ function shell(p) {
           </div>
           <div class="top-user">
             <div class="avatar">${esc((p.full_name || p.username || '?').slice(0, 1).toUpperCase())}</div>
-            <div style="text-align:right"><strong style="font-size:13px;display:block">${esc(p.full_name || p.username)}</strong><span style="font-size:11px;color:#77827e">${esc(ROLE_LABEL[p.role] || p.role)}</span></div>
+            <div style="text-align:right"><strong style="font-size:13px;display:block">${esc(p.full_name || p.username)}</strong><span style="font-size:11px;color:#77827e">${esc(mode === 'wl' ? 'Recruteur WL' : (p.role === 'admin' ? 'CPE / Administration' : (ROLE_LABEL[p.role] || p.role)))}</span></div>
+            ${p.role === 'admin' ? `<div style="display:flex;gap:6px;align-items:center"><button type="button" class="btn ${mode === 'cpe' ? 'primary' : 'secondary'} small" id="modeCpe">🏫 CPE</button><button type="button" class="btn ${mode === 'wl' ? 'primary' : 'secondary'} small" id="modeWl">📋 WL</button></div>` : ''}
             <button id="logout" class="logout">Déconnexion</button>
           </div>
         </header>
@@ -258,6 +283,8 @@ function shell(p) {
     </div>`;
   qs('#logout').onclick = logout;
   qs('#menu').onclick = () => qs('#sidebar').classList.toggle('open');
+  qs('#modeCpe')?.addEventListener('click', () => setPortalMode('cpe', p));
+  qs('#modeWl')?.addEventListener('click', () => setPortalMode('wl', p));
   loadUnreadBadge();
 }
 
@@ -1209,8 +1236,8 @@ async function renderProfilesChooser(p) {
     if (!r.error) links = (r.data || []).map(x => x.profiles).filter(Boolean);
   } catch (_) {}
   if (!links.length) links = [p];
-  qs('#app').innerHTML = head('Mes profils', 'Choisissez le personnage ou la fonction à utiliser.') +
-    `<div class="notice" style="margin-bottom:15px">Chaque profil conserve ses propres permissions et ses propres données. Un ALT ne mélange pas les données du personnage principal.</div>` +
+  qs('#app').innerHTML = head('Mes profils WL', 'Profils et personnages rattachés à votre personne.') +
+    `<div class="notice" style="margin-bottom:15px">Les profils/ALT sont gérés dans l'espace WL. La modération Discord n'utilise pas cet espace.</div>` +
     `<div class="grid g2">${links.map(x => `<div class="card"><div class="toolbar"><div><h3>${esc(x.full_name || x.username || 'Profil')}</h3><div class="muted">${esc(ROLE_LABEL[x.role] || x.role)} · ${x.active === false ? 'Désactivé' : 'Actif'}</div></div><span class="brand-mark">${x.role === 'student' ? '🎓' : x.role === 'professor' ? '🧑‍🏫' : x.role === 'surveillant' ? '🛡️' : '👤'}</span></div><button class="btn primary" data-select-profile="${esc(x.id)}" ${x.active === false ? 'disabled' : ''}>Utiliser ce profil</button></div>`).join('')}</div>`;
   qsa('[data-select-profile]').forEach(b => b.onclick = () => {
     localStorage.setItem('midori_active_profile_id', b.dataset.selectProfile);
@@ -1737,6 +1764,21 @@ async function init() {
   const roles = PAGE_ROLES[page] || [];
   const ctx = await guard(roles);
   if (!ctx) return;
+
+  // Pour un administrateur/CPE, le mode WL est un espace séparé.
+  // Cela évite d'afficher ou d'utiliser les outils WL depuis l'espace CPE,
+  // tout en gardant un seul compte de connexion.
+  const wlPages = new Set(['wl.html', 'profiles.html']);
+  const mode = portalModeFor(ctx.profile);
+  if (ctx.profile.role === 'admin' && wlPages.has(page) && mode !== 'wl') {
+    location.href = 'dashboard.html';
+    return;
+  }
+  if (ctx.profile.role === 'admin' && !wlPages.has(page) && page !== 'profile.html' && mode === 'wl') {
+    location.href = 'wl.html';
+    return;
+  }
+
   shell(ctx.profile);
   try {
     switch (page) {
@@ -1792,7 +1834,7 @@ async function init() {
     }
   } catch (er) {
     console.error('Midori High — erreur page', page, er);
-    qs('#app').innerHTML = head(TITLE[page] || 'Portail', 'Une erreur a empêché le chargement de cette page.') + `<div class="card"><div class="notice error"><strong>Erreur détectée :</strong><br>${esc(errMsg(er))}</div><p class="muted" style="margin-top:12px">Si le message mentionne une table, une colonne ou une policy Supabase, exécutez le SQL de réparation fourni avec cette version.</p><button class="btn secondary" onclick="location.reload()">Réessayer</button></div>`;
+    qs('#app').innerHTML = head(TITLE[page] || 'Portail', 'Une erreur a empêché le chargement de cette page.') + `<div class="card"><div class="notice error"><strong>Erreur détectée :</strong><br>${esc(errMsg(er))}</div><p class="muted" style="margin-top:12px">Si l'erreur concerne Supabase, vérifiez d'abord les fonctions et permissions installées pour cette version.</p><button class="btn secondary" onclick="location.reload()">Réessayer</button></div>`;
   }
 }
 
