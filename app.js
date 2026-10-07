@@ -58,6 +58,7 @@ const NAV = {
     ]],
     ['Administration', [
       ['access.html', '🔐', 'Accès & comptes'],
+      ['migration.html', '🔄', 'Migration des profils'],
       ['logs.html', '🕘', 'Journal d’activité'],
       ['profile.html', '👤', 'Mon profil']
     ]]
@@ -134,7 +135,7 @@ const TITLE = {
   'subjects.html': 'Matières', 'timetable.html': 'Emploi du temps', 'attendance.html': 'Fiches d’appel',
   'absences.html': 'Absences', 'grades.html': 'Notes', 'homework.html': 'Devoirs',
   'points.html': 'Points / Réputation', 'discipline.html': 'Discipline', 'clubs.html': 'Clubs',
-  'access.html': 'Accès & comptes', 'wl.html': 'Registre WL', 'profiles.html': 'Mes profils', 'logs.html': 'Journal d’activité', 'events.html': 'Calendrier RP', 'profile.html': 'Mon profil',
+  'access.html': 'Accès & comptes', 'migration.html': 'Migration des profils', 'wl.html': 'Registre WL', 'profiles.html': 'Mes profils', 'logs.html': 'Journal d’activité', 'events.html': 'Calendrier RP', 'profile.html': 'Mon profil',
   'prof-space.html': 'Espace professeur', 'prof-attendance.html': 'Fiches d’appel', 'prof-grades.html': 'Notes',
   'prof-homework.html': 'Devoirs', 'prof-resources.html': 'Ressources', 'prof-timetable.html': 'Emploi du temps',
   'supervisor-space.html': 'Espace surveillant', 'supervisor-absences.html': 'Absences & retards',
@@ -147,7 +148,7 @@ const TITLE = {
 };
 
 const PAGE_ROLES = {
-  'dashboard.html': ['admin'], 'wl.html': ['admin','recruteur_wl'], 'profiles.html': ['admin','recruteur_wl','professor','surveillant','student','psychologue','infirmiere'], 'messages.html': ['admin','professor','surveillant','student','psychologue','infirmiere'], 'homework-submissions.html': ['admin','professor'], 'access.html': ['admin'], 'students.html': ['admin'], 'professors.html': ['admin'],
+  'dashboard.html': ['admin'], 'wl.html': ['admin','recruteur_wl'], 'profiles.html': ['admin','recruteur_wl','professor','surveillant','student','psychologue','infirmiere'], 'messages.html': ['admin','professor','surveillant','student','psychologue','infirmiere'], 'homework-submissions.html': ['admin','professor'], 'access.html': ['admin'], 'migration.html': ['admin'], 'students.html': ['admin'], 'professors.html': ['admin'],
   'supervisors.html': ['admin'], 'classes.html': ['admin'], 'subjects.html': ['admin'], 'timetable.html': ['admin'],
   'attendance.html': ['admin', 'professor', 'surveillant'], 'absences.html': ['admin', 'professor', 'surveillant'],
   'grades.html': ['admin', 'professor'], 'homework.html': ['admin', 'professor'], 'points.html': ['admin'],
@@ -1271,6 +1272,57 @@ async function renderProfilesChooser(p) {
   });
 }
 
+async function renderMigration(p) {
+  if (p.role !== 'admin') throw new Error('Accès réservé à l’administration.');
+  const { data: people, error: pe } = await sb.from('midori_people')
+    .select('id,discord_username,roblox_username,active,auth_user_id')
+    .eq('active', true).order('created_at', { ascending: false }).limit(500);
+  if (pe) throw pe;
+  const { data: profiles, error: pr } = await sb.from('profiles')
+    .select('id,person_id,username,full_name,role,profile_kind,is_alt,school_email,access_status,active,class_name,email')
+    .order('full_name').limit(500);
+  if (pr) throw pr;
+  const personMap = new Map((people || []).map(x => [String(x.id), x]));
+  const profileCount = {};
+  (profiles || []).forEach(x => { if (x.person_id) profileCount[x.person_id] = (profileCount[x.person_id] || 0) + 1; });
+
+  qs('#app').innerHTML = head('Migration des profils', 'Nettoyez les anciens profils sans supprimer leurs WL ni leurs comptes.') +
+    `<div class="notice" style="margin-bottom:15px">🛡️ <strong>Migration manuelle :</strong> aucun regroupement automatique. Vous choisissez vous-même quel ancien profil appartient à quelle personne. Les données ne sont pas supprimées.</div>` +
+    `<div class="grid g2">` +
+      `<div class="card"><h3>🔎 Profil à migrer</h3><p class="muted">Recherchez un ancien élève/personnel puis sélectionnez son profil.</p><input id="migProfileSearch" class="search" placeholder="Nom, Discord, Roblox…"><select id="migProfileSelect" size="8" style="width:100%;margin-top:10px"><option value="">Chargement…</option></select><div id="migProfileInfo" class="notice" style="margin-top:10px;display:none"></div></div>` +
+      `<div class="card"><h3>👤 Personne cible</h3><p class="muted">Choisissez la personne à laquelle rattacher le profil.</p><input id="migPersonSearch" class="search" placeholder="Discord, Roblox…"><select id="migPersonSelect" size="8" style="width:100%;margin-top:10px"><option value="">Sélectionnez une personne…</option></select><div id="migPersonInfo" class="notice" style="margin-top:10px;display:none"></div></div>` +
+    `</div>` +
+    `<div class="card" style="margin-top:15px"><div class="toolbar"><div><h3>🔗 Rattacher le profil</h3><p class="muted">Le profil garde son identité RP, sa WL et son historique. Seul son lien avec la personne est modifié.</p></div><button id="migLink" class="btn primary" disabled>🔗 Rattacher le profil</button></div></div>` +
+    `<div class="card" style="margin-top:15px"><h3>✏️ Corriger un ancien profil</h3><p class="muted">Sélectionnez d’abord un profil ci-dessus.</p><button id="migEdit" class="btn secondary" disabled>Modifier les informations</button></div>` +
+    modal('migEditModal','Modifier le profil',`<form id="migEditForm" class="form"><input type="hidden" name="profile_id"><div class="field"><label>Nom complet / RP</label><input name="full_name" required></div><div class="field"><label>Pseudo Roblox</label><input name="username"></div><div class="field"><label>Pseudo / identifiant Discord</label><input name="email"></div><div class="field"><label>Classe</label><input name="class_name"></div><div class="field"><label>Type</label><select name="profile_kind"><option value="student">Élève</option><option value="professor">Professeur</option><option value="surveillant">Surveillant</option><option value="psychologue">Psychologue</option><option value="infirmiere">Infirmière</option></select></div><div class="field"><label>Principal / ALT</label><select name="is_alt"><option value="false">Principal</option><option value="true">ALT PERSO</option></select></div><div class="field full"><label>E-mail scolaire</label><input name="school_email" type="email"></div><div class="field full"><button class="btn primary">Enregistrer les corrections</button></div></form>`);
+
+  const pSearch = qs('#migProfileSearch'), pSelect = qs('#migProfileSelect'), personSearch = qs('#migPersonSearch'), personSelect = qs('#migPersonSelect');
+  const pInfo = qs('#migProfileInfo'), personInfo = qs('#migPersonInfo'), linkBtn = qs('#migLink'), editBtn = qs('#migEdit');
+  let selectedProfile = null, selectedPerson = null;
+  const allProfiles = profiles || [], allPeople = people || [];
+  const renderProfiles = () => {
+    const q = pSearch.value.trim().toLowerCase();
+    const rows = allProfiles.filter(x => !q || `${x.full_name||''} ${x.username||''} ${x.email||''} ${x.school_email||''}`.toLowerCase().includes(q));
+    pSelect.innerHTML = rows.length ? '<option value="">— Sélectionner un profil —</option>' + rows.map(x => `<option value="${esc(x.id)}">${esc(x.full_name || 'Sans nom')} · ${esc(x.username || 'sans pseudo')} · ${esc(x.role || '')}${x.is_alt ? ' · ALT' : ''}</option>`).join('') : '<option value="">Aucun profil trouvé</option>';
+  };
+  const renderPeople = () => {
+    const q = personSearch.value.trim().toLowerCase();
+    const rows = allPeople.filter(x => !q || `${x.discord_username||''} ${x.roblox_username||''}`.toLowerCase().includes(q));
+    personSelect.innerHTML = rows.length ? '<option value="">— Sélectionner une personne —</option>' + rows.map(x => `<option value="${esc(x.id)}">${esc(x.discord_username || 'Discord non renseigné')} · ${esc(x.roblox_username || 'Roblox non renseigné')} · ${profileCount[x.id] || 0} profil(s)</option>`).join('') : '<option value="">Aucune personne trouvée</option>';
+  };
+  renderProfiles(); renderPeople();
+  pSearch.oninput = renderProfiles; personSearch.oninput = renderPeople;
+  pSelect.onchange = () => { selectedProfile = allProfiles.find(x => String(x.id) === String(pSelect.value)) || null; editBtn.disabled = !selectedProfile; if (selectedProfile) { pInfo.style.display=''; pInfo.innerHTML=`<strong>${esc(selectedProfile.full_name||'Sans nom')}</strong><br>Discord/identifiant : ${esc(selectedProfile.email||'—')} · Roblox : ${esc(selectedProfile.username||'—')}<br>Personne actuelle : ${esc(selectedProfile.person_id || 'non liée')} · ${profileCount[selectedProfile.person_id] || 0} profil(s)`; } else pInfo.style.display='none'; linkBtn.disabled = !(selectedProfile && selectedPerson && String(selectedProfile.person_id) !== String(selectedPerson.id)); };
+  personSelect.onchange = () => { selectedPerson = allPeople.find(x => String(x.id) === String(personSelect.value)) || null; personInfo.style.display = selectedPerson ? '' : 'none'; if(selectedPerson) personInfo.innerHTML=`<strong>Personne cible</strong><br>Discord : ${esc(selectedPerson.discord_username||'—')} · Roblox : ${esc(selectedPerson.roblox_username||'—')}<br>${profileCount[selectedPerson.id] || 0} profil(s) déjà rattaché(s)`; linkBtn.disabled = !(selectedProfile && selectedPerson && String(selectedProfile.person_id) !== String(selectedPerson.id)); };
+  linkBtn.onclick = async () => {
+    if (!selectedProfile || !selectedPerson) return;
+    if (!confirm(`Rattacher « ${selectedProfile.full_name || selectedProfile.username} » à cette personne ? Aucun profil ne sera supprimé.`)) return;
+    try { const { error } = await sb.rpc('midori_migrate_link_profile', { p_profile_id: selectedProfile.id, p_target_person_id: selectedPerson.id }); if (error) throw error; await log('update','profile',selectedProfile.id,{migration:'link_person',target_person_id:selectedPerson.id}); toast('Profil rattaché à la personne.'); location.reload(); } catch(e) { toast(errMsg(e),'error'); }
+  };
+  editBtn.onclick = () => { if(!selectedProfile) return; const f=qs('#migEditForm'); f.profile_id.value=selectedProfile.id; f.full_name.value=selectedProfile.full_name||''; f.username.value=selectedProfile.username||''; f.email.value=selectedProfile.email||''; f.class_name.value=selectedProfile.class_name||''; f.profile_kind.value=selectedProfile.profile_kind||selectedProfile.role||'student'; f.is_alt.value=String(!!selectedProfile.is_alt); f.school_email.value=selectedProfile.school_email||''; openModal('migEditModal'); closeBindings(); };
+  qs('#migEditForm').onsubmit = async e => { e.preventDefault(); const f=new FormData(e.target); try { const { error }=await sb.rpc('midori_migrate_update_profile',{p_profile_id:f.get('profile_id'),p_full_name:String(f.get('full_name')||'').trim(),p_username:String(f.get('username')||'').trim()||null,p_email:String(f.get('email')||'').trim()||null,p_class_name:String(f.get('class_name')||'').trim()||null,p_profile_kind:String(f.get('profile_kind')||'student'),p_is_alt:f.get('is_alt')==='true',p_school_email:String(f.get('school_email')||'').trim().toLowerCase()||null}); if(error) throw error; toast('Profil corrigé.'); closeModal('migEditModal'); location.reload(); } catch(e){toast(errMsg(e),'error');} };
+}
+
 async function renderAccess(p) {
   const [profs, students, teachers, supervisors, people] = await Promise.all([
     rows('profiles', 'id,email,username,full_name,role,active,student_id,professor_id,supervisor_id,person_id,school_email,access_status,created_at', { order: 'created_at', ascending: false }),
@@ -1833,6 +1885,7 @@ async function init() {
       case 'clubs.html': await renderAdminClubs(); break;
       case 'events.html': await renderEvents(ctx.profile); break;
       case 'access.html': await renderAccess(ctx.profile); break;
+      case 'migration.html': await renderMigration(ctx.profile); break;
       case 'wl.html': await renderWLRegistry(ctx.profile); break;
       case 'profiles.html': await renderProfilesChooser(ctx.profile); break;
       case 'logs.html': await renderLogs(); break;
