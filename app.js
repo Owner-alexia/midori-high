@@ -732,19 +732,73 @@ async function enhanceClassFilteredTables() {
   }
 }
 
-async function renderDashboard() {
-  const [students, professors, classes, absences] = await Promise.all([
-    sb.from('students').select('id', { count: 'exact', head: true }),
-    sb.from('professors').select('id', { count: 'exact', head: true }),
-    sb.from('classes').select('id', { count: 'exact', head: true }),
-    sb.from('absences').select('id', { count: 'exact', head: true }).eq('date', today()).eq('type', 'absence')
+async function safeCountFrom(tables, filters = []) {
+  for (const table of tables) {
+    try {
+      let q = sb.from(table).select('id', { count: 'exact', head: true });
+      for (const f of filters) q = q[f.op || 'eq'](f.column, f.value);
+      const r = await q;
+      if (!r.error) return { count: r.count ?? 0, table };
+    } catch (_) {}
+  }
+  return { count: null, table: null };
+}
+
+async function safeRowsFrom(tables, select, cfg = {}) {
+  for (const table of tables) {
+    try {
+      let q = sb.from(table).select(select);
+      if (cfg.order) q = q.order(cfg.order, { ascending: cfg.ascending ?? true });
+      if (cfg.limit) q = q.limit(cfg.limit);
+      const r = await q;
+      if (!r.error) return { data: r.data || [], table };
+    } catch (_) {}
+  }
+  return { data: [], table: null };
+}
+
+async function renderDashboard(p) {
+  const [profiles, students, professors, classes, subjects, clubs, events, unread] = await Promise.all([
+    safeCountFrom(['profiles'], [{ column: 'active', value: true }]),
+    safeCountFrom(['school_students', 'students']),
+    safeCountFrom(['school_professors', 'professors']),
+    safeCountFrom(['school_classes', 'classes']),
+    safeCountFrom(['school_subjects', 'subjects']),
+    safeCountFrom(['school_clubs', 'clubs']),
+    safeRowsFrom(['school_events'], 'id,title,description,event_date,start_time,location,event_type', { order: 'event_date', ascending: true, limit: 4 }),
+    safeCountFrom(['school_messages'], [{ column: 'recipient_profile_id', value: p.id }, { column: 'is_read', value: false }])
   ]);
-  const counts = [students, professors, classes, absences];
-  counts.forEach(r => { if (r.error) throw r.error; });
-  const announces = await rows('announcements', 'id,title,content,published_at', { order: 'published_at', ascending: false, limit: 4 });
-  qs('#app').innerHTML = head('Tableau de bord', 'Vue générale de Midori High.') +
-    `<div class="grid g4">${statCard('Élèves', students.count ?? 0, '🎓')}${statCard('Professeurs', professors.count ?? 0, '👩‍🏫')}${statCard('Classes', classes.count ?? 0, '🏫')}${statCard('Absences aujourd’hui', absences.count ?? 0, '⏱️')}</div>` +
-    `<div class="grid g2" style="margin-top:15px"><div class="hero"><h2>Midori High</h2><p>Une école d’excellence : suivi scolaire, présence, réputation et vie de l’établissement.</p><div class="actions" style="margin-top:16px"><a href="attendance.html" class="btn secondary">📝 Ouvrir une fiche d’appel</a><a href="points.html" class="btn secondary">⭐ Gérer les points</a></div></div><div class="card"><h3 style="margin-bottom:12px">Dernières annonces</h3><div class="list">${announces.map(a => `<div class="item"><div><strong>${esc(a.title)}</strong><span>${dtFR(a.published_at)}</span><p style="margin-top:5px">${esc(String(a.content || '').slice(0, 150))}</p></div></div>`).join('') || '<div class="empty">Aucune annonce.</div>'}</div></div></div>`;
+
+  const stat = (label, value, icon, tint, href) => `
+    <a class="dash-stat" href="${href}" style="--stat-tint:${tint}">
+      <span class="dash-stat-icon">${icon}</span>
+      <span class="dash-stat-copy"><span>${label}</span><strong>${value === null ? '—' : Number(value).toLocaleString('fr-FR')}</strong><small>Voir le module <span aria-hidden="true">↗</span></small></span>
+    </a>`;
+  const eventHtml = events.data.length ? events.data.map(e => `
+    <div class="dash-list-row"><span class="dash-round-icon lilac">▦</span><div class="dash-row-copy"><strong>${esc(e.title || 'Événement')}</strong><span>${esc(e.event_date || 'Date à définir')}${e.start_time ? ' · ' + esc(String(e.start_time).slice(0,5)) : ''}${e.location ? ' · ' + esc(e.location) : ''}</span></div><span class="dash-arrow">›</span></div>`).join('') : `<div class="dash-empty"><span class="dash-empty-icon">▦</span><strong>Aucun événement à afficher</strong><span>Les événements apparaîtront ici lorsqu’ils seront enregistrés.</span></div>`;
+  const announcementTableAvailable = false; // Le schéma V2 actuel ne contient pas de table public.announcements.
+  const announcementsHtml = announcementTableAvailable ? '' : `<div class="dash-empty"><span class="dash-empty-icon">♧</span><strong>Le module d’annonces doit être relié</strong><span>La table « announcements » n’existe pas dans le schéma actuel. Aucune fausse annonce n’est affichée.</span><a class="dash-inline-link" href="announcements.html">Ouvrir le module annonces →</a></div>`;
+
+  qs('#app').innerHTML = `
+    <div class="dash-welcome">
+      <div class="dash-welcome-copy"><span class="dash-eyebrow">MIDORI HIGH · PORTAIL ADMINISTRATIF</span><h1>Bienvenue, ${esc((p.full_name || p.username || 'Administrateur').split(' ')[0])} <span>✿</span></h1><p>Voici le point de départ pour gérer la vie de l’établissement.</p><div class="dash-welcome-actions"><a class="dash-cta" href="students.html">＋ Accéder à la scolarité</a><a class="dash-cta dash-cta-light" href="events.html">Voir le calendrier ↗</a></div></div>
+      <div class="dash-date-card"><span class="dash-date-flower">✿</span><span class="dash-date-label">AUJOURD’HUI</span><strong>${new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</strong><small>Ensemble, faisons grandir Midori.</small></div>
+      <span class="dash-deco dash-deco-one">✿</span><span class="dash-deco dash-deco-two">✿</span>
+    </div>
+    <div class="dash-section-heading"><div><span class="dash-section-kicker">EN UN COUP D’ŒIL</span><h2>Vue générale</h2></div><span class="dash-live"><i></i> Portail connecté</span></div>
+    <div class="dash-stats">
+      ${stat('Élèves', students.count, '♧', '#e4f4ec', 'students.html')}
+      ${stat('Professeurs', professors.count, '♙', '#fde9ef', 'professors.html')}
+      ${stat('Classes', classes.count, '▤', '#e6f1fb', 'classes.html')}
+      ${stat('Matières', subjects.count, '▧', '#fff0d8', 'subjects.html')}
+    </div>
+    <div class="dash-panels">
+      <section class="dash-panel"><div class="dash-panel-head"><div class="dash-panel-title"><span class="dash-panel-icon pink">♧</span><div><h3>Annonces récentes</h3><p>Les informations de l’établissement</p></div></div><a href="announcements.html">Voir le module ↗</a></div>${announcementsHtml}</section>
+      <section class="dash-panel"><div class="dash-panel-head"><div class="dash-panel-title"><span class="dash-panel-icon blue">▦</span><div><h3>Événements à venir</h3><p>Le calendrier de Midori High</p></div></div><a href="events.html">Calendrier ↗</a></div><div class="dash-list">${eventHtml}</div></section>
+      <section class="dash-panel"><div class="dash-panel-head"><div class="dash-panel-title"><span class="dash-panel-icon mint">⌁</span><div><h3>Accès rapides</h3><p>Les tâches les plus courantes</p></div></div></div><div class="dash-quick-grid"><a href="attendance.html"><span>☑</span><strong>Fiche d’appel</strong><small>Suivre les présences</small></a><a href="homework.html"><span>▤</span><strong>Devoirs</strong><small>Consulter les travaux</small></a><a href="profiles.html"><span>♙</span><strong>Profils</strong><small>Gérer les accès</small></a><a href="clubs.html"><span>✿</span><strong>Clubs</strong><small>Vie scolaire</small></a></div></section>
+      <section class="dash-panel dash-message-panel"><div class="dash-panel-head"><div class="dash-panel-title"><span class="dash-panel-icon lilac">✉</span><div><h3>Messagerie</h3><p>Vos échanges internes</p></div></div><a href="messages.html">Ouvrir la messagerie ↗</a></div><div class="dash-message-body"><span class="dash-empty-icon">✉</span><strong>${unread.count === null ? 'Messagerie disponible' : (unread.count === 0 ? 'Vous êtes à jour !' : `${unread.count} message${unread.count > 1 ? 's' : ''} non lu${unread.count > 1 ? 's' : ''}`)}</strong><span>${unread.count === null ? 'Consultez la messagerie pour voir vos échanges.' : (unread.count === 0 ? 'Aucun nouveau message non lu pour le moment.' : 'Consultez votre boîte de réception.')}</span><a class="dash-inline-link" href="messages.html">Accéder aux messages →</a></div></section>
+    </div>
+    <footer class="dash-footer"><img src="midori-high-logo.jpg" alt=""/><span><strong>Midori High</strong><small>Apprendre, grandir, avancer ensemble.</small></span><span class="dash-footer-right">Depuis 1990 · Portail administratif</span></footer>`;
 }
 
 async function renderAnnouncements(p) {
@@ -2057,7 +2111,7 @@ async function init() {
   shell(ctx.profile);
   try {
     switch (page) {
-      case 'dashboard.html': await renderDashboard(); break;
+      case 'dashboard.html': await renderDashboard(ctx.profile); break;
       case 'messages.html': await renderMessages(ctx.profile); break;
       case 'homework-submissions.html': await renderHomeworkSubmissions(ctx.profile); break;
       case 'announcements.html': await renderAnnouncements(ctx.profile); break;
