@@ -385,11 +385,11 @@ function roleLabel(role) { return ROLE_LABEL[role] || role || 'Utilisateur'; }
 // Répertoire basé sur les profils V2 ; aucune fonction SQL list_message_recipients requise.
 async function messageDirectory() {
   const r = await sb.from('profiles')
-    .select('id,full_name,username,role,active,school_email')
+    .select('id,full_name,role,profile_kind,active,school_email')
     .eq('active', true)
     .order('full_name', { ascending: true });
   if (r.error) throw r.error;
-  return (r.data || []).map(x => ({ ...x, full_name: x.full_name || x.username || x.school_email || 'Utilisateur' }));
+  return (r.data || []).map(x => ({ ...x, full_name: x.full_name || x.school_email || roleLabel(x.profile_kind || x.role) || 'Utilisateur' }));
 }
 
 async function loadUnreadBadge() {
@@ -443,7 +443,7 @@ async function renderMessages(p) {
   if (sentR.error) throw sentR.error;
   const inbox = inboxR.data || [];
   const sent = sentR.data || [];
-  const personName = id => people.get(id)?.full_name || people.get(id)?.username || 'Utilisateur';
+  const personName = id => people.get(id)?.full_name || people.get(id)?.school_email || 'Utilisateur';
   const displayRows = (list, mode) => list.map(m => {
     const unread = mode === 'inbox' && !m.is_read;
     const other = mode === 'inbox' ? personName(m.sender_profile_id) : personName(m.recipient_profile_id);
