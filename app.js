@@ -757,50 +757,76 @@ async function safeRowsFrom(tables, select, cfg = {}) {
   return { data: [], table: null };
 }
 
-async function renderDashboard(p) {
-  const [profiles, students, professors, classes, subjects, clubs, events, unread] = await Promise.all([
-    safeCountFrom(['profiles'], [{ column: 'active', value: true }]),
-    safeCountFrom(['school_students', 'students']),
-    safeCountFrom(['school_professors', 'professors']),
-    safeCountFrom(['school_classes', 'classes']),
-    safeCountFrom(['school_subjects', 'subjects']),
-    safeCountFrom(['school_clubs', 'clubs']),
-    safeRowsFrom(['school_events'], 'id,title,description,event_date,start_time,location,event_type', { order: 'event_date', ascending: true, limit: 4 }),
-    safeCountFrom(['school_messages'], [{ column: 'recipient_profile_id', value: p.id }, { column: 'is_read', value: false }])
+async function renderDashboard() {
+  // Dashboard redesign v2: isolated styles and resilient reads for the current school_* schema.
+  const profile = await currentProfile().catch(() => null);
+  const safeCount = async (table, configure) => {
+    try {
+      let q = sb.from(table).select('id', { count: 'exact', head: true });
+      if (configure) q = configure(q);
+      const r = await q;
+      if (r.error) return null;
+      return Number(r.count || 0);
+    } catch (_) { return null; }
+  };
+  const safeRows = async (table, columns, configure) => {
+    try {
+      let q = sb.from(table).select(columns);
+      if (configure) q = configure(q);
+      const r = await q;
+      if (r.error) return null;
+      return r.data || [];
+    } catch (_) { return null; }
+  };
+  const [students, professors, classes, subjects, events, announcements, activity, unread] = await Promise.all([
+    safeCount('profiles', q => q.eq('profile_kind', 'student').eq('active', true)),
+    safeCount('profiles', q => q.eq('profile_kind', 'professor').eq('active', true)),
+    safeCount('school_classes'),
+    safeCount('school_subjects'),
+    safeRows('school_events', 'id,title,description,event_date,start_time,location,event_type', q => q.order('event_date', { ascending: true }).limit(4)),
+    safeRows('announcements', 'id,title,content,published_at', q => q.order('published_at', { ascending: false }).limit(4)),
+    safeRows('activity_logs', 'id,action,entity,created_at', q => q.order('created_at', { ascending: false }).limit(4)),
+    profile?.id ? safeCount('school_messages', q => q.eq('recipient_profile_id', profile.id).eq('is_read', false)) : Promise.resolve(null)
   ]);
 
-  const stat = (label, value, icon, tint, href) => `
-    <a class="dash-stat" href="${href}" style="--stat-tint:${tint}">
-      <span class="dash-stat-icon">${icon}</span>
-      <span class="dash-stat-copy"><span>${label}</span><strong>${value === null ? '—' : Number(value).toLocaleString('fr-FR')}</strong><small>Voir le module <span aria-hidden="true">↗</span></small></span>
-    </a>`;
-  const eventHtml = events.data.length ? events.data.map(e => `
-    <div class="dash-list-row"><span class="dash-round-icon lilac">▦</span><div class="dash-row-copy"><strong>${esc(e.title || 'Événement')}</strong><span>${esc(e.event_date || 'Date à définir')}${e.start_time ? ' · ' + esc(String(e.start_time).slice(0,5)) : ''}${e.location ? ' · ' + esc(e.location) : ''}</span></div><span class="dash-arrow">›</span></div>`).join('') : `<div class="dash-empty"><span class="dash-empty-icon">▦</span><strong>Aucun événement à afficher</strong><span>Les événements apparaîtront ici lorsqu’ils seront enregistrés.</span></div>`;
-  const announcementTableAvailable = false; // Le schéma V2 actuel ne contient pas de table public.announcements.
-  const announcementsHtml = announcementTableAvailable ? '' : `<div class="dash-empty"><span class="dash-empty-icon">♧</span><strong>Le module d’annonces doit être relié</strong><span>La table « announcements » n’existe pas dans le schéma actuel. Aucune fausse annonce n’est affichée.</span><a class="dash-inline-link" href="announcements.html">Ouvrir le module annonces →</a></div>`;
+  const metric = (label, value, icon, tone, href) => `<a class="mh-metric ${tone}" href="${href}"><span class="mh-metric-icon">${icon}</span><span class="mh-metric-label">${label}</span><strong>${value === null ? '—' : value}</strong><span class="mh-metric-link">Voir le module <span aria-hidden="true">↗</span></span></a>`;
+  const unavailable = '<div class="mh-empty"><span class="mh-empty-icon">✿</span><strong>Module à connecter</strong><p>Cette section sera affichée dès que sa table sera disponible dans Supabase.</p></div>';
+  const annHtml = announcements === null ? unavailable : (announcements.length ? announcements.map(a => `<article class="mh-feed-row"><span class="mh-feed-icon pink">📣</span><div><strong>${esc(a.title || 'Annonce')}</strong><p>${esc(String(a.content || '').slice(0, 110))}</p><small>${a.published_at ? dtFR(a.published_at) : 'Date non renseignée'}</small></div></article>`).join('') : '<div class="mh-empty"><span class="mh-empty-icon">📣</span><strong>Aucune annonce pour le moment</strong><p>Les annonces importantes apparaîtront ici.</p></div>');
+  const eventsHtml = events === null ? unavailable : (events.length ? events.map(e => `<article class="mh-feed-row"><span class="mh-feed-icon lilac">🗓️</span><div><strong>${esc(e.title || 'Événement')}</strong><p>${esc(e.description || e.location || e.event_type || 'Événement Midori High')}</p><small>${e.event_date ? dateFR(e.event_date) : 'Date à définir'}${e.start_time ? ' · ' + esc(String(e.start_time).slice(0,5)) : ''}</small></div></article>`).join('') : '<div class="mh-empty"><span class="mh-empty-icon">🗓️</span><strong>Aucun événement à venir</strong><p>Les prochains événements apparaîtront ici.</p></div>');
+  const activityHtml = activity === null ? unavailable : (activity.length ? activity.map(a => `<article class="mh-activity-row"><span class="mh-activity-dot"></span><div><strong>${esc(a.action || 'Activité')}</strong><p>${esc(a.entity || 'Portail administratif')}</p><small>${a.created_at ? dtFR(a.created_at) : 'Date inconnue'}</small></div></article>`).join('') : '<div class="mh-empty compact"><span class="mh-empty-icon">✧</span><strong>Aucune activité récente</strong><p>Les dernières actions apparaîtront ici.</p></div>');
 
-  qs('#app').innerHTML = `
-    <div class="dash-welcome">
-      <div class="dash-welcome-copy"><span class="dash-eyebrow">MIDORI HIGH · PORTAIL ADMINISTRATIF</span><h1>Bienvenue, ${esc((p.full_name || p.username || 'Administrateur').split(' ')[0])} <span>✿</span></h1><p>Voici le point de départ pour gérer la vie de l’établissement.</p><div class="dash-welcome-actions"><a class="dash-cta" href="students.html">＋ Accéder à la scolarité</a><a class="dash-cta dash-cta-light" href="events.html">Voir le calendrier ↗</a></div></div>
-      <div class="dash-date-card"><span class="dash-date-flower">✿</span><span class="dash-date-label">AUJOURD’HUI</span><strong>${new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</strong><small>Ensemble, faisons grandir Midori.</small></div>
-      <span class="dash-deco dash-deco-one">✿</span><span class="dash-deco dash-deco-two">✿</span>
-    </div>
-    <div class="dash-section-heading"><div><span class="dash-section-kicker">EN UN COUP D’ŒIL</span><h2>Vue générale</h2></div><span class="dash-live"><i></i> Portail connecté</span></div>
-    <div class="dash-stats">
-      ${stat('Élèves', students.count, '♧', '#e4f4ec', 'students.html')}
-      ${stat('Professeurs', professors.count, '♙', '#fde9ef', 'professors.html')}
-      ${stat('Classes', classes.count, '▤', '#e6f1fb', 'classes.html')}
-      ${stat('Matières', subjects.count, '▧', '#fff0d8', 'subjects.html')}
-    </div>
-    <div class="dash-panels">
-      <section class="dash-panel"><div class="dash-panel-head"><div class="dash-panel-title"><span class="dash-panel-icon pink">♧</span><div><h3>Annonces récentes</h3><p>Les informations de l’établissement</p></div></div><a href="announcements.html">Voir le module ↗</a></div>${announcementsHtml}</section>
-      <section class="dash-panel"><div class="dash-panel-head"><div class="dash-panel-title"><span class="dash-panel-icon blue">▦</span><div><h3>Événements à venir</h3><p>Le calendrier de Midori High</p></div></div><a href="events.html">Calendrier ↗</a></div><div class="dash-list">${eventHtml}</div></section>
-      <section class="dash-panel"><div class="dash-panel-head"><div class="dash-panel-title"><span class="dash-panel-icon mint">⌁</span><div><h3>Accès rapides</h3><p>Les tâches les plus courantes</p></div></div></div><div class="dash-quick-grid"><a href="attendance.html"><span>☑</span><strong>Fiche d’appel</strong><small>Suivre les présences</small></a><a href="homework.html"><span>▤</span><strong>Devoirs</strong><small>Consulter les travaux</small></a><a href="profiles.html"><span>♙</span><strong>Profils</strong><small>Gérer les accès</small></a><a href="clubs.html"><span>✿</span><strong>Clubs</strong><small>Vie scolaire</small></a></div></section>
-      <section class="dash-panel dash-message-panel"><div class="dash-panel-head"><div class="dash-panel-title"><span class="dash-panel-icon lilac">✉</span><div><h3>Messagerie</h3><p>Vos échanges internes</p></div></div><a href="messages.html">Ouvrir la messagerie ↗</a></div><div class="dash-message-body"><span class="dash-empty-icon">✉</span><strong>${unread.count === null ? 'Messagerie disponible' : (unread.count === 0 ? 'Vous êtes à jour !' : `${unread.count} message${unread.count > 1 ? 's' : ''} non lu${unread.count > 1 ? 's' : ''}`)}</strong><span>${unread.count === null ? 'Consultez la messagerie pour voir vos échanges.' : (unread.count === 0 ? 'Aucun nouveau message non lu pour le moment.' : 'Consultez votre boîte de réception.')}</span><a class="dash-inline-link" href="messages.html">Accéder aux messages →</a></div></section>
-    </div>
-    <footer class="dash-footer"><img src="midori-high-logo.jpg" alt=""/><span><strong>Midori High</strong><small>Apprendre, grandir, avancer ensemble.</small></span><span class="dash-footer-right">Depuis 1990 · Portail administratif</span></footer>`;
+  let style = document.getElementById('mh-dashboard-design-v2');
+  if (!style) {
+    style = document.createElement('style'); style.id = 'mh-dashboard-design-v2';
+    style.textContent = `
+      .mh-dashboard{--mh-green:#17483b;--mh-deep:#10392f;--mh-pink:#f3c5d5;--mh-ink:#193a34;--mh-muted:#778780;color:var(--mh-ink)}
+      .mh-dashboard .head{margin-bottom:22px}.mh-dashboard .head h1{font-size:31px}.mh-dashboard .head p{font-size:13px}
+      .mh-welcome{position:relative;isolation:isolate;overflow:hidden;display:flex;align-items:center;justify-content:space-between;gap:24px;min-height:190px;padding:30px 32px;margin-bottom:19px;border-radius:22px;background:radial-gradient(circle at 86% 12%,rgba(243,197,213,.4),transparent 21%),linear-gradient(120deg,#123b31,#286b57 70%,#4b8c75);color:#fff;box-shadow:0 15px 35px rgba(23,72,59,.14)}
+      .mh-welcome:before{content:'桜';position:absolute;right:18%;top:-38px;font-size:180px;line-height:1;color:rgba(255,255,255,.08);z-index:-1;font-family:serif}.mh-welcome:after{content:'✿  ✧  ❀';position:absolute;right:22px;bottom:14px;color:rgba(255,224,234,.58);font-size:25px;letter-spacing:13px;transform:rotate(-9deg)}
+      .mh-welcome-copy{max-width:680px}.mh-eyebrow{text-transform:uppercase;letter-spacing:.16em;font-size:10px;font-weight:800;color:#f4c9d8;margin-bottom:12px}.mh-welcome h2{font:600 31px/1.2 'Playfair Display',Georgia,serif;margin:0 0 10px;color:#fff}.mh-welcome p{font-size:13px;line-height:1.65;color:rgba(255,255,255,.86);max-width:530px}.mh-date-card{position:relative;z-index:1;min-width:205px;background:rgba(255,255,255,.94);border:1px solid rgba(255,255,255,.6);border-radius:17px;padding:16px 18px;color:var(--mh-ink);box-shadow:0 10px 30px rgba(0,0,0,.08)}.mh-date-card small{display:block;color:var(--mh-muted);font-size:11px;margin-bottom:7px}.mh-date-card strong{font-size:15px;display:block}.mh-date-card span{display:block;margin-top:6px;font-size:12px;color:#54766a}
+      .mh-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:15px;margin-bottom:19px}.mh-metric{min-width:0;position:relative;display:grid;grid-template-columns:45px 1fr;column-gap:11px;align-items:center;padding:19px 18px;border-radius:17px;border:1px solid #e9eeeb;background:#fff;box-shadow:0 8px 22px rgba(25,58,52,.035);transition:transform .18s,box-shadow .18s}.mh-metric:hover{transform:translateY(-3px);box-shadow:0 13px 27px rgba(25,58,52,.09)}.mh-metric-icon{grid-row:span 2;width:44px;height:44px;border-radius:15px;display:grid;place-items:center;font-size:21px;background:#e8f5ee}.mh-metric.pink .mh-metric-icon{background:#fff0f4}.mh-metric.blue .mh-metric-icon{background:#eaf4fb}.mh-metric.gold .mh-metric-icon{background:#fff5df}.mh-metric-label{font-size:12px;font-weight:700;color:#52655d}.mh-metric strong{font-size:28px;line-height:1.25;color:#153f34}.mh-metric-link{grid-column:2;font-size:10px;color:#2d7962;font-weight:700;margin-top:7px}
+      .mh-panels{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:17px;margin-bottom:18px}.mh-panel{background:#fff;border:1px solid #e9eeeb;border-radius:18px;overflow:hidden;box-shadow:0 8px 22px rgba(25,58,52,.035);min-width:0}.mh-panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:17px 20px;border-bottom:1px solid #edf1ee}.mh-panel-title{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:800}.mh-panel-title span{width:34px;height:34px;border-radius:12px;background:#e9f5ee;display:grid;place-items:center;font-size:16px}.mh-panel-title span.pink{background:#fff0f4}.mh-panel-title span.lilac{background:#f2efff}.mh-panel-link{font-size:11px;color:#2b725d;font-weight:700;white-space:nowrap}.mh-panel-body{padding:8px 18px 15px;min-height:175px}.mh-feed-row{display:flex;gap:12px;padding:12px 2px;border-bottom:1px solid #f0f3f1}.mh-feed-row:last-child{border-bottom:0}.mh-feed-icon{width:36px;height:36px;flex:0 0 36px;border-radius:12px;display:grid;place-items:center;background:#edf7f1}.mh-feed-icon.pink{background:#fff0f4}.mh-feed-icon.lilac{background:#f2efff}.mh-feed-row strong,.mh-activity-row strong{display:block;font-size:12px;line-height:1.5}.mh-feed-row p,.mh-activity-row p{font-size:11px;color:#718179;line-height:1.5;margin-top:2px}.mh-feed-row small,.mh-activity-row small{display:block;color:#9aa7a0;font-size:10px;margin-top:5px}.mh-empty{display:flex;align-items:center;justify-content:center;flex-direction:column;text-align:center;min-height:160px;padding:20px;color:#73827b}.mh-empty-icon{width:45px;height:45px;border-radius:50%;background:#f5f7f6;display:grid;place-items:center;font-size:20px;margin-bottom:10px}.mh-empty strong{font-size:12px;color:#4d655a}.mh-empty p{font-size:11px;line-height:1.5;max-width:250px;margin-top:5px}.mh-empty.compact{min-height:120px}
+      .mh-lower{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:17px}.mh-activity{padding:10px 20px 18px}.mh-activity-row{display:flex;gap:12px;padding:11px 0}.mh-activity-dot{width:34px;height:34px;border-radius:50%;background:#e8f4ee;border:5px solid #f4faf6;flex:0 0 34px}.mh-activity-row:nth-child(even) .mh-activity-dot{background:#f7dce5;border-color:#fff5f8}.mh-message-panel .mh-panel-body{display:flex;flex-direction:column;justify-content:center}.mh-shortcut-row{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 18px}.mh-shortcut{border:1px solid #e3ebe6;border-radius:12px;background:#fff;padding:10px 13px;font-size:11px;font-weight:700;color:#285d4d}.mh-shortcut:hover{background:#f1f8f3}
+      @media(max-width:1100px){.mh-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.mh-welcome{align-items:flex-start}.mh-date-card{min-width:175px}}
+      @media(max-width:760px){.mh-welcome{padding:24px 21px;display:block}.mh-welcome h2{font-size:26px}.mh-date-card{margin-top:18px;width:max-content;max-width:100%}.mh-panels,.mh-lower{grid-template-columns:1fr}.mh-metrics{gap:10px}.mh-metric{padding:14px 12px;grid-template-columns:38px 1fr;column-gap:8px}.mh-metric-icon{width:37px;height:37px;font-size:18px}.mh-metric strong{font-size:24px}.mh-dashboard .head h1{font-size:27px}}
+      @media(max-width:420px){.mh-metrics{grid-template-columns:1fr}.mh-metric{grid-template-columns:44px 1fr}.mh-metric-icon{width:42px;height:42px}}
+    `;
+    document.head.appendChild(style);
+  }
+
+  const now = new Date();
+  const dateText = new Intl.DateTimeFormat('fr-FR', { weekday:'long', day:'numeric', month:'long', year:'numeric' }).format(now);
+  const timeText = new Intl.DateTimeFormat('fr-FR', { hour:'2-digit', minute:'2-digit' }).format(now);
+  const displayName = profile?.full_name || 'Administrateur';
+  qs('#app').innerHTML = `<div class="mh-dashboard">
+    ${head('Tableau de bord', 'Votre espace de pilotage — Midori High.')}
+    <section class="mh-welcome"><div class="mh-welcome-copy"><div class="mh-eyebrow">✿ Midori High · Depuis 1990</div><h2>Bienvenue, ${esc(displayName)} !</h2><p>Voici un aperçu de votre établissement. Retrouvez en un coup d’œil les données scolaires, les actualités et les activités de la communauté Midori High.</p></div><div class="mh-date-card"><small>✿ AUJOURD’HUI</small><strong>${esc(dateText.charAt(0).toUpperCase()+dateText.slice(1))}</strong><span>◷ ${esc(timeText)} · Heure locale</span></div></section>
+    <section class="mh-metrics">${metric('Élèves', students, '🎓', '', 'students.html')}${metric('Professeurs', professors, '👩‍🏫', 'pink', 'professors.html')}${metric('Classes', classes, '🏫', 'blue', 'classes.html')}${metric('Matières', subjects, '📚', 'gold', 'subjects.html')}</section>
+    <div class="mh-shortcut-row"><a class="mh-shortcut" href="attendance.html">📝 Ouvrir une fiche d’appel</a><a class="mh-shortcut" href="homework.html">📘 Gérer les devoirs</a><a class="mh-shortcut" href="clubs.html">🌸 Voir les clubs</a><a class="mh-shortcut" href="messages.html">✉️ Ouvrir la messagerie</a></div>
+    <section class="mh-panels"><article class="mh-panel"><header class="mh-panel-head"><div class="mh-panel-title"><span class="pink">📣</span> Annonces récentes</div><a class="mh-panel-link" href="announcements.html">Voir toutes →</a></header><div class="mh-panel-body">${annHtml}</div></article><article class="mh-panel"><header class="mh-panel-head"><div class="mh-panel-title"><span class="lilac">🗓️</span> Événements à venir</div><a class="mh-panel-link" href="events.html">Voir le calendrier →</a></header><div class="mh-panel-body">${eventsHtml}</div></article></section>
+    <section class="mh-lower"><article class="mh-panel"><header class="mh-panel-head"><div class="mh-panel-title"><span>✧</span> Activité récente</div><a class="mh-panel-link" href="logs.html">Journal →</a></header><div class="mh-activity">${activityHtml}</div></article><article class="mh-panel mh-message-panel"><header class="mh-panel-head"><div class="mh-panel-title"><span class="pink">✉️</span> Messages non lus</div><a class="mh-panel-link" href="messages.html">Voir la messagerie →</a></header><div class="mh-panel-body">${unread === null ? '<div class="mh-empty"><span class="mh-empty-icon">✉️</span><strong>Messagerie à vérifier</strong><p>Le compteur sera affiché lorsque les autorisations de la messagerie seront disponibles.</p></div>' : `<div class="mh-empty"><span class="mh-empty-icon">✉️</span><strong>${unread ? `${unread} message(s) non lu(s)` : 'Aucun message non lu'}</strong><p>${unread ? 'Consultez votre boîte de réception pour lire vos messages.' : 'Les nouveaux messages apparaîtront ici.'}</p><a class="mh-panel-link" href="messages.html" style="margin-top:10px">Accéder à la messagerie →</a></div>`}</div></article></section>
+  </div>`;
 }
-
 async function renderAnnouncements(p) {
   const isAdmin = p.role === 'admin';
   const list = await rows('announcements', '*', { order: 'published_at', ascending: false, limit: 200 });
