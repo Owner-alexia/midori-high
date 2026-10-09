@@ -1,7 +1,8 @@
+// Midori High V2 — configuration publique du client Supabase.
+// La clé publishable est conçue pour le navigateur ; la sécurité doit être assurée par RLS.
 window.MIDORI_CONFIG = {
-  SUPABASE_URL: "https://esiwwkphbqkqqcfelktn.supabase.co",
-  SUPABASE_KEY: "sb_publishable_Gn6HhpZXdeoaWhWJ7wRWLw_D3dXLTnX",
-  ADMIN_EMAIL: "nana.udo@midori.fr"
+  SUPABASE_URL: "https://wvekxecquvgvongjnypz.supabase.co",
+  SUPABASE_KEY: "sb_publishable_tsSw_Q544AGnZ_gaX7iYAg_KIX1JS3i"
 };
 
-window.MIDORI_BUILD = "messagerie-devoirs-2026-09-29-v7";
+window.MIDORI_BUILD = "midori-high-v2-original-design-messaging-fix-2026-10-09";
