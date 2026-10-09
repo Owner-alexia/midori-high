@@ -173,32 +173,9 @@ const PAGE_ROLES = {
 const qs = s => document.querySelector(s);
 const qsa = s => [...document.querySelectorAll(s)];
 const esc = v => String(v ?? '').replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c]));
-// Horloge RP de Midori High : Kyoto, Japon, année fixe 2003.
-const RP_TIME_ZONE = 'Asia/Tokyo';
-function rpParts(date = new Date()) {
-  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: RP_TIME_ZONE, month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(date);
-  return Object.fromEntries(parts.map(p => [p.type, p.value]));
-}
-const today = () => { const p = rpParts(); return `2003-${p.month}-${p.day}`; };
-const dateFR = v => {
-  if (!v) return '—';
-  const m = String(v).match(/^\d{4}-(\d{2})-(\d{2})/);
-  if (m) { const d = new Date(`2003-${m[1]}-${m[2]}T12:00:00+09:00`); return isNaN(d) ? v : new Intl.DateTimeFormat('fr-FR', { timeZone: RP_TIME_ZONE, day: 'numeric', month: 'long' }).format(d) + ' 2003'; }
-  const d = new Date(v); return isNaN(d) ? v : new Intl.DateTimeFormat('fr-FR', { timeZone: RP_TIME_ZONE, day: 'numeric', month: 'long' }).format(d) + ' 2003';
-};
-const dtFR = v => {
-  if (!v) return '—';
-  const d = new Date(v); if (isNaN(d)) return v;
-  const date = new Intl.DateTimeFormat('fr-FR', { timeZone: RP_TIME_ZONE, day: 'numeric', month: 'long' }).format(d);
-  const time = new Intl.DateTimeFormat('fr-FR', { timeZone: RP_TIME_ZONE, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(d);
-  return `${date} 2003 à ${time}`;
-};
-function updateRpClock() {
-  const el = document.getElementById('rpClock'); if (!el) return;
-  const p = rpParts();
-  const date = new Intl.DateTimeFormat('fr-FR', { timeZone: RP_TIME_ZONE, day: 'numeric', month: 'long' }).format(new Date());
-  el.textContent = `📍 Kyoto, Japon · ${date} 2003 · ${p.hour}:${p.minute}`;
-}
+const dateFR = v => { if (!v) return '—'; const d = new Date(`${v}T00:00:00`); return isNaN(d) ? v : d.toLocaleDateString('fr-FR'); };
+const dtFR = v => { if (!v) return '—'; const d = new Date(v); return isNaN(d) ? v : d.toLocaleString('fr-FR'); };
+const today = () => new Date().toISOString().slice(0, 10);
 const errMsg = e => e?.message || e?.error_description || e?.details || 'Une erreur est survenue.';
 
 function toast(msg, type = 'success') {
@@ -336,7 +313,7 @@ function shell(p) {
         <header class="topbar">
           <div style="display:flex;gap:9px;align-items:center">
             <button class="menu" id="menu">☰</button>
-            <div><strong>${esc(TITLE[page] || 'Portail')}</strong><div id="rpClock" style="font-size:11px;color:#77827e;margin-top:3px">📍 Kyoto, Japon · 9 octobre 2003</div></div>
+            <div><strong>${esc(TITLE[page] || 'Portail')}</strong></div>
           </div>
           <div class="top-user">
             <div class="avatar">${esc((p.full_name || p.username || '?').slice(0, 1).toUpperCase())}</div>
@@ -350,9 +327,6 @@ function shell(p) {
     </div>`;
   qs('#logout').onclick = logout;
   qs('#menu').onclick = () => qs('#sidebar').classList.toggle('open');
-  updateRpClock();
-  if (window.__midoriRpClockInterval) clearInterval(window.__midoriRpClockInterval);
-  window.__midoriRpClockInterval = setInterval(updateRpClock, 30000);
   qsa('[data-portal-function]').forEach(b => b.addEventListener('click', () => setPortalMode(b.dataset.portalFunction, p)));
   qsa('[data-portal-nav="recruteur_wl"]').forEach(a => a.addEventListener('click', (e) => { e.preventDefault(); setPortalMode('recruteur_wl', p); }));
   loadUnreadBadge();
@@ -411,11 +385,11 @@ function roleLabel(role) { return ROLE_LABEL[role] || role || 'Utilisateur'; }
 // Répertoire basé sur les profils V2 ; aucune fonction SQL list_message_recipients requise.
 async function messageDirectory() {
   const r = await sb.from('profiles')
-    .select('id,full_name,role,profile_kind,active,school_email')
+    .select('id,full_name,username,role,active,school_email')
     .eq('active', true)
     .order('full_name', { ascending: true });
   if (r.error) throw r.error;
-  return (r.data || []).map(x => ({ ...x, full_name: x.full_name || x.school_email || roleLabel(x.profile_kind || x.role) || 'Utilisateur' }));
+  return (r.data || []).map(x => ({ ...x, full_name: x.full_name || x.username || x.school_email || 'Utilisateur' }));
 }
 
 async function loadUnreadBadge() {
@@ -469,7 +443,7 @@ async function renderMessages(p) {
   if (sentR.error) throw sentR.error;
   const inbox = inboxR.data || [];
   const sent = sentR.data || [];
-  const personName = id => people.get(id)?.full_name || people.get(id)?.school_email || 'Utilisateur';
+  const personName = id => people.get(id)?.full_name || people.get(id)?.username || 'Utilisateur';
   const displayRows = (list, mode) => list.map(m => {
     const unread = mode === 'inbox' && !m.is_read;
     const other = mode === 'inbox' ? personName(m.sender_profile_id) : personName(m.recipient_profile_id);
@@ -809,8 +783,8 @@ async function renderDashboard() {
     safeCount('profiles', q => q.eq('profile_kind', 'professor').eq('active', true)),
     safeCount('school_classes'),
     safeCount('school_subjects'),
-    safeRows('school_events', 'id,title,description,event_date,start_time,location,event_type', q => q.order('event_date', { ascending: true }).limit(4)),
-    Promise.resolve([]), // Aucune table public.announcements dans le schéma actuel : éviter la requête 404.
+    safeRows('school_events', 'id,title,description,starts_at,ends_at,location', q => q.order('starts_at', { ascending: true }).limit(4)),
+    Promise.resolve([]),
     safeRows('activity_logs', 'id,action,entity,created_at', q => q.order('created_at', { ascending: false }).limit(4)),
     profile?.id ? safeCount('school_messages', q => q.eq('recipient_profile_id', profile.id).eq('is_read', false)) : Promise.resolve(null)
   ]);
@@ -1198,7 +1172,7 @@ async function renderDiscipline(p) {
 
 async function renderEvents(p) {
   const isAdmin = p.role === 'admin';
-  const list = await rows('school_events', 'id,title,description,event_date,start_time,end_time,location,event_type,created_by,created_at', { order: 'event_date', ascending: true, limit: 500 });
+  const list = await rows('school_events', 'id,title,description,starts_at,ends_at,location,created_at', { order: 'starts_at', ascending: true, limit: 500 });
   qs('#app').innerHTML = head('Calendrier RP', 'Événements scolaires, clubs et moments importants de Midori High.') +
     (isAdmin ? `<div class="toolbar"><button id="ea" class="btn primary">+ Ajouter un événement</button></div>` : '') +
     `<div class="list">${list.map(x => `<article class="card"><div class="toolbar"><div><h3>${esc(x.title)}</h3><span class="muted">${dateFR(x.event_date)}${x.start_time ? ` · ${String(x.start_time).slice(0,5)}` : ''}${x.end_time ? `–${String(x.end_time).slice(0,5)}` : ''} · ${esc(x.event_type || 'Événement')}</span></div><div class="actions">${x.location ? badge(x.location) : ''}${isAdmin ? `<button class="btn danger small" data-del-event="${esc(x.id)}">Supprimer</button>` : ''}</div></div><p style="white-space:pre-wrap">${esc(x.description || '')}</p></article>`).join('') || '<div class="card empty">Aucun événement programmé.</div>'}</div>` +
