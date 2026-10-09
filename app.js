@@ -173,9 +173,32 @@ const PAGE_ROLES = {
 const qs = s => document.querySelector(s);
 const qsa = s => [...document.querySelectorAll(s)];
 const esc = v => String(v ?? '').replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c]));
-const dateFR = v => { if (!v) return '—'; const d = new Date(`${v}T00:00:00`); return isNaN(d) ? v : d.toLocaleDateString('fr-FR'); };
-const dtFR = v => { if (!v) return '—'; const d = new Date(v); return isNaN(d) ? v : d.toLocaleString('fr-FR'); };
-const today = () => new Date().toISOString().slice(0, 10);
+// Horloge RP de Midori High : Kyoto, Japon, année fixe 2003.
+const RP_TIME_ZONE = 'Asia/Tokyo';
+function rpParts(date = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: RP_TIME_ZONE, month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(date);
+  return Object.fromEntries(parts.map(p => [p.type, p.value]));
+}
+const today = () => { const p = rpParts(); return `2003-${p.month}-${p.day}`; };
+const dateFR = v => {
+  if (!v) return '—';
+  const m = String(v).match(/^\d{4}-(\d{2})-(\d{2})/);
+  if (m) { const d = new Date(`2003-${m[1]}-${m[2]}T12:00:00+09:00`); return isNaN(d) ? v : new Intl.DateTimeFormat('fr-FR', { timeZone: RP_TIME_ZONE, day: 'numeric', month: 'long' }).format(d) + ' 2003'; }
+  const d = new Date(v); return isNaN(d) ? v : new Intl.DateTimeFormat('fr-FR', { timeZone: RP_TIME_ZONE, day: 'numeric', month: 'long' }).format(d) + ' 2003';
+};
+const dtFR = v => {
+  if (!v) return '—';
+  const d = new Date(v); if (isNaN(d)) return v;
+  const date = new Intl.DateTimeFormat('fr-FR', { timeZone: RP_TIME_ZONE, day: 'numeric', month: 'long' }).format(d);
+  const time = new Intl.DateTimeFormat('fr-FR', { timeZone: RP_TIME_ZONE, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(d);
+  return `${date} 2003 à ${time}`;
+};
+function updateRpClock() {
+  const el = document.getElementById('rpClock'); if (!el) return;
+  const p = rpParts();
+  const date = new Intl.DateTimeFormat('fr-FR', { timeZone: RP_TIME_ZONE, day: 'numeric', month: 'long' }).format(new Date());
+  el.textContent = `📍 Kyoto, Japon · ${date} 2003 · ${p.hour}:${p.minute}`;
+}
 const errMsg = e => e?.message || e?.error_description || e?.details || 'Une erreur est survenue.';
 
 function toast(msg, type = 'success') {
@@ -313,7 +336,7 @@ function shell(p) {
         <header class="topbar">
           <div style="display:flex;gap:9px;align-items:center">
             <button class="menu" id="menu">☰</button>
-            <div><strong>${esc(TITLE[page] || 'Portail')}</strong></div>
+            <div><strong>${esc(TITLE[page] || 'Portail')}</strong><div id="rpClock" style="font-size:11px;color:#77827e;margin-top:3px">📍 Kyoto, Japon · 9 octobre 2003</div></div>
           </div>
           <div class="top-user">
             <div class="avatar">${esc((p.full_name || p.username || '?').slice(0, 1).toUpperCase())}</div>
@@ -327,6 +350,9 @@ function shell(p) {
     </div>`;
   qs('#logout').onclick = logout;
   qs('#menu').onclick = () => qs('#sidebar').classList.toggle('open');
+  updateRpClock();
+  if (window.__midoriRpClockInterval) clearInterval(window.__midoriRpClockInterval);
+  window.__midoriRpClockInterval = setInterval(updateRpClock, 30000);
   qsa('[data-portal-function]').forEach(b => b.addEventListener('click', () => setPortalMode(b.dataset.portalFunction, p)));
   qsa('[data-portal-nav="recruteur_wl"]').forEach(a => a.addEventListener('click', (e) => { e.preventDefault(); setPortalMode('recruteur_wl', p); }));
   loadUnreadBadge();
@@ -784,7 +810,7 @@ async function renderDashboard() {
     safeCount('school_classes'),
     safeCount('school_subjects'),
     safeRows('school_events', 'id,title,description,event_date,start_time,location,event_type', q => q.order('event_date', { ascending: true }).limit(4)),
-    safeRows('announcements', 'id,title,content,published_at', q => q.order('published_at', { ascending: false }).limit(4)),
+    Promise.resolve([]), // Aucune table public.announcements dans le schéma actuel : éviter la requête 404.
     safeRows('activity_logs', 'id,action,entity,created_at', q => q.order('created_at', { ascending: false }).limit(4)),
     profile?.id ? safeCount('school_messages', q => q.eq('recipient_profile_id', profile.id).eq('is_read', false)) : Promise.resolve(null)
   ]);
