@@ -175,7 +175,7 @@ const qsa = s => [...document.querySelectorAll(s)];
 const esc = v => String(v ?? '').replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c]));
 const dateFR = v => { if (!v) return '—'; const d = new Date(`${v}T00:00:00`); return isNaN(d) ? v : d.toLocaleDateString('fr-FR'); };
 const dtFR = v => { if (!v) return '—'; const d = new Date(v); return isNaN(d) ? v : new Intl.DateTimeFormat('fr-FR',{timeZone:'Asia/Tokyo',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}).format(d).replace(/\b\d{4}\b/,'2003'); };
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 const errMsg = e => e?.message || e?.error_description || e?.details || 'Une erreur est survenue.';
 
 function toast(msg, type = 'success') {
@@ -290,13 +290,9 @@ function setPortalMode(mode, p) {
 }
 
 async function loadPortalFunctions(p) {
-  const r = await sb.rpc('midori_get_my_functions');
-  if (!r.error && Array.isArray(r.data) && r.data.length) {
-    MIDORI_PORTAL_FUNCTIONS = r.data;
-    return MIDORI_PORTAL_FUNCTIONS;
-  }
-  // Compatibilité avec les anciennes données si la migration n'est pas encore installée.
-  MIDORI_PORTAL_FUNCTIONS = p.role === 'admin'
+  // Cette installation ne possède pas la RPC midori_get_my_functions.
+  // Utiliser les rôles du profil sans appeler une fonction inexistante.
+  MIDORI_PORTAL_FUNCTIONS = p.role === 'admin' || p.role === 'administrateur'
     ? [{function_code:'cpe',label:'CPE / Administration',icon:'🏫'},{function_code:'recruteur_wl',label:'Recruteur WL',icon:'📋'}]
     : (p.role === 'recruteur_wl' ? [{function_code:'recruteur_wl',label:'Recruteur WL',icon:'📋'}] : [{function_code:'cpe',label:ROLE_LABEL[p.role] || p.role,icon:'🏫'}]);
   return MIDORI_PORTAL_FUNCTIONS;
@@ -410,15 +406,17 @@ async function messageDirectory() {
 async function loadUnreadBadge() {
   const badge = qs('#mailBadge');
   if (!badge) return;
+  // Compte des messages du schéma actuel. Pas d'appel à l'ancienne table messages.
   try {
-    const user = await currentUser();
-    if (!user) return;
-    const r = await sb.from('messages').select('id', { count:'exact', head:true }).eq('recipient_id', user.id).is('read_at', null);
+    const profile = await currentProfile();
+    if (!profile?.id) return;
+    const r = await sb.from('school_messages').select('id', { count:'exact', head:true })
+      .eq('recipient_profile_id', profile.id).eq('is_read', false);
     if (r.error) throw r.error;
     const n = r.count || 0;
     badge.textContent = n > 99 ? '99+' : String(n);
     badge.style.display = n ? 'inline-flex' : 'none';
-  } catch (_) {}
+  } catch (_) { badge.style.display = 'none'; }
 }
 
 function safeFileName(name) {
@@ -814,18 +812,20 @@ async function enhanceClassFilteredTables() {
 }
 
 async function renderDashboard() {
-  const [students, professors, classes, absences] = await Promise.all([
-    sb.from('students').select('id', { count: 'exact', head: true }),
-    sb.from('professors').select('id', { count: 'exact', head: true }),
-    sb.from('classes').select('id', { count: 'exact', head: true }),
-    sb.from('absences').select('id', { count: 'exact', head: true }).eq('date', today()).eq('type', 'absence')
+  // Le portail actuel utilise school_* ; les anciennes tables students/professors/classes/absences n'existent pas.
+  const safeCount = async (table, query) => {
+    try { const r = await query; if (r.error) return 0; return r.count || 0; } catch (_) { return 0; }
+  };
+  const [peopleCount, staffCount, classesCount, attendanceCount, events] = await Promise.all([
+    safeCount('profiles', sb.from('profiles').select('id',{count:'exact',head:true}).eq('profile_kind','student').eq('active',true)),
+    safeCount('profiles', sb.from('profiles').select('id',{count:'exact',head:true}).in('role',['professor','professeur']).eq('active',true)),
+    safeCount('school_classes', sb.from('school_classes').select('id',{count:'exact',head:true})),
+    safeCount('school_attendance', sb.from('school_attendance').select('id',{count:'exact',head:true}).eq('attendance_date',today()).eq('status','absence')),
+    rows('school_events','id,title,description,starts_at,location',{order:'starts_at',ascending:true,limit:4}).catch(()=>[])
   ]);
-  const counts = [students, professors, classes, absences];
-  counts.forEach(r => { if (r.error) throw r.error; });
-  const announces = await rows('announcements', 'id,title,content,published_at', { order: 'published_at', ascending: false, limit: 4 });
   qs('#app').innerHTML = head('Tableau de bord', 'Vue générale de Midori High.') +
-    `<div class="grid g4">${statCard('Élèves', students.count ?? 0, '🎓')}${statCard('Professeurs', professors.count ?? 0, '👩‍🏫')}${statCard('Classes', classes.count ?? 0, '🏫')}${statCard('Absences aujourd’hui', absences.count ?? 0, '⏱️')}</div>` +
-    `<div class="grid g2" style="margin-top:15px"><div class="hero"><h2>Midori High</h2><p>Une école d’excellence : suivi scolaire, présence, réputation et vie de l’établissement.</p><div class="actions" style="margin-top:16px"><a href="attendance.html" class="btn secondary">📝 Ouvrir une fiche d’appel</a><a href="points.html" class="btn secondary">⭐ Gérer les points</a></div></div><div class="card"><h3 style="margin-bottom:12px">Dernières annonces</h3><div class="list">${announces.map(a => `<div class="item"><div><strong>${esc(a.title)}</strong><span>${dtFR(a.published_at)}</span><p style="margin-top:5px">${esc(String(a.content || '').slice(0, 150))}</p></div></div>`).join('') || '<div class="empty">Aucune annonce.</div>'}</div></div></div>`;
+    `<div class="grid g4">${statCard('Élèves', peopleCount, '🎓')}${statCard('Professeurs', staffCount, '👩‍🏫')}${statCard('Classes', classesCount, '🏫')}${statCard('Absences aujourd’hui', attendanceCount, '⏱️')}</div>` +
+    `<div class="grid g2" style="margin-top:15px"><div class="hero"><h2>Midori High</h2><p>Kyoto, Japon · Année scolaire RP 2003</p><div class="actions" style="margin-top:16px"><a href="attendance.html" class="btn secondary">📝 Ouvrir une fiche d’appel</a><a href="points.html" class="btn secondary">⭐ Gérer les points</a></div></div><div class="card"><h3 style="margin-bottom:12px">Calendrier RP</h3><div class="list">${events.map(a => `<div class="item"><div><strong>${esc(a.title)}</strong><span>${a.starts_at ? dtFR(a.starts_at) : 'Date à définir'}${a.location ? ' · '+esc(a.location) : ''}</span><p style="margin-top:5px">${esc(String(a.description || '').slice(0,150))}</p></div></div>`).join('') || '<div class="empty">Aucun événement programmé.</div>'}</div><a href="events.html" class="btn secondary">Ouvrir le calendrier</a></div></div>`;
 }
 
 async function renderAnnouncements(p) {
@@ -898,8 +898,10 @@ async function renderClasses() {
   ], searchPlaceholder: 'Rechercher une classe…' });
 }
 async function renderSubjects() {
-  // school_subjects was not present in the provided schema, so avoid a failing query.
-  qs('#app').innerHTML = head('Matières', 'Matières enseignées au lycée.') + `<div class="card"><h3>Module en attente de configuration</h3><p class="muted" style="margin-top:10px">Aucune table school_subjects n’apparaît dans le schéma Supabase fourni. Cette page restera en lecture neutre jusqu’à ce que la table des matières soit créée.</p></div>`;
+  await adminCrudPage({ title:'Matières', sub:'Matières enseignées au lycée.', table:'school_subjects', fields:[
+    { name:'name', label:'Nom de la matière', html:'<input name="name" required>' },
+    { name:'description', label:'Description', html:'<textarea name="description"></textarea>' }
+  ], searchPlaceholder:'Rechercher une matière…' });
 }
 
 async function renderProfessors() {
