@@ -398,15 +398,18 @@ const MESSAGE_BUCKET = 'midori-messages';
 function roleLabel(role) { return ROLE_LABEL[role] || role || 'Utilisateur'; }
 
 async function messageDirectory() {
-  const r = await sb.rpc('list_message_recipients');
+  // Destinataires issus du schéma actuel : profiles, sans RPC obsolète.
+  const r = await sb.from('profiles')
+    .select('id,full_name,school_email,role,active')
+    .eq('active', true)
+    .order('full_name', { ascending: true });
   if (r.error) throw r.error;
-  return r.data || [];
+  return (r.data || []).map(x => ({ ...x, full_name: x.full_name || x.school_email || 'Utilisateur' }));
 }
 
 async function loadUnreadBadge() {
   const badge = qs('#mailBadge');
   if (!badge) return;
-  // Compte des messages du schéma actuel. Pas d'appel à l'ancienne table messages.
   try {
     const profile = await currentProfile();
     if (!profile?.id) return;
@@ -419,181 +422,60 @@ async function loadUnreadBadge() {
   } catch (_) { badge.style.display = 'none'; }
 }
 
-function safeFileName(name) {
-  return String(name || 'fichier').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120);
-}
-
-async function sendInternalMessage({ recipientId, subject, body, files = [], homeworkId = null }) {
-  const user = await currentUser();
-  if (!user) throw new Error('Session expirée.');
-  if (!recipientId) throw new Error('Destinataire manquant.');
-  const messageId = crypto.randomUUID();
-  let message = null;
-  const uploadedPaths = [];
-  try {
-    const r = await sb.from('messages').insert({
-      id: messageId,
-      sender_id: user.id,
-      recipient_id: recipientId,
-      subject: String(subject || '').trim() || '(Sans objet)',
-      body: String(body || '').trim(),
-      homework_id: homeworkId || null
-    }).select().single();
-    if (r.error) throw r.error;
-    message = r.data;
-
-    for (const file of Array.from(files || [])) {
-      if (!file || !file.name) continue;
-      if (file.size > 10 * 1024 * 1024) throw new Error(`Le fichier « ${file.name} » dépasse 10 Mo.`);
-      const path = `${user.id}/${messageId}/${crypto.randomUUID()}-${safeFileName(file.name)}`;
-      const up = await sb.storage.from(MESSAGE_BUCKET).upload(path, file, { upsert:false, contentType:file.type || 'application/octet-stream' });
-      if (up.error) throw up.error;
-      uploadedPaths.push(path);
-      const ar = await sb.from('message_attachments').insert({
-        message_id: messageId,
-        file_name: file.name,
-        storage_path: path,
-        mime_type: file.type || 'application/octet-stream',
-        size_bytes: file.size
-      });
-      if (ar.error) throw ar.error;
-    }
-    return message;
-  } catch (er) {
-    if (uploadedPaths.length) {
-      try { await sb.storage.from(MESSAGE_BUCKET).remove(uploadedPaths); } catch (_) {}
-    }
-    if (message) {
-      try { await sb.from('messages').delete().eq('id', messageId); } catch (_) {}
-    }
-    throw er;
-  }
-}
-
-async function deleteInternalMessage(messageId) {
-  if (!messageId) throw new Error('Message introuvable.');
-  const ar = await sb.from('message_attachments').select('id,storage_path').eq('message_id', messageId);
-  if (ar.error) throw ar.error;
-  const paths = (ar.data || []).map(x => x.storage_path).filter(Boolean);
-  if (paths.length) {
-    const sr = await sb.storage.from(MESSAGE_BUCKET).remove(paths);
-    if (sr.error) throw sr.error;
-  }
-  const mr = await sb.from('messages').delete().eq('id', messageId);
-  if (mr.error) throw mr.error;
+async function sendInternalMessage({ recipientId, subject, body }) {
+  const profile = await currentProfile();
+  if (!profile?.id) throw new Error('Profil Midori High introuvable. Reconnectez-vous.');
+  if (!recipientId) throw new Error('Choisissez un destinataire.');
+  const r = await sb.from('school_messages').insert({
+    sender_profile_id: profile.id,
+    recipient_profile_id: recipientId,
+    subject: String(subject || '').trim() || '(Sans objet)',
+    body: String(body || '').trim(),
+    is_read: false
+  }).select('id,sender_profile_id,recipient_profile_id,subject,body,is_read,created_at').single();
+  if (r.error) throw r.error;
+  return r.data;
 }
 
 async function renderMessages(p) {
-  const user = await currentUser();
+  const profile = await currentProfile();
+  if (!profile?.id) throw new Error('Aucun profil Midori High lié à cette session.');
   const directory = await messageDirectory();
   const people = new Map(directory.map(x => [x.id, x]));
   const [inboxR, sentR] = await Promise.all([
-    sb.from('messages').select('id,sender_id,recipient_id,subject,body,homework_id,sent_at,read_at').eq('recipient_id', user.id).order('sent_at',{ascending:false}).limit(200),
-    sb.from('messages').select('id,sender_id,recipient_id,subject,body,homework_id,sent_at,read_at').eq('sender_id', user.id).order('sent_at',{ascending:false}).limit(200)
+    sb.from('school_messages').select('id,sender_profile_id,recipient_profile_id,subject,body,is_read,created_at').eq('recipient_profile_id', profile.id).order('created_at',{ascending:false}).limit(200),
+    sb.from('school_messages').select('id,sender_profile_id,recipient_profile_id,subject,body,is_read,created_at').eq('sender_profile_id', profile.id).order('created_at',{ascending:false}).limit(200)
   ]);
   if (inboxR.error) throw inboxR.error;
   if (sentR.error) throw sentR.error;
-  const inbox = inboxR.data || [];
-  const sent = sentR.data || [];
-  const personName = id => people.get(id)?.full_name || people.get(id)?.username || 'Utilisateur';
+  const inbox = inboxR.data || [], sent = sentR.data || [];
+  const personName = id => people.get(id)?.full_name || people.get(id)?.school_email || 'Utilisateur';
   const displayRows = (list, mode) => list.map(m => {
-    const other = mode === 'inbox' ? personName(m.sender_id) : personName(m.recipient_id);
-    return `<div class="item msg-item ${!m.read_at && mode==='inbox' ? 'msg-unread' : ''}" data-msg="${esc(m.id)}" data-mode="${mode}" role="button" tabindex="0">
-      <div style="min-width:0;text-align:left;flex:1"><strong>${esc(m.subject || '(Sans objet)')}</strong><span>${mode==='inbox'?'De':'À'} : ${esc(other)} · ${dtFR(m.sent_at)}</span><p style="margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:760px">${esc(m.body || '')}</p></div>
-      <div class="actions" style="flex-shrink:0">${m.homework_id ? '<span class="tag">📓 Devoir</span>' : ''}${!m.read_at && mode==='inbox' ? '<span class="tag red" style="margin-left:5px">Nouveau</span>' : ''}<button type="button" class="btn danger small" data-delete-message="${esc(m.id)}">🗑️</button></div>
-    </div>`;
+    const other = mode === 'inbox' ? personName(m.sender_profile_id) : personName(m.recipient_profile_id);
+    return `<div class="item msg-item ${!m.is_read && mode==='inbox' ? 'msg-unread' : ''}" data-msg="${esc(m.id)}" data-mode="${mode}" role="button" tabindex="0"><div style="min-width:0;text-align:left;flex:1"><strong>${esc(m.subject || '(Sans objet)')}</strong><span>${mode==='inbox'?'De':'À'} : ${esc(other)} · ${dtFR(m.created_at)}</span><p style="margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:760px">${esc(m.body || '')}</p></div>${!m.is_read && mode==='inbox' ? '<span class="tag red">Nouveau</span>' : ''}</div>`;
   }).join('') || '<div class="card empty">Aucun message.</div>';
-
   qs('#app').innerHTML = head('Messagerie', 'Messagerie interne de Midori High — uniquement pour le RP.') +
-    `<div class="toolbar"><div class="actions"><button id="composeMsg" class="btn primary">✉️ Nouveau message</button><span class="tag">${inbox.filter(x=>!x.read_at).length} non lu(s)</span></div></div>` +
+    `<div class="toolbar"><div class="actions"><button id="composeMsg" class="btn primary">✉️ Nouveau message</button><span class="tag">${inbox.filter(x=>!x.is_read).length} non lu(s)</span></div></div>` +
     `<div class="grid g2"><div class="card"><div class="toolbar"><h3>Boîte de réception</h3></div><div class="list">${displayRows(inbox,'inbox')}</div></div><div class="card"><div class="toolbar"><h3>Messages envoyés</h3></div><div class="list">${displayRows(sent,'sent')}</div></div></div>` +
-    modal('msgCompose','Nouveau message', `<form id="msgForm" class="form"><div class="field full"><label>Destinataire</label><select name="recipient_id" required>${opts(directory.filter(x=>x.id!==user.id).sort((a,b)=>String(a.full_name).localeCompare(String(b.full_name),'fr')),'id','full_name')}</select></div><div class="field full"><label>Objet</label><input name="subject" required maxlength="180"></div><div class="field full"><label>Message</label><textarea name="body" required placeholder="Écrivez votre message RP…"></textarea></div><div class="field full"><label>Pièces jointes <span class="muted">(3 fichiers max, 10 Mo chacun)</span></label><input name="files" type="file" multiple></div><div class="field full"><button class="btn primary">Envoyer</button></div></form>`) +
-    `<div id="messageModalHost"></div>`;
-
+    modal('msgCompose','Nouveau message', `<form id="msgForm" class="form"><div class="field full"><label>Destinataire</label><select name="recipient_id" required>${opts(directory.filter(x=>x.id!==profile.id),'id','full_name')}</select></div><div class="field full"><label>Objet</label><input name="subject" required maxlength="180"></div><div class="field full"><label>Message</label><textarea name="body" required placeholder="Écrivez votre message RP…"></textarea></div><div class="field full"><button type="submit" class="btn primary">Envoyer</button></div></form>`);
   qs('#composeMsg').onclick=()=>openModal('msgCompose');
   closeBindings();
   qs('#msgForm').onsubmit = async e => {
-    e.preventDefault();
-    const f = new FormData(e.target);
-    const files = Array.from(e.target.querySelector('[name="files"]').files || []);
-    if (files.length > 3) { toast('Maximum 3 pièces jointes.', 'error'); return; }
-    const submitBtn = e.target.querySelector('button[type="submit"]');
-    if (submitBtn?.disabled) return;
-    try {
-      if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Envoi…'; }
-      const m = await sendInternalMessage({ recipientId:f.get('recipient_id'), subject:f.get('subject'), body:f.get('body'), files });
-      await log('create','message',m.id,null);
-      toast('Message envoyé.');
-      closeModal('msgCompose');
-      await renderMessages(p);
-    } catch (er) { toast(errMsg(er),'error'); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Envoyer'; } }
+    e.preventDefault(); const f = new FormData(e.target); const btn=e.target.querySelector('button[type="submit"]');
+    try { btn.disabled=true; btn.textContent='Envoi…'; const m=await sendInternalMessage({recipientId:f.get('recipient_id'),subject:f.get('subject'),body:f.get('body')}); toast('Message envoyé.'); closeModal('msgCompose'); await renderMessages(p); await loadUnreadBadge(); }
+    catch(er){toast(errMsg(er),'error');btn.disabled=false;btn.textContent='Envoyer';}
   };
-
-  qsa('[data-msg]').forEach(btn => btn.onclick = async () => {
-    const id = btn.dataset.msg;
-    const mode = btn.dataset.mode;
+  qsa('[data-msg]').forEach(el=>el.onclick=async()=>{
+    const id=el.dataset.msg, mode=el.dataset.mode, list=mode==='inbox'?inbox:sent, m=list.find(x=>x.id===id); if(!m)return;
     try {
-      const list = mode === 'inbox' ? inbox : sent;
-      const m = list.find(x=>x.id===id);
-      if (!m) return;
-      if (mode === 'inbox' && !m.read_at) {
-        const ur = await sb.rpc('mark_message_read',{p_message_id:id});
-        if (ur.error) throw ur.error;
-        m.read_at = new Date().toISOString();
-      }
-      const ar = await sb.from('message_attachments').select('id,file_name,storage_path,mime_type,size_bytes').eq('message_id',id).order('id');
-      if (ar.error) throw ar.error;
-      const sender = people.get(m.sender_id)?.full_name || 'Utilisateur';
-      const recipient = people.get(m.recipient_id)?.full_name || 'Utilisateur';
-      const attachmentHtml = (ar.data||[]).map(a=>`<button type="button" class="btn secondary small" data-download="${esc(a.id)}" data-path="${esc(a.storage_path)}">📎 ${esc(a.file_name)}</button>`).join(' ') || '<span class="muted">Aucune pièce jointe.</span>';
-      const canReply = mode === 'inbox';
-      const host=qs('#messageModalHost');
-      host.innerHTML=modal('msgView','Message',`<div class="card" style="box-shadow:none;padding:0;border:0"><div class="muted">De : ${esc(sender)}<br>À : ${esc(recipient)}<br>${dtFR(m.sent_at)}</div><h2 style="font-size:21px;margin:15px 0 10px">${esc(m.subject)}</h2><div style="white-space:pre-wrap;line-height:1.6">${esc(m.body)}</div><div style="margin-top:16px"><strong>Pièces jointes</strong><div class="actions" style="margin-top:8px">${attachmentHtml}</div></div><div class="actions" style="margin-top:18px">${canReply?'<button id="replyMsg" class="btn primary">↩️ Répondre</button>':''}<button id="deleteMsgView" class="btn danger">🗑️ Supprimer</button><button class="btn secondary" data-close="msgView">Fermer</button></div></div>`);
-      openModal('msgView'); closeBindings();
-      qsa('[data-download]').forEach(x=>x.onclick=async()=>{
-        try { const r=await sb.storage.from(MESSAGE_BUCKET).createSignedUrl(x.dataset.path,60); if(r.error) throw r.error; window.open(r.data.signedUrl,'_blank'); } catch(er){ toast(errMsg(er),'error'); }
-      });
-      qs('#replyMsg')?.addEventListener('click',()=>{
-        closeModal('msgView');
-        qs('#msgCompose [name="recipient_id"]').value=m.sender_id;
-        qs('#msgCompose [name="subject"]').value=`Re: ${m.subject}`;
-        qs('#msgCompose [name="body"]').value=`\n\n--- Message précédent ---\n${m.body}`;
-        openModal('msgCompose');
-      });
-      qs('#deleteMsgView')?.addEventListener('click', async () => {
-        if (!confirm('Supprimer définitivement ce message ?')) return;
-        const b = qs('#deleteMsgView');
-        try {
-          b.disabled = true;
-          await hardDelete('message', m.id);
-          closeModal('msgView');
-          toast('Message supprimé.');
-          await renderMessages(p);
-          await loadUnreadBadge();
-        } catch (er) {
-          b.disabled = false;
-          toast(errMsg(er), 'error');
-        }
-      });
+      if(mode==='inbox' && !m.is_read){const ur=await sb.from('school_messages').update({is_read:true}).eq('id',id).eq('recipient_profile_id',profile.id);if(ur.error)throw ur.error;m.is_read=true;}
+      const other=mode==='inbox'?personName(m.sender_profile_id):personName(m.recipient_profile_id);
+      qs('#messageModalHost')?.remove();
+      const host=document.createElement('div');host.id='messageModalHost';host.innerHTML=modal('msgView',esc(m.subject||'(Sans objet)'),`<p class="muted">${mode==='inbox'?'De':'À'} : ${esc(other)} · ${dtFR(m.created_at)}</p><div class="card" style="white-space:pre-wrap;margin-top:12px">${esc(m.body||'')}</div><div class="actions" style="margin-top:12px"><button type="button" class="btn danger" id="deleteMsgView">Supprimer</button></div>`);qs('#app').appendChild(host);openModal('msgView');closeBindings();
+      qs('#deleteMsgView').onclick=async()=>{if(!confirm('Supprimer ce message ?'))return;try{const dr=await sb.from('school_messages').delete().eq('id',id).or(`sender_profile_id.eq.${profile.id},recipient_profile_id.eq.${profile.id}`);if(dr.error)throw dr.error;closeModal('msgView');toast('Message supprimé.');await renderMessages(p);await loadUnreadBadge();}catch(er){toast(errMsg(er),'error');}};
       await loadUnreadBadge();
-      btn.classList.remove('msg-unread');
-    } catch (er) { toast(errMsg(er),'error'); }
+    } catch(er){toast(errMsg(er),'error');}
   });
-  qsa('[data-delete-message]').forEach(btn => btn.onclick = async e => {
-    e.stopPropagation();
-    if (!confirm('Supprimer définitivement ce message ?')) return;
-    try {
-      btn.disabled = true;
-      await hardDelete('message', btn.dataset.deleteMessage);
-      toast('Message supprimé.');
-      await renderMessages(p);
-      await loadUnreadBadge();
-    } catch (er) {
-      btn.disabled = false;
-      toast(errMsg(er), 'error');
-    }
-  });
-
 }
 
 async function renderHomeworkSubmissions(p) {
@@ -829,11 +711,15 @@ async function renderDashboard() {
 }
 
 async function renderAnnouncements(p) {
-  // The current Supabase schema has no public.announcements table. Do not query a missing table.
-  qs('#app').innerHTML = head('Annonces', 'Informations officielles de Midori High.') +
-    `<div class="card"><h3>Le module d’annonces doit être relié à Supabase</h3><p class="muted" style="margin-top:10px">La base actuelle ne contient pas de table d’annonces. Pour éviter une erreur 404, les annonces ne sont pas chargées ni enregistrées depuis cette page pour le moment.</p></div>`;
+  // Il n'existe pas de table announcements dans le schéma fourni. Afficher ici les événements
+  // enregistrés dans school_events évite la requête 404 sans créer une table fictive.
+  const r = await sb.from('school_events').select('id,title,description,starts_at,ends_at,location,created_at').order('created_at',{ascending:false}).limit(100);
+  if (r.error) throw r.error;
+  const events = r.data || [];
+  qs('#app').innerHTML = head('Annonces', 'Informations et communications RP de Midori High.') +
+    `<div class="notice">La base actuelle ne possède pas de table dédiée aux annonces. Les événements existants sont affichés ici pour éviter une erreur Supabase.</div>` +
+    `<div class="list" style="margin-top:14px">${events.map(x=>`<article class="card"><div class="toolbar"><h3>${esc(x.title||'Sans titre')}</h3><span class="tag">${dtFR(x.starts_at)}</span></div><p style="white-space:pre-wrap">${esc(x.description||'')}</p>${x.location?`<p class="muted">📍 ${esc(x.location)}</p>`:''}</article>`).join('') || '<div class="card empty">Aucune annonce ou événement pour le moment.</div>'}</div>`;
 }
-
 async function adminCrudPage({ title, sub, table, fields, select = '*', order = 'created_at', searchPlaceholder = 'Rechercher…' }) {
   const list = await rows(table, select, { order, ascending: false });
   const visibleFields=fields.filter(f=>f.table!==false);
