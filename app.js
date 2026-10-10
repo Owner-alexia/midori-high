@@ -215,9 +215,36 @@ async function currentUser() {
 async function currentProfile() {
   const user = await currentUser();
   if (!user) return null;
-  const r = await sb.from('profiles').select('*').eq('id', user.id).maybeSingle();
-  if (r.error) throw r.error;
-  return r.data;
+
+  // Schéma Midori actuel : Auth -> midori_people.auth_user_id -> profiles.person_id.
+  // Ne pas supposer que profiles.id est égal à l'UUID Auth.
+  const personResult = await sb.from('midori_people')
+    .select('id,active')
+    .eq('auth_user_id', user.id)
+    .maybeSingle();
+  if (personResult.error) throw personResult.error;
+
+  // Compatibilité avec les comptes plus anciens qui auraient encore un profil direct.
+  if (!personResult.data) {
+    const legacy = await sb.from('profiles').select('*').eq('id', user.id).maybeSingle();
+    if (legacy.error) throw legacy.error;
+    if (legacy.data) {
+      if (legacy.data.role === 'administrateur') legacy.data.role = 'admin';
+      return legacy.data;
+    }
+    return null;
+  }
+  if (personResult.data.active === false) return null;
+
+  const profileResult = await sb.from('profiles')
+    .select('*')
+    .eq('person_id', personResult.data.id)
+    .eq('active', true)
+    .limit(1);
+  if (profileResult.error) throw profileResult.error;
+  const profile = (profileResult.data || [])[0] || null;
+  if (profile && profile.role === 'administrateur') profile.role = 'admin';
+  return profile;
 }
 async function guard(roles = []) {
   const s = await session();

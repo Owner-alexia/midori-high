@@ -1,0 +1,5 @@
+CORRECTION CONNEXION — MIDORI HIGH
+
+Cette version corrige la recherche du profil après connexion : le compte Auth est recherché dans midori_people via auth_user_id, puis le profil dans profiles via person_id.
+Installation : remplacez uniquement app.js dans le dépôt GitHub par midori-high-main/app.js, puis validez (Commit changes). Ne remplacez pas index.html, config.js, styles.css ni le logo. Après déploiement, rechargez avec Ctrl+F5.
+Cette correction suppose que la ligne midori_people correspondant à votre compte a auth_user_id égal à l’UUID du compte Auth et qu’un profil actif existe dans profiles avec person_id égal à midori_people.id.
