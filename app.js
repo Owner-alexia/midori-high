@@ -215,9 +215,28 @@ async function currentUser() {
 async function currentProfile() {
   const user = await currentUser();
   if (!user) return null;
-  const r = await sb.from('profiles').select('*').eq('id', user.id).maybeSingle();
-  if (r.error) throw r.error;
-  return r.data;
+
+  // Schéma actuel : Auth -> midori_people.auth_user_id -> midori_people.id
+  // -> profiles.person_id. Garder aussi le fallback historique profiles.id.
+  const personResult = await sb.from('midori_people')
+    .select('id,auth_user_id,active')
+    .eq('auth_user_id', user.id)
+    .maybeSingle();
+  if (personResult.error && personResult.error.code !== 'PGRST116') throw personResult.error;
+
+  if (personResult.data) {
+    if (personResult.data.active === false) return { active: false, role: null };
+    const linked = await sb.from('profiles').select('*')
+      .eq('person_id', personResult.data.id)
+      .eq('active', true)
+      .limit(1);
+    if (linked.error) throw linked.error;
+    if (linked.data && linked.data.length) return linked.data[0];
+  }
+
+  const legacy = await sb.from('profiles').select('*').eq('id', user.id).maybeSingle();
+  if (legacy.error) throw legacy.error;
+  return legacy.data || null;
 }
 async function guard(roles = []) {
   const s = await session();
@@ -693,7 +712,7 @@ async function initLogin() {
       if (!p) {
         await sb.auth.signOut();
         throw new Error(
-          'Connexion réussie, mais aucun profil Midori High n’est lié à ce compte.'
+          'Connexion Supabase réussie, mais aucun profil actif n’est lié à ce compte. Vérifiez midori_people.auth_user_id et profiles.person_id dans Supabase.'
         );
       }
 
