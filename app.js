@@ -215,9 +215,43 @@ async function currentUser() {
 async function currentProfile() {
   const user = await currentUser();
   if (!user) return null;
-  const r = await sb.from('profiles').select('*').eq('id', user.id).maybeSingle();
-  if (r.error) throw r.error;
-  return r.data;
+
+  // Schéma actuel Midori : Auth user -> midori_people.auth_user_id
+  // -> midori_people.id -> profiles.person_id. Le profil n'a pas
+  // nécessairement le même UUID que l'utilisateur Supabase.
+  const personResult = await sb
+    .from('midori_people')
+    .select('id, active')
+    .eq('auth_user_id', user.id)
+    .maybeSingle();
+
+  if (personResult.error) throw personResult.error;
+  const person = personResult.data;
+
+  if (person?.id) {
+    if (person.active === false) return null;
+    const profilesResult = await sb
+      .from('profiles')
+      .select('*')
+      .eq('person_id', person.id)
+      .neq('active', false)
+      .order('is_alt', { ascending: true })
+      .order('created_at', { ascending: true })
+      .limit(1);
+
+    if (profilesResult.error) throw profilesResult.error;
+    if (profilesResult.data?.length) return profilesResult.data[0];
+  }
+
+  // Compatibilité avec les anciens comptes où profiles.id correspondait
+  // directement à l'UUID Supabase Auth.
+  const legacyResult = await sb
+    .from('profiles')
+    .select('*')
+    .eq('id', user.id)
+    .maybeSingle();
+  if (legacyResult.error) throw legacyResult.error;
+  return legacyResult.data || null;
 }
 async function guard(roles = []) {
   const s = await session();
