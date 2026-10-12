@@ -174,8 +174,8 @@ const qs = s => document.querySelector(s);
 const qsa = s => [...document.querySelectorAll(s)];
 const esc = v => String(v ?? '').replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c]));
 const dateFR = v => { if (!v) return '—'; const d = new Date(`${v}T00:00:00`); return isNaN(d) ? v : d.toLocaleDateString('fr-FR'); };
-const dtFR = v => { if (!v) return '—'; const d = new Date(v); return isNaN(d) ? v : new Intl.DateTimeFormat('fr-FR',{timeZone:'Asia/Tokyo',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}).format(d).replace(/\b\d{4}\b/,'2003'); };
-const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+const dtFR = v => { if (!v) return '—'; const d = new Date(v); return isNaN(d) ? v : d.toLocaleString('fr-FR'); };
+const today = () => new Date().toISOString().slice(0, 10);
 const errMsg = e => e?.message || e?.error_description || e?.details || 'Une erreur est survenue.';
 
 function toast(msg, type = 'success') {
@@ -215,36 +215,9 @@ async function currentUser() {
 async function currentProfile() {
   const user = await currentUser();
   if (!user) return null;
-
-  // Schéma Midori actuel : Auth -> midori_people.auth_user_id -> profiles.person_id.
-  // Ne pas supposer que profiles.id est égal à l'UUID Auth.
-  const personResult = await sb.from('midori_people')
-    .select('id,active')
-    .eq('auth_user_id', user.id)
-    .maybeSingle();
-  if (personResult.error) throw personResult.error;
-
-  // Compatibilité avec les comptes plus anciens qui auraient encore un profil direct.
-  if (!personResult.data) {
-    const legacy = await sb.from('profiles').select('*').eq('id', user.id).maybeSingle();
-    if (legacy.error) throw legacy.error;
-    if (legacy.data) {
-      if (legacy.data.role === 'administrateur') legacy.data.role = 'admin';
-      return legacy.data;
-    }
-    return null;
-  }
-  if (personResult.data.active === false) return null;
-
-  const profileResult = await sb.from('profiles')
-    .select('*')
-    .eq('person_id', personResult.data.id)
-    .eq('active', true)
-    .limit(1);
-  if (profileResult.error) throw profileResult.error;
-  const profile = (profileResult.data || [])[0] || null;
-  if (profile && profile.role === 'administrateur') profile.role = 'admin';
-  return profile;
+  const r = await sb.from('profiles').select('*').eq('id', user.id).maybeSingle();
+  if (r.error) throw r.error;
+  return r.data;
 }
 async function guard(roles = []) {
   const s = await session();
@@ -290,9 +263,13 @@ function setPortalMode(mode, p) {
 }
 
 async function loadPortalFunctions(p) {
-  // Cette installation ne possède pas la RPC midori_get_my_functions.
-  // Utiliser les rôles du profil sans appeler une fonction inexistante.
-  MIDORI_PORTAL_FUNCTIONS = p.role === 'admin' || p.role === 'administrateur'
+  const r = await sb.rpc('midori_get_my_functions');
+  if (!r.error && Array.isArray(r.data) && r.data.length) {
+    MIDORI_PORTAL_FUNCTIONS = r.data;
+    return MIDORI_PORTAL_FUNCTIONS;
+  }
+  // Compatibilité avec les anciennes données si la migration n'est pas encore installée.
+  MIDORI_PORTAL_FUNCTIONS = p.role === 'admin'
     ? [{function_code:'cpe',label:'CPE / Administration',icon:'🏫'},{function_code:'recruteur_wl',label:'Recruteur WL',icon:'📋'}]
     : (p.role === 'recruteur_wl' ? [{function_code:'recruteur_wl',label:'Recruteur WL',icon:'📋'}] : [{function_code:'cpe',label:ROLE_LABEL[p.role] || p.role,icon:'🏫'}]);
   return MIDORI_PORTAL_FUNCTIONS;
@@ -389,7 +366,7 @@ async function hardDelete(entity, id) {
   return data || {};
 }
 async function log(action, entity, entityId = null, details = null) {
-  try { await sb.from('activity_logs').insert({ actor_profile_id: (await currentUser())?.id || null, action, entity, entity_id: entityId, details: details || null }); } catch (_) {}
+  try { await sb.from('school_activity_logs').insert({ actor_profile_id: (await currentUser())?.id || null, action, target_type: entity, target_id: entityId, details: details || null }); } catch (_) {}
 }
 
 
@@ -398,84 +375,200 @@ const MESSAGE_BUCKET = 'midori-messages';
 function roleLabel(role) { return ROLE_LABEL[role] || role || 'Utilisateur'; }
 
 async function messageDirectory() {
-  // Destinataires issus du schéma actuel : profiles, sans RPC obsolète.
-  const r = await sb.from('profiles')
-    .select('id,full_name,school_email,role,active')
-    .eq('active', true)
-    .order('full_name', { ascending: true });
+  const r = await sb.rpc('list_message_recipients');
   if (r.error) throw r.error;
-  return (r.data || []).map(x => ({ ...x, full_name: x.full_name || x.school_email || 'Utilisateur' }));
+  return r.data || [];
 }
 
 async function loadUnreadBadge() {
   const badge = qs('#mailBadge');
   if (!badge) return;
   try {
-    const profile = await currentProfile();
-    if (!profile?.id) return;
-    const r = await sb.from('school_messages').select('id', { count:'exact', head:true })
-      .eq('recipient_profile_id', profile.id).eq('is_read', false);
+    const user = await currentUser();
+    if (!user) return;
+    const r = await sb.from('messages').select('id', { count:'exact', head:true }).eq('recipient_id', user.id).is('read_at', null);
     if (r.error) throw r.error;
     const n = r.count || 0;
     badge.textContent = n > 99 ? '99+' : String(n);
     badge.style.display = n ? 'inline-flex' : 'none';
-  } catch (_) { badge.style.display = 'none'; }
+  } catch (_) {}
 }
 
-async function sendInternalMessage({ recipientId, subject, body }) {
-  const profile = await currentProfile();
-  if (!profile?.id) throw new Error('Profil Midori High introuvable. Reconnectez-vous.');
-  if (!recipientId) throw new Error('Choisissez un destinataire.');
-  const r = await sb.from('school_messages').insert({
-    sender_profile_id: profile.id,
-    recipient_profile_id: recipientId,
-    subject: String(subject || '').trim() || '(Sans objet)',
-    body: String(body || '').trim(),
-    is_read: false
-  }).select('id,sender_profile_id,recipient_profile_id,subject,body,is_read,created_at').single();
-  if (r.error) throw r.error;
-  return r.data;
+function safeFileName(name) {
+  return String(name || 'fichier').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120);
+}
+
+async function sendInternalMessage({ recipientId, subject, body, files = [], homeworkId = null }) {
+  const user = await currentUser();
+  if (!user) throw new Error('Session expirée.');
+  if (!recipientId) throw new Error('Destinataire manquant.');
+  const messageId = crypto.randomUUID();
+  let message = null;
+  const uploadedPaths = [];
+  try {
+    const r = await sb.from('messages').insert({
+      id: messageId,
+      sender_id: user.id,
+      recipient_id: recipientId,
+      subject: String(subject || '').trim() || '(Sans objet)',
+      body: String(body || '').trim(),
+      homework_id: homeworkId || null
+    }).select().single();
+    if (r.error) throw r.error;
+    message = r.data;
+
+    for (const file of Array.from(files || [])) {
+      if (!file || !file.name) continue;
+      if (file.size > 10 * 1024 * 1024) throw new Error(`Le fichier « ${file.name} » dépasse 10 Mo.`);
+      const path = `${user.id}/${messageId}/${crypto.randomUUID()}-${safeFileName(file.name)}`;
+      const up = await sb.storage.from(MESSAGE_BUCKET).upload(path, file, { upsert:false, contentType:file.type || 'application/octet-stream' });
+      if (up.error) throw up.error;
+      uploadedPaths.push(path);
+      const ar = await sb.from('message_attachments').insert({
+        message_id: messageId,
+        file_name: file.name,
+        storage_path: path,
+        mime_type: file.type || 'application/octet-stream',
+        size_bytes: file.size
+      });
+      if (ar.error) throw ar.error;
+    }
+    return message;
+  } catch (er) {
+    if (uploadedPaths.length) {
+      try { await sb.storage.from(MESSAGE_BUCKET).remove(uploadedPaths); } catch (_) {}
+    }
+    if (message) {
+      try { await sb.from('messages').delete().eq('id', messageId); } catch (_) {}
+    }
+    throw er;
+  }
+}
+
+async function deleteInternalMessage(messageId) {
+  if (!messageId) throw new Error('Message introuvable.');
+  const ar = await sb.from('message_attachments').select('id,storage_path').eq('message_id', messageId);
+  if (ar.error) throw ar.error;
+  const paths = (ar.data || []).map(x => x.storage_path).filter(Boolean);
+  if (paths.length) {
+    const sr = await sb.storage.from(MESSAGE_BUCKET).remove(paths);
+    if (sr.error) throw sr.error;
+  }
+  const mr = await sb.from('messages').delete().eq('id', messageId);
+  if (mr.error) throw mr.error;
 }
 
 async function renderMessages(p) {
-  const profile = await currentProfile();
-  if (!profile?.id) throw new Error('Aucun profil Midori High lié à cette session.');
+  const user = await currentUser();
   const directory = await messageDirectory();
   const people = new Map(directory.map(x => [x.id, x]));
   const [inboxR, sentR] = await Promise.all([
-    sb.from('school_messages').select('id,sender_profile_id,recipient_profile_id,subject,body,is_read,created_at').eq('recipient_profile_id', profile.id).order('created_at',{ascending:false}).limit(200),
-    sb.from('school_messages').select('id,sender_profile_id,recipient_profile_id,subject,body,is_read,created_at').eq('sender_profile_id', profile.id).order('created_at',{ascending:false}).limit(200)
+    sb.from('messages').select('id,sender_id,recipient_id,subject,body,homework_id,sent_at,read_at').eq('recipient_id', user.id).order('sent_at',{ascending:false}).limit(200),
+    sb.from('messages').select('id,sender_id,recipient_id,subject,body,homework_id,sent_at,read_at').eq('sender_id', user.id).order('sent_at',{ascending:false}).limit(200)
   ]);
   if (inboxR.error) throw inboxR.error;
   if (sentR.error) throw sentR.error;
-  const inbox = inboxR.data || [], sent = sentR.data || [];
-  const personName = id => people.get(id)?.full_name || people.get(id)?.school_email || 'Utilisateur';
+  const inbox = inboxR.data || [];
+  const sent = sentR.data || [];
+  const personName = id => people.get(id)?.full_name || people.get(id)?.username || 'Utilisateur';
   const displayRows = (list, mode) => list.map(m => {
-    const other = mode === 'inbox' ? personName(m.sender_profile_id) : personName(m.recipient_profile_id);
-    return `<div class="item msg-item ${!m.is_read && mode==='inbox' ? 'msg-unread' : ''}" data-msg="${esc(m.id)}" data-mode="${mode}" role="button" tabindex="0"><div style="min-width:0;text-align:left;flex:1"><strong>${esc(m.subject || '(Sans objet)')}</strong><span>${mode==='inbox'?'De':'À'} : ${esc(other)} · ${dtFR(m.created_at)}</span><p style="margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:760px">${esc(m.body || '')}</p></div>${!m.is_read && mode==='inbox' ? '<span class="tag red">Nouveau</span>' : ''}</div>`;
+    const other = mode === 'inbox' ? personName(m.sender_id) : personName(m.recipient_id);
+    return `<div class="item msg-item ${!m.read_at && mode==='inbox' ? 'msg-unread' : ''}" data-msg="${esc(m.id)}" data-mode="${mode}" role="button" tabindex="0">
+      <div style="min-width:0;text-align:left;flex:1"><strong>${esc(m.subject || '(Sans objet)')}</strong><span>${mode==='inbox'?'De':'À'} : ${esc(other)} · ${dtFR(m.sent_at)}</span><p style="margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:760px">${esc(m.body || '')}</p></div>
+      <div class="actions" style="flex-shrink:0">${m.homework_id ? '<span class="tag">📓 Devoir</span>' : ''}${!m.read_at && mode==='inbox' ? '<span class="tag red" style="margin-left:5px">Nouveau</span>' : ''}<button type="button" class="btn danger small" data-delete-message="${esc(m.id)}">🗑️</button></div>
+    </div>`;
   }).join('') || '<div class="card empty">Aucun message.</div>';
+
   qs('#app').innerHTML = head('Messagerie', 'Messagerie interne de Midori High — uniquement pour le RP.') +
-    `<div class="toolbar"><div class="actions"><button id="composeMsg" class="btn primary">✉️ Nouveau message</button><span class="tag">${inbox.filter(x=>!x.is_read).length} non lu(s)</span></div></div>` +
+    `<div class="toolbar"><div class="actions"><button id="composeMsg" class="btn primary">✉️ Nouveau message</button><span class="tag">${inbox.filter(x=>!x.read_at).length} non lu(s)</span></div></div>` +
     `<div class="grid g2"><div class="card"><div class="toolbar"><h3>Boîte de réception</h3></div><div class="list">${displayRows(inbox,'inbox')}</div></div><div class="card"><div class="toolbar"><h3>Messages envoyés</h3></div><div class="list">${displayRows(sent,'sent')}</div></div></div>` +
-    modal('msgCompose','Nouveau message', `<form id="msgForm" class="form"><div class="field full"><label>Destinataire</label><select name="recipient_id" required>${opts(directory.filter(x=>x.id!==profile.id),'id','full_name')}</select></div><div class="field full"><label>Objet</label><input name="subject" required maxlength="180"></div><div class="field full"><label>Message</label><textarea name="body" required placeholder="Écrivez votre message RP…"></textarea></div><div class="field full"><button type="submit" class="btn primary">Envoyer</button></div></form>`);
+    modal('msgCompose','Nouveau message', `<form id="msgForm" class="form"><div class="field full"><label>Destinataire</label><select name="recipient_id" required>${opts(directory.filter(x=>x.id!==user.id).sort((a,b)=>String(a.full_name).localeCompare(String(b.full_name),'fr')),'id','full_name')}</select></div><div class="field full"><label>Objet</label><input name="subject" required maxlength="180"></div><div class="field full"><label>Message</label><textarea name="body" required placeholder="Écrivez votre message RP…"></textarea></div><div class="field full"><label>Pièces jointes <span class="muted">(3 fichiers max, 10 Mo chacun)</span></label><input name="files" type="file" multiple></div><div class="field full"><button class="btn primary">Envoyer</button></div></form>`) +
+    `<div id="messageModalHost"></div>`;
+
   qs('#composeMsg').onclick=()=>openModal('msgCompose');
   closeBindings();
   qs('#msgForm').onsubmit = async e => {
-    e.preventDefault(); const f = new FormData(e.target); const btn=e.target.querySelector('button[type="submit"]');
-    try { btn.disabled=true; btn.textContent='Envoi…'; const m=await sendInternalMessage({recipientId:f.get('recipient_id'),subject:f.get('subject'),body:f.get('body')}); toast('Message envoyé.'); closeModal('msgCompose'); await renderMessages(p); await loadUnreadBadge(); }
-    catch(er){toast(errMsg(er),'error');btn.disabled=false;btn.textContent='Envoyer';}
-  };
-  qsa('[data-msg]').forEach(el=>el.onclick=async()=>{
-    const id=el.dataset.msg, mode=el.dataset.mode, list=mode==='inbox'?inbox:sent, m=list.find(x=>x.id===id); if(!m)return;
+    e.preventDefault();
+    const f = new FormData(e.target);
+    const files = Array.from(e.target.querySelector('[name="files"]').files || []);
+    if (files.length > 3) { toast('Maximum 3 pièces jointes.', 'error'); return; }
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    if (submitBtn?.disabled) return;
     try {
-      if(mode==='inbox' && !m.is_read){const ur=await sb.from('school_messages').update({is_read:true}).eq('id',id).eq('recipient_profile_id',profile.id);if(ur.error)throw ur.error;m.is_read=true;}
-      const other=mode==='inbox'?personName(m.sender_profile_id):personName(m.recipient_profile_id);
-      qs('#messageModalHost')?.remove();
-      const host=document.createElement('div');host.id='messageModalHost';host.innerHTML=modal('msgView',esc(m.subject||'(Sans objet)'),`<p class="muted">${mode==='inbox'?'De':'À'} : ${esc(other)} · ${dtFR(m.created_at)}</p><div class="card" style="white-space:pre-wrap;margin-top:12px">${esc(m.body||'')}</div><div class="actions" style="margin-top:12px"><button type="button" class="btn danger" id="deleteMsgView">Supprimer</button></div>`);qs('#app').appendChild(host);openModal('msgView');closeBindings();
-      qs('#deleteMsgView').onclick=async()=>{if(!confirm('Supprimer ce message ?'))return;try{const dr=await sb.from('school_messages').delete().eq('id',id).or(`sender_profile_id.eq.${profile.id},recipient_profile_id.eq.${profile.id}`);if(dr.error)throw dr.error;closeModal('msgView');toast('Message supprimé.');await renderMessages(p);await loadUnreadBadge();}catch(er){toast(errMsg(er),'error');}};
+      if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Envoi…'; }
+      const m = await sendInternalMessage({ recipientId:f.get('recipient_id'), subject:f.get('subject'), body:f.get('body'), files });
+      await log('create','message',m.id,null);
+      toast('Message envoyé.');
+      closeModal('msgCompose');
+      await renderMessages(p);
+    } catch (er) { toast(errMsg(er),'error'); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Envoyer'; } }
+  };
+
+  qsa('[data-msg]').forEach(btn => btn.onclick = async () => {
+    const id = btn.dataset.msg;
+    const mode = btn.dataset.mode;
+    try {
+      const list = mode === 'inbox' ? inbox : sent;
+      const m = list.find(x=>x.id===id);
+      if (!m) return;
+      if (mode === 'inbox' && !m.read_at) {
+        const ur = await sb.rpc('mark_message_read',{p_message_id:id});
+        if (ur.error) throw ur.error;
+        m.read_at = new Date().toISOString();
+      }
+      const ar = await sb.from('message_attachments').select('id,file_name,storage_path,mime_type,size_bytes').eq('message_id',id).order('id');
+      if (ar.error) throw ar.error;
+      const sender = people.get(m.sender_id)?.full_name || 'Utilisateur';
+      const recipient = people.get(m.recipient_id)?.full_name || 'Utilisateur';
+      const attachmentHtml = (ar.data||[]).map(a=>`<button type="button" class="btn secondary small" data-download="${esc(a.id)}" data-path="${esc(a.storage_path)}">📎 ${esc(a.file_name)}</button>`).join(' ') || '<span class="muted">Aucune pièce jointe.</span>';
+      const canReply = mode === 'inbox';
+      const host=qs('#messageModalHost');
+      host.innerHTML=modal('msgView','Message',`<div class="card" style="box-shadow:none;padding:0;border:0"><div class="muted">De : ${esc(sender)}<br>À : ${esc(recipient)}<br>${dtFR(m.sent_at)}</div><h2 style="font-size:21px;margin:15px 0 10px">${esc(m.subject)}</h2><div style="white-space:pre-wrap;line-height:1.6">${esc(m.body)}</div><div style="margin-top:16px"><strong>Pièces jointes</strong><div class="actions" style="margin-top:8px">${attachmentHtml}</div></div><div class="actions" style="margin-top:18px">${canReply?'<button id="replyMsg" class="btn primary">↩️ Répondre</button>':''}<button id="deleteMsgView" class="btn danger">🗑️ Supprimer</button><button class="btn secondary" data-close="msgView">Fermer</button></div></div>`);
+      openModal('msgView'); closeBindings();
+      qsa('[data-download]').forEach(x=>x.onclick=async()=>{
+        try { const r=await sb.storage.from(MESSAGE_BUCKET).createSignedUrl(x.dataset.path,60); if(r.error) throw r.error; window.open(r.data.signedUrl,'_blank'); } catch(er){ toast(errMsg(er),'error'); }
+      });
+      qs('#replyMsg')?.addEventListener('click',()=>{
+        closeModal('msgView');
+        qs('#msgCompose [name="recipient_id"]').value=m.sender_id;
+        qs('#msgCompose [name="subject"]').value=`Re: ${m.subject}`;
+        qs('#msgCompose [name="body"]').value=`\n\n--- Message précédent ---\n${m.body}`;
+        openModal('msgCompose');
+      });
+      qs('#deleteMsgView')?.addEventListener('click', async () => {
+        if (!confirm('Supprimer définitivement ce message ?')) return;
+        const b = qs('#deleteMsgView');
+        try {
+          b.disabled = true;
+          await hardDelete('message', m.id);
+          closeModal('msgView');
+          toast('Message supprimé.');
+          await renderMessages(p);
+          await loadUnreadBadge();
+        } catch (er) {
+          b.disabled = false;
+          toast(errMsg(er), 'error');
+        }
+      });
       await loadUnreadBadge();
-    } catch(er){toast(errMsg(er),'error');}
+      btn.classList.remove('msg-unread');
+    } catch (er) { toast(errMsg(er),'error'); }
   });
+  qsa('[data-delete-message]').forEach(btn => btn.onclick = async e => {
+    e.stopPropagation();
+    if (!confirm('Supprimer définitivement ce message ?')) return;
+    try {
+      btn.disabled = true;
+      await hardDelete('message', btn.dataset.deleteMessage);
+      toast('Message supprimé.');
+      await renderMessages(p);
+      await loadUnreadBadge();
+    } catch (er) {
+      btn.disabled = false;
+      toast(errMsg(er), 'error');
+    }
+  });
+
 }
 
 async function renderHomeworkSubmissions(p) {
@@ -694,32 +787,35 @@ async function enhanceClassFilteredTables() {
 }
 
 async function renderDashboard() {
-  // Le portail actuel utilise school_* ; les anciennes tables students/professors/classes/absences n'existent pas.
-  const safeCount = async (table, query) => {
-    try { const r = await query; if (r.error) return 0; return r.count || 0; } catch (_) { return 0; }
-  };
-  const [peopleCount, staffCount, classesCount, attendanceCount, events] = await Promise.all([
-    safeCount('profiles', sb.from('profiles').select('id',{count:'exact',head:true}).eq('profile_kind','student').eq('active',true)),
-    safeCount('profiles', sb.from('profiles').select('id',{count:'exact',head:true}).in('role',['professor','professeur']).eq('active',true)),
-    safeCount('school_classes', sb.from('school_classes').select('id',{count:'exact',head:true})),
-    safeCount('school_attendance', sb.from('school_attendance').select('id',{count:'exact',head:true}).eq('attendance_date',today()).eq('status','absence')),
-    rows('school_events','id,title,description,starts_at,location',{order:'starts_at',ascending:true,limit:4}).catch(()=>[])
+  const [students, professors, classes, absences] = await Promise.all([
+    sb.from('students').select('id', { count: 'exact', head: true }),
+    sb.from('professors').select('id', { count: 'exact', head: true }),
+    sb.from('classes').select('id', { count: 'exact', head: true }),
+    sb.from('absences').select('id', { count: 'exact', head: true }).eq('date', today()).eq('type', 'absence')
   ]);
+  const counts = [students, professors, classes, absences];
+  counts.forEach(r => { if (r.error) throw r.error; });
+  const announces = await rows('announcements', 'id,title,content,published,created_at', { order: 'created_at', ascending: false, limit: 4 });
   qs('#app').innerHTML = head('Tableau de bord', 'Vue générale de Midori High.') +
-    `<div class="grid g4">${statCard('Élèves', peopleCount, '🎓')}${statCard('Professeurs', staffCount, '👩‍🏫')}${statCard('Classes', classesCount, '🏫')}${statCard('Absences aujourd’hui', attendanceCount, '⏱️')}</div>` +
-    `<div class="grid g2" style="margin-top:15px"><div class="hero"><h2>Midori High</h2><p>Kyoto, Japon · Année scolaire RP 2003</p><div class="actions" style="margin-top:16px"><a href="attendance.html" class="btn secondary">📝 Ouvrir une fiche d’appel</a><a href="points.html" class="btn secondary">⭐ Gérer les points</a></div></div><div class="card"><h3 style="margin-bottom:12px">Calendrier RP</h3><div class="list">${events.map(a => `<div class="item"><div><strong>${esc(a.title)}</strong><span>${a.starts_at ? dtFR(a.starts_at) : 'Date à définir'}${a.location ? ' · '+esc(a.location) : ''}</span><p style="margin-top:5px">${esc(String(a.description || '').slice(0,150))}</p></div></div>`).join('') || '<div class="empty">Aucun événement programmé.</div>'}</div><a href="events.html" class="btn secondary">Ouvrir le calendrier</a></div></div>`;
+    `<div class="grid g4">${statCard('Élèves', students.count ?? 0, '🎓')}${statCard('Professeurs', professors.count ?? 0, '👩‍🏫')}${statCard('Classes', classes.count ?? 0, '🏫')}${statCard('Absences aujourd’hui', absences.count ?? 0, '⏱️')}</div>` +
+    `<div class="grid g2" style="margin-top:15px"><div class="hero"><h2>Midori High</h2><p>Une école d’excellence : suivi scolaire, présence, réputation et vie de l’établissement.</p><div class="actions" style="margin-top:16px"><a href="attendance.html" class="btn secondary">📝 Ouvrir une fiche d’appel</a><a href="points.html" class="btn secondary">⭐ Gérer les points</a></div></div><div class="card"><h3 style="margin-bottom:12px">Dernières annonces</h3><div class="list">${announces.map(a => `<div class="item"><div><strong>${esc(a.title)}</strong><span>${dtFR(a.created_at)}</span><p style="margin-top:5px">${esc(String(a.content || '').slice(0, 150))}</p></div></div>`).join('') || '<div class="empty">Aucune annonce.</div>'}</div></div></div>`;
 }
 
 async function renderAnnouncements(p) {
-  // Il n'existe pas de table announcements dans le schéma fourni. Afficher ici les événements
-  // enregistrés dans school_events évite la requête 404 sans créer une table fictive.
-  const r = await sb.from('school_events').select('id,title,description,starts_at,ends_at,location,created_at').order('created_at',{ascending:false}).limit(100);
-  if (r.error) throw r.error;
-  const events = r.data || [];
-  qs('#app').innerHTML = head('Annonces', 'Informations et communications RP de Midori High.') +
-    `<div class="notice">La base actuelle ne possède pas de table dédiée aux annonces. Les événements existants sont affichés ici pour éviter une erreur Supabase.</div>` +
-    `<div class="list" style="margin-top:14px">${events.map(x=>`<article class="card"><div class="toolbar"><h3>${esc(x.title||'Sans titre')}</h3><span class="tag">${dtFR(x.starts_at)}</span></div><p style="white-space:pre-wrap">${esc(x.description||'')}</p>${x.location?`<p class="muted">📍 ${esc(x.location)}</p>`:''}</article>`).join('') || '<div class="card empty">Aucune annonce ou événement pour le moment.</div>'}</div>`;
+  const isAdmin = p.role === 'admin';
+  const list = await rows('announcements', '*', { order: 'created_at', ascending: false, limit: 200 });
+  qs('#app').innerHTML = head('Annonces', 'Informations officielles de Midori High.') +
+    (isAdmin ? `<div class="toolbar"><button id="aa" class="btn primary">+ Nouvelle annonce</button></div>` : '') +
+    `<div class="list">${list.map(a => `<article class="card"><div class="toolbar" style="margin-bottom:8px"><div><h3>${esc(a.title)}</h3><span class="muted">${dtFR(a.created_at)} · ${a.published ? 'Publiée' : 'Brouillon'}</span></div>${isAdmin ? `<button class="btn danger small" data-del-ann="${esc(a.id)}">Supprimer</button>` : ''}</div><p style="white-space:pre-wrap">${esc(a.content)}</p></article>`).join('') || '<div class="card empty">Aucune annonce.</div>'}</div>` +
+    (isAdmin ? modal('am', 'Nouvelle annonce', `<form id="af" class="form"><div class="field full"><label>Titre</label><input name="title" required></div><div class="field full"><label>Contenu</label><textarea name="content" required></textarea></div><div class="field"><label>État</label><select name="published"><option value="true">Publier</option><option value="false">Brouillon</option></select></div><div class="field full"><button class="btn primary">Enregistrer</button></div></form>`) : '');
+  if (isAdmin) {
+    qs('#aa').onclick = () => openModal('am');
+    closeBindings();
+    qs('#af').onsubmit = async e => { e.preventDefault(); const f = new FormData(e.target); try { const r = await add('announcements', { title: f.get('title'), content: f.get('content'), published: f.get('published') === 'true' }); await log('create', 'announcement', r.id, { title: r.title }); toast('Annonce enregistrée.'); location.reload(); } catch (er) { toast(errMsg(er), 'error'); } };
+    qsa('[data-del-ann]').forEach(b => b.onclick = async () => { if (!confirm('⚠️ Supprimer définitivement cette annonce ?\n\nCette action est irréversible.')) return; try { b.disabled=true; b.textContent='Suppression…'; await hardDelete('announcement', b.dataset.delAnn); toast('Annonce supprimée définitivement.'); location.reload(); } catch (er) { b.disabled=false; b.textContent='Supprimer'; toast(errMsg(er), 'error'); } });
+  }
 }
+
 async function adminCrudPage({ title, sub, table, fields, select = '*', order = 'created_at', searchPlaceholder = 'Rechercher…' }) {
   const list = await rows(table, select, { order, ascending: false });
   const visibleFields=fields.filter(f=>f.table!==false);
@@ -778,16 +874,17 @@ async function renderStudentProfile(p, asAdmin = false) {
 }
 
 async function renderClasses() {
-  await adminCrudPage({ title: 'Classes', sub: 'Structure des classes de Midori High.', table: 'school_classes', fields: [
-    { name: 'name', label: 'Nom de la classe', html: '<input name="name" required>' },
-    { name: 'school_year', label: 'Année scolaire RP', html: '<input name="school_year" value="2003" required>' }
+  await adminCrudPage({ title: 'Classes', sub: 'Structure des classes de Midori High.', table: 'classes', fields: [
+    { name: 'name', label: 'Nom', html: '<input name="name" required>' },
+    { name: 'level', label: 'Niveau', html: '<input name="level" placeholder="1ère / 2ème / 3ème année">' },
+    { name: 'section', label: 'Section', html: '<input name="section" placeholder="A / B / C">' }
   ], searchPlaceholder: 'Rechercher une classe…' });
 }
 async function renderSubjects() {
-  await adminCrudPage({ title:'Matières', sub:'Matières enseignées au lycée.', table:'school_subjects', fields:[
-    { name:'name', label:'Nom de la matière', html:'<input name="name" required>' },
-    { name:'description', label:'Description', html:'<textarea name="description"></textarea>' }
-  ], searchPlaceholder:'Rechercher une matière…' });
+  await adminCrudPage({ title: 'Matières', sub: 'Matières enseignées au lycée.', table: 'subjects', fields: [
+    { name: 'name', label: 'Matière', html: '<input name="name" required>' },
+    { name: 'description', label: 'Description', html: '<textarea name="description"></textarea>', full: true }
+  ], searchPlaceholder: 'Rechercher une matière…' });
 }
 
 async function renderProfessors() {
@@ -816,14 +913,18 @@ async function renderSupervisors() {
 }
 
 async function renderTimetable() {
-  const list = await rows('school_courses', 'id,title,description,scheduled_at,class_id,subject_id', { order: 'scheduled_at', ascending: true, limit: 300 });
-  const classes = await rows('school_classes', 'id,name', { order: 'name' });
-  qs('#app').innerHTML = head('Emploi du temps', 'Planning des cours de Midori High à Kyoto, année RP 2003.') +
-    `<div class="toolbar"><button id="ta" class="btn primary">+ Ajouter un cours</button></div><div class="list">${list.map(c => `<article class="card"><h3>${esc(c.title || 'Cours')}</h3><p class="muted">${c.scheduled_at ? dtFR(c.scheduled_at) : 'Horaire à définir'} · ${esc(classes.find(x=>x.id===c.class_id)?.name || 'Classe à définir')}</p><p>${esc(c.description || '')}</p><button class="btn danger small" data-del-course="${esc(c.id)}">Supprimer</button></article>`).join('') || '<div class="card empty">Aucun cours programmé.</div>'}</div>` +
-    modal('tm','Nouveau cours',`<form id="tf" class="form"><div class="field full"><label>Titre</label><input name="title" required></div><div class="field"><label>Classe</label><select name="class_id">${opts(classes)}</select></div><div class="field"><label>Date et heure (Kyoto)</label><input name="scheduled_at" type="datetime-local" value="2003-10-09T09:00" required></div><div class="field full"><label>Description</label><textarea name="description"></textarea></div><div class="field full"><button class="btn primary">Enregistrer</button></div></form>`);
-  qs('#ta').onclick=()=>openModal('tm'); closeBindings();
-  qs('#tf').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);try{const r=await add('school_courses',{title:f.get('title'),class_id:f.get('class_id')||null,description:f.get('description')||null,scheduled_at:new Date(f.get('scheduled_at')+':00+09:00').toISOString()});await log('create','school_course',r.id,null);toast('Cours ajouté.');location.reload();}catch(er){toast(errMsg(er),'error');}};
-  qsa('[data-del-course]').forEach(b=>b.onclick=async()=>{if(!confirm('Supprimer ce cours ?'))return;try{await remove('school_courses',b.dataset.delCourse);location.reload();}catch(er){toast(errMsg(er),'error');}});
+  const [classes, professors, subjects, list] = await Promise.all([
+    rows('classes', 'id,name', { order: 'name' }),
+    rows('professors', 'id,full_name,username', { order: 'full_name' }),
+    rows('subjects', 'id,name', { order: 'name' }),
+    rows('timetable', 'id,class_id,professor_id,subject_id,day_of_week,start_time,end_time,room,classes(name),professors(full_name),subjects(name)', { order: 'day_of_week' })
+  ]);
+  const days = ['', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+  qs('#app').innerHTML = head('Emploi du temps', 'Construisez le planning de Midori High.') + `<div class="toolbar"><input id="ts" class="search" placeholder="Rechercher classe, prof ou matière…"><button id="ta" class="btn primary">+ Ajouter un cours</button></div><div class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Jour</th><th>Horaire</th><th>Classe</th><th>Professeur</th><th>Matière</th><th>Salle</th><th>Actions</th></tr></thead><tbody id="tr">${list.map(r => `<tr><td>${days[r.day_of_week]}</td><td>${String(r.start_time).slice(0,5)}–${String(r.end_time).slice(0,5)}</td><td>${esc(r.classes?.name || '')}</td><td>${esc(r.professors?.full_name || '')}</td><td>${esc(r.subjects?.name || '')}</td><td>${esc(r.room || '—')}</td><td><button class="btn danger small" data-del-time="${esc(r.id)}">Supprimer</button></td></tr>`).join('') || tableEmpty(7)}</tbody></table></div></div>` + modal('tm', 'Cours', `<form id="tf" class="form"><div class="field"><label>Jour</label><select name="day_of_week" required>${days.slice(1).map((d,i) => `<option value="${i+1}">${d}</option>`).join('')}</select></div><div class="field"><label>Classe</label><select name="class_id" required>${opts(classes)}</select></div><div class="field"><label>Professeur</label><select name="professor_id" required>${opts(professors, 'id', 'full_name')}</select></div><div class="field"><label>Matière</label><select name="subject_id" required>${opts(subjects)}</select></div><div class="field"><label>Début</label><input name="start_time" type="time" required></div><div class="field"><label>Fin</label><input name="end_time" type="time" required></div><div class="field"><label>Salle</label><input name="room"></div><div class="field full"><button class="btn primary">Enregistrer</button></div></form>`);
+  qs('#ta').onclick = () => openModal('tm'); closeBindings();
+  qs('#ts').oninput = e => { const q = e.target.value.toLowerCase(); qsa('#tr tr').forEach(tr => tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none'); };
+  qsa('[data-del-time]').forEach(b => b.onclick = async () => { if (!confirm('⚠️ Supprimer définitivement ce cours et ses feuilles d’appel liées ?\n\nCette action est irréversible.')) return; try { b.disabled=true; b.textContent='Suppression…'; await hardDelete('timetable', b.dataset.delTime); toast('Cours supprimé définitivement.'); location.reload(); } catch (er) { b.disabled=false; b.textContent='Supprimer'; toast(errMsg(er), 'error'); } });
+  qs('#tf').onsubmit = async e => { e.preventDefault(); const f = new FormData(e.target); try { const r = await add('timetable', { class_id: f.get('class_id'), professor_id: f.get('professor_id'), subject_id: f.get('subject_id'), day_of_week: Number(f.get('day_of_week')), start_time: f.get('start_time'), end_time: f.get('end_time'), room: f.get('room') || null }); await log('create', 'timetable', r.id, null); toast('Cours ajouté.'); location.reload(); } catch (er) { toast(errMsg(er), 'error'); } };
 }
 
 async function findLinkedRow(table, p, linkField, label) {
@@ -1048,12 +1149,27 @@ async function renderEvents(p) {
   const list = await rows('school_events', 'id,title,description,starts_at,ends_at,location,created_at', { order: 'starts_at', ascending: true, limit: 500 });
   qs('#app').innerHTML = head('Calendrier RP', 'Événements scolaires, clubs et moments importants de Midori High.') +
     (isAdmin ? `<div class="toolbar"><button id="ea" class="btn primary">+ Ajouter un événement</button></div>` : '') +
-    `<div class="list">${list.map(x => `<article class="card"><div class="toolbar"><div><h3>${esc(x.title)}</h3><span class="muted">${x.starts_at ? dtFR(x.starts_at) : 'Date à définir'}${x.ends_at ? ` – ${dtFR(x.ends_at)}` : ''}</span></div><div class="actions">${x.location ? badge(x.location) : ''}${isAdmin ? `<button class="btn danger small" data-del-event="${esc(x.id)}">Supprimer</button>` : ''}</div></div><p style="white-space:pre-wrap">${esc(x.description || '')}</p></article>`).join('') || '<div class="card empty">Aucun événement programmé.</div>'}</div>` +
-    (isAdmin ? modal('em', 'Nouvel événement', `<form id="ef" class="form"><div class="field"><label>Titre</label><input name="title" required></div><div class="field"><label>Début</label><input name="starts_at" type="datetime-local" value="2003-10-09T09:00" required></div><div class="field"><label>Fin</label><input name="ends_at" type="datetime-local"></div><div class="field full"><label>Lieu</label><input name="location" value="Kyoto, Japon"></div><div class="field full"><label>Description</label><textarea name="description"></textarea></div><div class="field full"><button class="btn primary">Enregistrer</button></div></form>`) : '');
+    `<div class="list">${list.map(x => `<article class="card"><div class="toolbar"><div><h3>${esc(x.title)}</h3><span class="muted">${dateFR(x.starts_at)}${x.starts_at ? ` · ${new Date(x.starts_at).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Tokyo'})}` : ''}${x.ends_at ? `–${new Date(x.ends_at).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Tokyo'})}` : ''} · Événement</span></div><div class="actions">${x.location ? badge(x.location) : ''}${isAdmin ? `<button class="btn danger small" data-del-event="${esc(x.id)}">Supprimer</button>` : ''}</div></div><p style="white-space:pre-wrap">${esc(x.description || '')}</p></article>`).join('') || '<div class="card empty">Aucun événement programmé.</div>'}</div>` +
+    (isAdmin ? modal('em', 'Nouvel événement', `<form id="ef" class="form"><div class="field"><label>Titre</label><input name="title" required></div><div class="field"><label>Type</label><select name="event_type"><option>Événement scolaire</option><option>Club</option><option>Cérémonie</option><option>Examen</option><option>Sortie</option><option>RP libre</option></select></div><div class="field"><label>Date</label><input name="event_date" type="date" value="${today()}" required></div><div class="field"><label>Début</label><input name="start_time" type="time"></div><div class="field"><label>Fin</label><input name="end_time" type="time"></div><div class="field full"><label>Lieu</label><input name="location" placeholder="Gymnase, scène, ville…"></div><div class="field full"><label>Description</label><textarea name="description"></textarea></div><div class="field full"><button class="btn primary">Enregistrer</button></div></form>`) : '');
   if (isAdmin) {
-    qs('#ea').onclick = () => openModal('em'); closeBindings();
-    qs('#ef').onsubmit = async e => { e.preventDefault(); const f = new FormData(e.target); try { const payload = { title: f.get('title'), description: f.get('description') || null, starts_at: new Date(f.get('starts_at') + ':00+09:00').toISOString(), ends_at: f.get('ends_at') ? new Date(f.get('ends_at') + ':00+09:00').toISOString() : null, location: f.get('location') || 'Kyoto, Japon' }; const r = await add('school_events', payload); await log('create', 'school_event', r.id, null); toast('Événement ajouté.'); location.reload(); } catch (er) { toast(errMsg(er), 'error'); } };
-    qsa('[data-del-event]').forEach(b => b.onclick = async () => { if (!confirm('Supprimer cet événement ?')) return; try { await remove('school_events', b.dataset.delEvent); toast('Événement supprimé.'); location.reload(); } catch (er) { toast(errMsg(er), 'error'); } });
+    qs('#ea').onclick = () => openModal('em');
+    closeBindings();
+    qs('#ef').onsubmit = async e => {
+      e.preventDefault();
+      const f = new FormData(e.target);
+      try {
+        const u = await currentUser();
+        const r = await add('school_events', { title: f.get('title'), description: f.get('description') || null, starts_at: new Date(`${f.get('event_date')}T${f.get('start_time') || '09:00'}:00+09:00`).toISOString(), ends_at: f.get('end_time') ? new Date(`${f.get('event_date')}T${f.get('end_time')}:00+09:00`).toISOString() : null, location: f.get('location') || null });
+        await log('create', 'school_event', r.id, null);
+        toast('Événement ajouté.');
+        location.reload();
+      } catch (er) { toast(errMsg(er), 'error'); }
+    };
+    qsa('[data-del-event]').forEach(b => b.onclick = async () => {
+      if (!confirm('Supprimer cet événement ?')) return;
+      try { await hardDelete('school_event', b.dataset.delEvent); toast('Événement supprimé définitivement.'); location.reload(); }
+      catch (er) { toast(errMsg(er), 'error'); }
+    });
   }
 }
 
@@ -1892,7 +2008,7 @@ async function renderAccess(p) {
 }
 
 async function renderLogs() {
-  const list = await rows('activity_logs', 'id,action,entity,entity_id,details,created_at,profiles(full_name,username)', { order: 'created_at', ascending: false, limit: 500 });
+  const list = await rows('school_activity_logs', 'id,action,target_type,target_id,details,created_at,profiles(full_name)', { order: 'created_at', ascending: false, limit: 500 });
   qs('#app').innerHTML = head('Journal d’activité', 'Traçabilité des principales actions du portail.') + `<div class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Date</th><th>Auteur</th><th>Action</th><th>Objet</th><th>Détails</th></tr></thead><tbody>${list.map(x => `<tr><td>${dtFR(x.created_at)}</td><td>${esc(x.profiles?.full_name || 'Système')}</td><td>${badge(x.action)}</td><td>${esc(x.entity || '—')}</td><td><pre style="white-space:pre-wrap;font:inherit">${esc(JSON.stringify(x.details || {}, null, 2))}</pre></td></tr>`).join('') || tableEmpty(5)}</tbody></table></div></div>`;
 }
 

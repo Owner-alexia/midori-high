@@ -1,0 +1,9 @@
+MIDORI HIGH — CORRECTIONS PRELIMINAIRES
+
+Cette archive part du projet source disponible et contient des corrections vérifiées syntaxiquement :
+- configuration Supabase remplacée par l'URL et la clé publishable actuelles communiquées précédemment ;
+- calendrier adapté aux colonnes school_events.starts_at et ends_at ;
+- journal d'activité adapté à school_activity_logs (target_type / target_id) ;
+- annonces adaptées à created_at plutôt qu'à published_at.
+
+IMPORTANT : ce n'est PAS une validation complète de l'application. Les écrans élèves, classes, professeurs, absences et messagerie comportent encore des appels historiques à des tables/fonctions dont le schéma doit être migré précisément. Ne déploie pas ce ZIP en pensant que toutes les erreurs sont corrigées. Le fichier app.js passe le contrôle de syntaxe Node.js, mais aucune connexion réelle à Supabase n'a été testée depuis cet environnement.
