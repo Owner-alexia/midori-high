@@ -173,8 +173,8 @@ const PAGE_ROLES = {
 const qs = s => document.querySelector(s);
 const qsa = s => [...document.querySelectorAll(s)];
 const esc = v => String(v ?? '').replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c]));
-const dateFR = v => { if (!v) return '—'; const d = new Date(`${v}T00:00:00`); if (isNaN(d)) return v; return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }) + '/2003'; };
-const dtFR = v => { if (!v) return '—'; const d = new Date(v); return isNaN(d) ? v : d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }) + '/2003 ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }); };
+const dateFR = v => { if (!v) return '—'; const d = new Date(`${v}T00:00:00`); return isNaN(d) ? v : d.toLocaleDateString('fr-FR'); };
+const dtFR = v => { if (!v) return '—'; const d = new Date(v); return isNaN(d) ? v : d.toLocaleString('fr-FR'); };
 const today = () => new Date().toISOString().slice(0, 10);
 const errMsg = e => e?.message || e?.error_description || e?.details || 'Une erreur est survenue.';
 
@@ -212,56 +212,50 @@ async function currentUser() {
   if (r.error) throw r.error;
   return r.data.user;
 }
-function normalizeProfileRole(profile) {
-  if (!profile) return null;
-  const raw = String(profile.role || '').trim().toLowerCase();
-  const roleAliases = {
-    'admin': 'admin', 'administrateur': 'admin', 'administratrice': 'admin',
-    'direction': 'admin', 'gerant': 'admin', 'gérant': 'admin',
-    'professor': 'professor', 'professeur': 'professor', 'enseignant': 'professor', 'enseignante': 'professor',
-    'student': 'student', 'eleve': 'student', 'élève': 'student', 'etudiant': 'student', 'étudiant': 'student',
-    'surveillant': 'surveillant', 'surveillante': 'surveillant', 'cpe': 'surveillant',
-    'psychologue': 'psychologue', 'infirmiere': 'infirmiere', 'infirmière': 'infirmiere',
-    'recruteur_wl': 'recruteur_wl'
-  };
-  return { ...profile, role: roleAliases[raw] || raw };
-}
-
 async function currentProfile() {
   const user = await currentUser();
   if (!user) return null;
 
-  // Compatibilité : certaines anciennes installations utilisent l'UUID Auth comme profiles.id.
-  const direct = await sb.from('profiles').select('*').eq('id', user.id).maybeSingle();
-  if (!direct.error && direct.data) return normalizeProfileRole(direct.data);
-
-  // Schéma actuel : Auth -> midori_people.auth_user_id -> profiles.person_id.
-  const personResult = await sb.from('midori_people')
-    .select('id,auth_user_id,active')
-    .eq('auth_user_id', user.id)
-    .maybeSingle();
-  if (personResult.error) {
-    console.warn('Midori High: impossible de lire midori_people', personResult.error);
-    if (direct.error) console.warn('Midori High: lecture directe du profil', direct.error);
-    return null;
+  // Schéma actuel : Auth → midori_people.auth_user_id → profiles.person_id.
+  // Garder l'ancien lien profiles.id = Auth UID comme compatibilité.
+  let personId = null;
+  try {
+    const person = await sb.from('midori_people')
+      .select('id,active')
+      .eq('auth_user_id', user.id)
+      .maybeSingle();
+    if (person.error && person.error.code !== 'PGRST116') throw person.error;
+    if (person.data && person.data.active !== false) personId = person.data.id;
+  } catch (e) {
+    console.warn('Lecture du lien midori_people indisponible, essai compatibilité profiles.id:', e);
   }
-  const person = personResult.data;
-  if (!person || person.active === false) return null;
 
-  // Ne filtre pas active=true dans la requête : ainsi on peut distinguer un profil désactivé
-  // d'un profil absent, et afficher le message approprié sans boucle de redirection.
-  const linked = await sb.from('profiles').select('*').eq('person_id', person.id).limit(1).maybeSingle();
-  if (linked.error) {
-    console.warn('Midori High: impossible de lire le profil lié', linked.error);
-    return null;
+  let profile = null;
+  if (personId) {
+    const linked = await sb.from('profiles').select('*').eq('person_id', personId).eq('active', true).maybeSingle();
+    if (linked.error) throw linked.error;
+    profile = linked.data;
   }
-  return normalizeProfileRole(linked.data || null);
+  if (!profile) {
+    const legacy = await sb.from('profiles').select('*').eq('id', user.id).maybeSingle();
+    if (legacy.error) throw legacy.error;
+    profile = legacy.data;
+  }
+  if (!profile) return null;
+
+  // Harmoniser les rôles historiques pour les routes du portail.
+  const rawRole = String(profile.role || profile.profile_kind || '').trim().toLowerCase();
+  const roleAliases = { administrateur: 'admin', administrator: 'admin', direction: 'admin', cpe: 'admin', professeur: 'professor', enseignant: 'professor', eleve: 'student', élève: 'student', surveillant: 'surveillant', recruteur: 'recruteur_wl' };
+  profile.role = roleAliases[rawRole] || rawRole;
+  if (profile.active == null) profile.active = true;
+  return profile;
 }
 async function guard(roles = []) {
   const s = await session();
   if (!s) { location.href = 'index.html'; return null; }
   const p = await currentProfile();
   if (!p || p.active === false) {
+    console.error('Midori High: profil introuvable ou inactif après authentification.', { userId: s.user?.id, profileFound: !!p, active: p?.active });
     location.href = 'index.html?e=profil';
     return null;
   }
