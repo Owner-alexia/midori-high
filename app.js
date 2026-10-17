@@ -212,13 +212,28 @@ async function currentUser() {
   if (r.error) throw r.error;
   return r.data.user;
 }
+function normalizeProfileRole(profile) {
+  if (!profile) return null;
+  const raw = String(profile.role || '').trim().toLowerCase();
+  const roleAliases = {
+    'admin': 'admin', 'administrateur': 'admin', 'administratrice': 'admin',
+    'direction': 'admin', 'gerant': 'admin', 'gérant': 'admin',
+    'professor': 'professor', 'professeur': 'professor', 'enseignant': 'professor', 'enseignante': 'professor',
+    'student': 'student', 'eleve': 'student', 'élève': 'student', 'etudiant': 'student', 'étudiant': 'student',
+    'surveillant': 'surveillant', 'surveillante': 'surveillant', 'cpe': 'surveillant',
+    'psychologue': 'psychologue', 'infirmiere': 'infirmiere', 'infirmière': 'infirmiere',
+    'recruteur_wl': 'recruteur_wl'
+  };
+  return { ...profile, role: roleAliases[raw] || raw };
+}
+
 async function currentProfile() {
   const user = await currentUser();
   if (!user) return null;
 
-  // Ancien schéma : profiles.id correspond directement à l'UUID Auth.
+  // Compatibilité : certaines anciennes installations utilisent l'UUID Auth comme profiles.id.
   const direct = await sb.from('profiles').select('*').eq('id', user.id).maybeSingle();
-  if (!direct.error && direct.data) return direct.data;
+  if (!direct.error && direct.data) return normalizeProfileRole(direct.data);
 
   // Schéma actuel : Auth -> midori_people.auth_user_id -> profiles.person_id.
   const personResult = await sb.from('midori_people')
@@ -233,12 +248,14 @@ async function currentProfile() {
   const person = personResult.data;
   if (!person || person.active === false) return null;
 
-  const linked = await sb.from('profiles').select('*').eq('person_id', person.id).eq('active', true).limit(1).maybeSingle();
+  // Ne filtre pas active=true dans la requête : ainsi on peut distinguer un profil désactivé
+  // d'un profil absent, et afficher le message approprié sans boucle de redirection.
+  const linked = await sb.from('profiles').select('*').eq('person_id', person.id).limit(1).maybeSingle();
   if (linked.error) {
     console.warn('Midori High: impossible de lire le profil lié', linked.error);
     return null;
   }
-  return linked.data || null;
+  return normalizeProfileRole(linked.data || null);
 }
 async function guard(roles = []) {
   const s = await session();

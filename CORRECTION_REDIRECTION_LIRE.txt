@@ -1,0 +1,7 @@
+MIDORI HIGH — CORRECTION DE LA REDIRECTION APRES CONNEXION
+
+Cause corrigée : le rôle de profil peut être enregistré comme « administrateur » alors que le code attend « admin ». Cela provoquait une redirection vers index.html après une authentification réussie.
+
+Cette version normalise les rôles et ne filtre plus les profils liés sur active=true avant de vérifier leur état. La syntaxe JavaScript a été vérifiée, mais la base Supabase en direct n’a pas pu être testée.
+
+Installation : remplace app.js (et garde les autres fichiers du même dossier) dans le dépôt GitHub du site midori-high. Puis attends le déploiement et recharge avec Ctrl+F5.
