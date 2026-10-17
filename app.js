@@ -173,9 +173,9 @@ const PAGE_ROLES = {
 const qs = s => document.querySelector(s);
 const qsa = s => [...document.querySelectorAll(s)];
 const esc = v => String(v ?? '').replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c]));
-const dateFR = v => { if (!v) return '—'; const d = new Date(`${String(v).slice(0,10)}T00:00:00`); if (isNaN(d)) return v; return d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'}) + '/2003'; };
-const dtFR = v => { if (!v) return '—'; const d = new Date(v); return isNaN(d) ? v : d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'}) + '/2003' + (String(v).includes('T') ? ' ' + d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) : ''); };
-const today = () => '2003-10-12'; // Horloge RP Midori High : Kyoto, 12 octobre 2003
+const dateFR = v => { if (!v) return '—'; const d = new Date(`${v}T00:00:00`); if (isNaN(d)) return v; return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }) + '/2003'; };
+const dtFR = v => { if (!v) return '—'; const d = new Date(v); return isNaN(d) ? v : d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }) + '/2003 ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }); };
+const today = () => new Date().toISOString().slice(0, 10);
 const errMsg = e => e?.message || e?.error_description || e?.details || 'Une erreur est survenue.';
 
 function toast(msg, type = 'success') {
@@ -216,27 +216,29 @@ async function currentProfile() {
   const user = await currentUser();
   if (!user) return null;
 
-  // Schéma actuel : Auth -> midori_people.auth_user_id -> midori_people.id
-  // -> profiles.person_id. Garder aussi le fallback historique profiles.id.
+  // Ancien schéma : profiles.id correspond directement à l'UUID Auth.
+  const direct = await sb.from('profiles').select('*').eq('id', user.id).maybeSingle();
+  if (!direct.error && direct.data) return direct.data;
+
+  // Schéma actuel : Auth -> midori_people.auth_user_id -> profiles.person_id.
   const personResult = await sb.from('midori_people')
     .select('id,auth_user_id,active')
     .eq('auth_user_id', user.id)
     .maybeSingle();
-  if (personResult.error && personResult.error.code !== 'PGRST116') throw personResult.error;
-
-  if (personResult.data) {
-    if (personResult.data.active === false) return { active: false, role: null };
-    const linked = await sb.from('profiles').select('*')
-      .eq('person_id', personResult.data.id)
-      .eq('active', true)
-      .limit(1);
-    if (linked.error) throw linked.error;
-    if (linked.data && linked.data.length) return linked.data[0];
+  if (personResult.error) {
+    console.warn('Midori High: impossible de lire midori_people', personResult.error);
+    if (direct.error) console.warn('Midori High: lecture directe du profil', direct.error);
+    return null;
   }
+  const person = personResult.data;
+  if (!person || person.active === false) return null;
 
-  const legacy = await sb.from('profiles').select('*').eq('id', user.id).maybeSingle();
-  if (legacy.error) throw legacy.error;
-  return legacy.data || null;
+  const linked = await sb.from('profiles').select('*').eq('person_id', person.id).eq('active', true).limit(1).maybeSingle();
+  if (linked.error) {
+    console.warn('Midori High: impossible de lire le profil lié', linked.error);
+    return null;
+  }
+  return linked.data || null;
 }
 async function guard(roles = []) {
   const s = await session();
@@ -712,7 +714,7 @@ async function initLogin() {
       if (!p) {
         await sb.auth.signOut();
         throw new Error(
-          'Connexion Supabase réussie, mais aucun profil actif n’est lié à ce compte. Vérifiez midori_people.auth_user_id et profiles.person_id dans Supabase.'
+          'Connexion réussie, mais aucun profil Midori High n’est lié à ce compte.'
         );
       }
 

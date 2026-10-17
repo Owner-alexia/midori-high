@@ -1,0 +1,9 @@
+MIDORI HIGH — VERSION IMMERSIVE KYOTO 2003
+
+Modifications :
+- configuration Supabase basculée vers le projet actuel indiqué dans le contexte ;
+- recherche de profil compatible avec profiles.id = Auth UUID (ancien schéma) et avec le lien midori_people.auth_user_id -> profiles.person_id (schéma actuel) ;
+- couche graphique immersive sombre, accents sakura, adaptée à toutes les pages HTML ;
+- affichage des dates dans l’interface RP avec l’année 2003, sans modifier les dates stockées en base.
+
+Important : la connexion réelle dépend toujours des lignes existantes dans midori_people et profiles, ainsi que des autorisations RLS. Ce paquet n’a pas été testé contre la base Supabase en direct.

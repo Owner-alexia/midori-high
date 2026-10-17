@@ -1,0 +1,19 @@
+/* Midori High — Kyoto 2003 immersive layer */
+:root{--g:#9b6486;--gd:#59354f;--gs:#f8eaf2;--bg:#100e18;--ink:#f5edf5;--muted:#b7a9bc;--line:#3a2b42;--red:#ff8d9b;--yellow:#f3c47e;--shadow:0 14px 36px rgba(0,0,0,.24)}
+body{background:radial-gradient(ellipse at 85% 0%,rgba(125,72,116,.22),transparent 35%),linear-gradient(135deg,#100e18,#191321 55%,#17101b);color:var(--ink)}
+.sidebar{background:linear-gradient(180deg,#24172c,#17131f 80%);border-right:1px solid rgba(231,173,211,.18)}
+.brand{border-bottom-color:rgba(231,173,211,.18)}.brand-mark,.avatar{background:#f4d9e9;color:#59354f}
+.nav a:hover,.nav a.active{background:linear-gradient(90deg,rgba(198,126,168,.24),rgba(198,126,168,.08));color:#ffe8f4}
+.topbar{background:rgba(25,19,32,.92);backdrop-filter:blur(14px);border-bottom-color:var(--line);color:var(--ink)}
+.content{max-width:1600px}.head h1,.hero h2,.login-head h1{font-family:Georgia,'Times New Roman',serif;letter-spacing:.02em}.head p{color:#c2b2c8}
+.card,.modal-box,.login-card{background:linear-gradient(145deg,rgba(39,29,48,.97),rgba(27,22,36,.98));border-color:#49354e;box-shadow:var(--shadow);color:var(--ink)}
+.hero{background:linear-gradient(115deg,rgba(87,48,77,.98),rgba(43,35,62,.98)),url('midori-high-logo.jpg') center/cover;border:1px solid rgba(242,183,217,.22);box-shadow:0 18px 44px rgba(0,0,0,.25)}
+.tag{background:#38263c;color:#f4d7eb}.tag.red{background:#512b39;color:#ffb9c1}.tag.yellow{background:#4a3b2c;color:#f5d39b}
+.table-wrap{border-color:var(--line)}.table{background:#201927;color:var(--ink)}.table th{background:#2b2032;color:#cbbbd1}.table th,.table td{border-bottom-color:#3a2b42}
+.field input,.field select,.field textarea,.search{background:#17121e;color:var(--ink);border-color:#514057}.field input:focus,.field select:focus,.field textarea:focus,.search:focus{outline:2px solid rgba(220,151,193,.2);border-color:#c17da6}
+.btn.primary{background:linear-gradient(135deg,#b4779e,#87577f);color:#fff}.btn.secondary,.close,.menu{background:#38283f;color:#f6e6f2}.logout{background:#211a29;color:#f5edf5;border-color:#49354e}
+.item,.msg-item{background:#211a29;border-color:#49354e;color:var(--ink)}.msg-item:hover{background:#302238}.msg-unread{background:#302238;border-color:#a36c94}
+.login{background:radial-gradient(ellipse at 50% 15%,rgba(172,103,151,.24),transparent 45%),linear-gradient(135deg,#100e18,#1d1423)}.login-card{border-radius:24px}.login-head p,.muted{color:#b7a9bc}.foot{color:#a994b0}
+.notice{background:#261e2c;border-color:#49354e;color:#d6c7db}.error{background:#3a202b;border-color:#75414f;color:#ffc0c8}.success{background:#1e332b;border-color:#3d6a55;color:#b8f1d2}
+.school-logo{background:#2b2032}.checkgrid label{background:#211a29;border-color:#49354e;color:var(--ink)}
+@media(max-width:900px){.sidebar{z-index:20;box-shadow:20px 0 45px rgba(0,0,0,.35)}}
