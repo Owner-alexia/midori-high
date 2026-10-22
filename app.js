@@ -827,23 +827,23 @@ async function renderDashboard() {
   ]);
   const counts = [students, professors, classes, absences];
   counts.forEach(r => { if (r.error) throw r.error; });
-  const announces = await rows('announcements', 'id,title,content,published_at', { order: 'published_at', ascending: false, limit: 4 });
+  const announces = await rows('announcements', 'id,title,content,created_at', { order: 'created_at', ascending: false, limit: 4 });
   qs('#app').innerHTML = head('Tableau de bord', 'Vue générale de Midori High.') +
     `<div class="grid g4">${statCard('Élèves', students.count ?? 0, '🎓')}${statCard('Professeurs', professors.count ?? 0, '👩‍🏫')}${statCard('Classes', classes.count ?? 0, '🏫')}${statCard('Absences aujourd’hui', absences.count ?? 0, '⏱️')}</div>` +
-    `<div class="grid g2" style="margin-top:15px"><div class="hero"><h2>Midori High</h2><p>Une école d’excellence : suivi scolaire, présence, réputation et vie de l’établissement.</p><div class="actions" style="margin-top:16px"><a href="attendance.html" class="btn secondary">📝 Ouvrir une fiche d’appel</a><a href="points.html" class="btn secondary">⭐ Gérer les points</a></div></div><div class="card"><h3 style="margin-bottom:12px">Dernières annonces</h3><div class="list">${announces.map(a => `<div class="item"><div><strong>${esc(a.title)}</strong><span>${dtFR(a.published_at)}</span><p style="margin-top:5px">${esc(String(a.content || '').slice(0, 150))}</p></div></div>`).join('') || '<div class="empty">Aucune annonce.</div>'}</div></div></div>`;
+    `<div class="grid g2" style="margin-top:15px"><div class="hero"><h2>Midori High</h2><p>Une école d’excellence : suivi scolaire, présence, réputation et vie de l’établissement.</p><div class="actions" style="margin-top:16px"><a href="attendance.html" class="btn secondary">📝 Ouvrir une fiche d’appel</a><a href="points.html" class="btn secondary">⭐ Gérer les points</a></div></div><div class="card"><h3 style="margin-bottom:12px">Dernières annonces</h3><div class="list">${announces.map(a => `<div class="item"><div><strong>${esc(a.title)}</strong><span>${dtFR(a.created_at)}</span><p style="margin-top:5px">${esc(String(a.content || '').slice(0, 150))}</p></div></div>`).join('') || '<div class="empty">Aucune annonce.</div>'}</div></div></div>`;
 }
 
 async function renderAnnouncements(p) {
   const isAdmin = p.role === 'admin';
-  const list = await rows('announcements', '*', { order: 'published_at', ascending: false, limit: 200 });
+  const list = await rows('announcements', '*', { order: 'created_at', ascending: false, limit: 200 });
   qs('#app').innerHTML = head('Annonces', 'Informations officielles de Midori High.') +
     (isAdmin ? `<div class="toolbar"><button id="aa" class="btn primary">+ Nouvelle annonce</button></div>` : '') +
-    `<div class="list">${list.map(a => `<article class="card"><div class="toolbar" style="margin-bottom:8px"><div><h3>${esc(a.title)}</h3><span class="muted">${dtFR(a.published_at)} · ${a.published ? 'Publiée' : 'Brouillon'}</span></div>${isAdmin ? `<button class="btn danger small" data-del-ann="${esc(a.id)}">Supprimer</button>` : ''}</div><p style="white-space:pre-wrap">${esc(a.content)}</p></article>`).join('') || '<div class="card empty">Aucune annonce.</div>'}</div>` +
+    `<div class="list">${list.map(a => `<article class="card"><div class="toolbar" style="margin-bottom:8px"><div><h3>${esc(a.title)}</h3><span class="muted">${dtFR(a.created_at)} · ${a.published ? 'Publiée' : 'Brouillon'}</span></div>${isAdmin ? `<button class="btn danger small" data-del-ann="${esc(a.id)}">Supprimer</button>` : ''}</div><p style="white-space:pre-wrap">${esc(a.content)}</p></article>`).join('') || '<div class="card empty">Aucune annonce.</div>'}</div>` +
     (isAdmin ? modal('am', 'Nouvelle annonce', `<form id="af" class="form"><div class="field full"><label>Titre</label><input name="title" required></div><div class="field full"><label>Contenu</label><textarea name="content" required></textarea></div><div class="field"><label>État</label><select name="published"><option value="true">Publier</option><option value="false">Brouillon</option></select></div><div class="field full"><button class="btn primary">Enregistrer</button></div></form>`) : '');
   if (isAdmin) {
     qs('#aa').onclick = () => openModal('am');
     closeBindings();
-    qs('#af').onsubmit = async e => { e.preventDefault(); const f = new FormData(e.target); try { const r = await add('announcements', { title: f.get('title'), content: f.get('content'), published: f.get('published') === 'true', published_at: new Date().toISOString() }); await log('create', 'announcement', r.id, { title: r.title }); toast('Annonce enregistrée.'); location.reload(); } catch (er) { toast(errMsg(er), 'error'); } };
+    qs('#af').onsubmit = async e => { e.preventDefault(); const f = new FormData(e.target); try { const r = await add('announcements', { title: f.get('title'), content: f.get('content'), published: f.get('published') === 'true', created_at: new Date().toISOString() }); await log('create', 'announcement', r.id, { title: r.title }); toast('Annonce enregistrée.'); location.reload(); } catch (er) { toast(errMsg(er), 'error'); } };
     qsa('[data-del-ann]').forEach(b => b.onclick = async () => { if (!confirm('⚠️ Supprimer définitivement cette annonce ?\n\nCette action est irréversible.')) return; try { b.disabled=true; b.textContent='Suppression…'; await hardDelete('announcement', b.dataset.delAnn); toast('Annonce supprimée définitivement.'); location.reload(); } catch (er) { b.disabled=false; b.textContent='Supprimer'; toast(errMsg(er), 'error'); } });
   }
 }

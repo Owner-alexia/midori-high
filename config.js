@@ -4,4 +4,4 @@ window.MIDORI_CONFIG = {
   ADMIN_EMAIL: "nana.udo@midori.fr"
 };
 
-window.MIDORI_BUILD = "midori-portal-fix-profile-redirect-2003-2026-10-17";
+window.MIDORI_BUILD = "midori-categories-announcements-created-at-2026-10-22";

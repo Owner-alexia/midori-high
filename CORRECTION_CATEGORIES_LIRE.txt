@@ -1,0 +1,5 @@
+Midori High — correction ciblée
+
+Correction faite : le code des annonces utilisait published_at, colonne absente de public.announcements. Il utilise maintenant created_at, qui correspond au schéma fourni.
+Les autres catégories peuvent encore demander des adaptations si leur code appelle des tables/colonnes historiques. Cette archive ne prétend pas avoir testé chaque requête contre la base Supabase en direct.
+Année RP : ne pas modifier les timestamps de base de données pour simuler 2003 ; l’année RP doit être gérée dans la présentation.
